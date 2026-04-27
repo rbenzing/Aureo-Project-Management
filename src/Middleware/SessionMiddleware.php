@@ -119,14 +119,15 @@ class SessionMiddleware
         // Regenerate session ID on login to prevent session fixation
         self::regenerateSessionId();
 
-        $ipAddress = "::1";
+        // Resolve IP from headers, taking only the first value in X-Forwarded-For.
+        // Use REMOTE_ADDR as the trusted fallback.
+        $rawIp = $_SERVER['REMOTE_ADDR'] ?? '::1';
         if (!empty($_SERVER['HTTP_CLIENT_IP'])) {
-            $ipAddress = $_SERVER['HTTP_CLIENT_IP'];
+            $rawIp = $_SERVER['HTTP_CLIENT_IP'];
         } elseif (!empty($_SERVER['HTTP_X_FORWARDED_FOR'])) {
-            $ipAddress = $_SERVER['HTTP_X_FORWARDED_FOR'];
-        } else {
-            $ipAddress = $_SERVER['REMOTE_ADDR'];
+            $rawIp = trim(explode(',', $_SERVER['HTTP_X_FORWARDED_FOR'])[0]);
         }
+        $ipAddress = filter_var($rawIp, FILTER_VALIDATE_IP) ? $rawIp : ($_SERVER['REMOTE_ADDR'] ?? '::1');
         $userAgent = $_SERVER['HTTP_USER_AGENT'] ?? '';
         $sessionId = session_id();
 

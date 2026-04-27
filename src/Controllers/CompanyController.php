@@ -65,7 +65,7 @@ class CompanyController extends BaseController
             $this->render('Companies/index', compact('activeProjects', 'totalUsers', 'totalPages', 'totalCompanies', 'companies', 'result'));
         } catch (\Exception $e) {
             $securityService = SecurityService::getInstance();
-            $this->redirectWithError(/dashboard, $securityService->handleError($e, 'CompanyController::index', 'An error occurred while fetching companies.'));
+            $this->redirectWithError('/dashboard', $securityService->handleError($e, 'CompanyController::index', 'An error occurred while fetching companies.'));
         }
     }
 
@@ -97,10 +97,10 @@ class CompanyController extends BaseController
 
             $this->render('Companies/view', compact('users', 'projects'));
         } catch (InvalidArgumentException $e) {
-            $this->redirectWithError(/companies, $e->getMessage());
+            $this->redirectWithError('/companies', $e->getMessage());
         } catch (\Exception $e) {
             error_log("Exception in CompanyController::view: " . $e->getMessage());
-            $this->redirectWithError(/companies, 'An error occurred while fetching company details.');
+            $this->redirectWithError('/companies', 'An error occurred while fetching company details.');
         }
     }
 
@@ -117,7 +117,7 @@ class CompanyController extends BaseController
             $this->render('Companies/create', compact('users', 'projects'));
         } catch (\Exception $e) {
             error_log("Exception in CompanyController::createForm: " . $e->getMessage());
-            $this->redirectWithError(/companies, 'An error occurred while loading the creation form.');
+            $this->redirectWithError('/companies', 'An error occurred while loading the creation form.');
         }
     }
 
@@ -174,9 +174,9 @@ class CompanyController extends BaseController
                 $e->getMessage()
             );
             $_SESSION['form_data'] = $data;
-            $this->redirect(/companies/create);
+            $this->redirect('/companies/create');
         } catch (\Exception $e) {
-            $this->redirectWithError(/companies/create, Config::getErrorMessage(
+            $this->redirectWithError('/companies/create', Config::getErrorMessage(
                 $e,
                 'CompanyController::create',
                 'An error occurred while creating the company.'
@@ -207,10 +207,10 @@ class CompanyController extends BaseController
 
             $this->render('Companies/edit');
         } catch (InvalidArgumentException $e) {
-            $this->redirectWithError(/companies, $e->getMessage());
+            $this->redirectWithError('/companies', $e->getMessage());
         } catch (\Exception $e) {
             error_log("Error in CompanyController::editForm: " . $e->getMessage());
-            $this->redirectWithError(/companies, 'An error occurred while loading the edit form.');
+            $this->redirectWithError('/companies', 'An error occurred while loading the edit form.');
         }
     }
 
@@ -287,7 +287,7 @@ class CompanyController extends BaseController
     public function delete(string $requestMethod, array $data): void
     {
         if ($requestMethod !== 'POST') {
-            $this->redirectWithError(/companies, 'Invalid request method.');
+            $this->redirectWithError('/companies', 'Invalid request method.');
         }
 
         try {
@@ -314,13 +314,13 @@ class CompanyController extends BaseController
 
             $this->companyModel->update($id, ['is_deleted' => true]);
 
-            $this->redirectWithSuccess(/companies, 'Company deleted successfully.');
+            $this->redirectWithSuccess('/companies', 'Company deleted successfully.');
 
         } catch (InvalidArgumentException $e) {
-            $this->redirectWithError(/companies, $e->getMessage());
+            $this->redirectWithError('/companies', $e->getMessage());
         } catch (\Exception $e) {
             error_log("Exception in CompanyController::delete: " . $e->getMessage());
-            $this->redirectWithError(/companies, 'An error occurred while deleting the company.');
+            $this->redirectWithError('/companies', 'An error occurred while deleting the company.');
         }
     }
 }

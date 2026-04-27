@@ -100,10 +100,10 @@ class SprintController
 
             $this->render('Sprints/index');
         } catch (InvalidArgumentException $e) {
-            $this->redirectWithError(/sprints, $e->getMessage());
+            $this->redirectWithError('/sprints', $e->getMessage());
         } catch (\Exception $e) {
             error_log("Exception in SprintController::index: " . $e->getMessage());
-            $this->redirectWithError(/dashboard, 'An error occurred while fetching sprints.');
+            $this->redirectWithError('/dashboard', 'An error occurred while fetching sprints.');
         }
     }
 
@@ -136,10 +136,10 @@ class SprintController
 
             $this->render('Sprints/view', compact('project', 'tasks'));
         } catch (InvalidArgumentException $e) {
-            $this->redirectWithError(/sprints, $e->getMessage());
+            $this->redirectWithError('/sprints', $e->getMessage());
         } catch (\Exception $e) {
             error_log("Exception in SprintController::view: " . $e->getMessage());
-            $this->redirectWithError(/dashboard, 'An error occurred while fetching sprint details.');
+            $this->redirectWithError('/dashboard', 'An error occurred while fetching sprint details.');
         }
     }
 
@@ -207,7 +207,7 @@ class SprintController
             include BASE_PATH . '/../views/Sprints/current.php';
         } catch (\Exception $e) {
             error_log("Exception in SprintController::current: " . $e->getMessage());
-            $this->redirectWithError(/dashboard, 'An error occurred while fetching current sprint information.');
+            $this->redirectWithError('/dashboard', 'An error occurred while fetching current sprint information.');
         }
     }
 
@@ -264,10 +264,10 @@ class SprintController
 
             include BASE_PATH . '/../views/Sprints/board.php';
         } catch (InvalidArgumentException $e) {
-            $this->redirectWithError(/sprints, $e->getMessage());
+            $this->redirectWithError('/sprints', $e->getMessage());
         } catch (\Exception $e) {
             error_log("Exception in SprintController::board: " . $e->getMessage());
-            $this->redirectWithError(/sprints, 'An error occurred while loading the sprint board.');
+            $this->redirectWithError('/sprints', 'An error occurred while loading the sprint board.');
         }
     }
 
@@ -322,7 +322,7 @@ class SprintController
             include BASE_PATH . '/../views/Sprints/planning.php';
         } catch (\Exception $e) {
             error_log("Exception in SprintController::planning: " . $e->getMessage());
-            $this->redirectWithError(/sprints, 'An error occurred while loading sprint planning.');
+            $this->redirectWithError('/sprints', 'An error occurred while loading sprint planning.');
         }
     }
 
@@ -361,10 +361,10 @@ class SprintController
 
             $this->render('Sprints/create', compact('templates', 'companyId', 'sprint_statuses', 'project_tasks'));
         } catch (InvalidArgumentException $e) {
-            $this->redirectWithError(/sprints, $e->getMessage());
+            $this->redirectWithError('/sprints', $e->getMessage());
         } catch (\Exception $e) {
             error_log("Exception in SprintController::createForm: " . $e->getMessage());
-            $this->redirectWithError(/dashboard, 'An error occurred while loading the sprint creation form.');
+            $this->redirectWithError('/dashboard', 'An error occurred while loading the sprint creation form.');
         }
     }
 
@@ -581,7 +581,7 @@ class SprintController
             exit;
         } catch (\Exception $e) {
             error_log("Exception in SprintController::editForm: " . $e->getMessage());
-            $this->redirectWithError(/dashboard, 'An error occurred while loading the edit form.');
+            $this->redirectWithError('/dashboard', 'An error occurred while loading the edit form.');
         }
     }
 
@@ -668,7 +668,7 @@ class SprintController
     public function delete(string $requestMethod, array $data): void
     {
         if ($requestMethod !== 'POST') {
-            $this->redirectWithError(/sprints, 'Invalid request method.');
+            $this->redirectWithError('/sprints', 'Invalid request method.');
         }
 
         try {
@@ -726,7 +726,7 @@ class SprintController
     public function addTasks(string $requestMethod, array $data): void
     {
         if ($requestMethod !== 'POST') {
-            $this->redirectWithError(/sprints, 'Invalid request method.');
+            $this->redirectWithError('/sprints', 'Invalid request method.');
         }
 
         try {
@@ -1043,7 +1043,7 @@ class SprintController
     public function createFromMilestones(string $requestMethod, array $data): void
     {
         if ($requestMethod !== 'POST') {
-            $this->redirectWithError(/sprints/planning, 'Invalid request method.');
+            $this->redirectWithError('/sprints/planning', 'Invalid request method.');
         }
 
         try {
@@ -1110,7 +1110,7 @@ class SprintController
                 return;
             }
 
-            $this->redirectWithError(/sprints/planning, $errorMessage);
+            $this->redirectWithError('/sprints/planning', $errorMessage);
         } catch (\Exception $e) {
             error_log("Exception in SprintController::createFromMilestones: " . $e->getMessage());
             $errorMessage = 'An error occurred while creating the sprint.';
@@ -1122,7 +1122,7 @@ class SprintController
                 return;
             }
 
-            $this->redirectWithError(/sprints/planning, $errorMessage);
+            $this->redirectWithError('/sprints/planning', $errorMessage);
         }
     }
 

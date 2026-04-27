@@ -33,9 +33,6 @@ class SprintTemplateController extends BaseController
         $this->templateModel = $templateModel ?? new Template();
         $this->projectModel = $projectModel ?? new Project();
         $this->companyModel = $companyModel ?? new Company();
-        $this->templateModel = new Template();
-        $this->projectModel = new Project();
-        $this->companyModel = new Company();
     }
 
     /**
@@ -65,7 +62,7 @@ class SprintTemplateController extends BaseController
             $this->render('SprintTemplates/index', compact('projects', 'templates', 'companyId', 'projectId', 'limit', 'settingsService', 'page'));
         } catch (\Exception $e) {
             error_log("Exception in SprintTemplateController::index: " . $e->getMessage());
-            $this->redirectWithError(/dashboard, 'An error occurred while loading sprint templates.');
+            $this->redirectWithError('/dashboard', 'An error occurred while loading sprint templates.');
         }
     }
 
@@ -85,7 +82,7 @@ class SprintTemplateController extends BaseController
             $this->render('SprintTemplates/create', compact('projects', 'templates', 'companyId', 'projectId', 'limit', 'settingsService', 'page'));
         } catch (\Exception $e) {
             error_log("Exception in SprintTemplateController::createForm: " . $e->getMessage());
-            $this->redirectWithError(/sprint-templates, 'An error occurred while loading the creation form.');
+            $this->redirectWithError('/sprint-templates', 'An error occurred while loading the creation form.');
         }
     }
 
@@ -146,14 +143,14 @@ class SprintTemplateController extends BaseController
             // Create sprint template with configuration
             $templateId = $this->templateModel->createSprintTemplate($templateData, $configData);
 
-            $this->redirectWithSuccess(/sprint-templates, 'Sprint template created successfully.');
+            $this->redirectWithSuccess('/sprint-templates', 'Sprint template created successfully.');
         } catch (InvalidArgumentException $e) {
             $_SESSION['error'] = $e->getMessage();
             $_SESSION['form_data'] = $data;
-            $this->redirect(/sprint-templates/create);
+            $this->redirect('/sprint-templates/create');
         } catch (\Exception $e) {
             error_log("Exception in SprintTemplateController::create: " . $e->getMessage());
-            $this->redirectWithError(/sprint-templates/create, 'An error occurred while creating the sprint template.');
+            $this->redirectWithError('/sprint-templates/create', 'An error occurred while creating the sprint template.');
         }
     }
 
@@ -185,10 +182,10 @@ class SprintTemplateController extends BaseController
 
             $this->render('SprintTemplates/edit', compact('projects', 'companies', 'config'));
         } catch (InvalidArgumentException $e) {
-            $this->redirectWithError(/sprint-templates, $e->getMessage());
+            $this->redirectWithError('/sprint-templates', $e->getMessage());
         } catch (\Exception $e) {
             error_log("Exception in SprintTemplateController::editForm: " . $e->getMessage());
-            $this->redirectWithError(/sprint-templates, 'An error occurred while loading the edit form.');
+            $this->redirectWithError('/sprint-templates', 'An error occurred while loading the edit form.');
         }
     }
 
@@ -298,7 +295,7 @@ class SprintTemplateController extends BaseController
             header("Location: /sprints/create/{$projectId}?{$queryParams}");
             exit;
         } catch (\Exception $e) {
-            $this->redirectWithError(/sprint-templates, $e->getMessage());
+            $this->redirectWithError('/sprint-templates', $e->getMessage());
         }
     }
 

@@ -65,10 +65,10 @@ class MilestoneController extends BaseController
 
             $this->render('Milestones/index', compact('totalPages', 'totalMilestones'));
         } catch (InvalidArgumentException $e) {
-            $this->redirectWithError(/milestones, $e->getMessage());
+            $this->redirectWithError('/milestones', $e->getMessage());
         } catch (\Exception $e) {
             $securityService = SecurityService::getInstance();
-            $this->redirectWithError(/dashboard, $securityService->handleError($e, 'MilestoneController::index', 'An error occurred while fetching milestones.'));
+            $this->redirectWithError('/dashboard', $securityService->handleError($e, 'MilestoneController::index', 'An error occurred while fetching milestones.'));
         }
     }
 
@@ -124,10 +124,10 @@ class MilestoneController extends BaseController
 
             $this->render('Milestones/view');
         } catch (InvalidArgumentException $e) {
-            $this->redirectWithError(/milestones, $e->getMessage());
+            $this->redirectWithError('/milestones', $e->getMessage());
         } catch (\Exception $e) {
             error_log("Exception in MilestoneController::view: " . $e->getMessage());
-            $this->redirectWithError(/milestones, 'An error occurred while fetching milestone details.');
+            $this->redirectWithError('/milestones', 'An error occurred while fetching milestone details.');
         }
     }
 
@@ -161,7 +161,7 @@ class MilestoneController extends BaseController
             $this->render('Milestones/create', compact('templates', 'companyId', 'selectedEpicId', 'selectedProjectId', 'epics', 'epicId', 'projectId', 'statuses', 'projects', 'projectsResult'));
         } catch (\Exception $e) {
             error_log("Exception in MilestoneController::createForm: " . $e->getMessage());
-            $this->redirectWithError(/milestones, 'An error occurred while loading the creation form.');
+            $this->redirectWithError('/milestones', 'An error occurred while loading the creation form.');
         }
     }
 
@@ -223,10 +223,10 @@ class MilestoneController extends BaseController
         } catch (InvalidArgumentException $e) {
             $_SESSION['error'] = $e->getMessage();
             $_SESSION['form_data'] = $data;
-            $this->redirect(/milestones/create);
+            $this->redirect('/milestones/create');
         } catch (\Exception $e) {
             error_log("Exception in MilestoneController::create: " . $e->getMessage());
-            $this->redirectWithError(/milestones/create, 'An error occurred while creating the milestone.');
+            $this->redirectWithError('/milestones/create', 'An error occurred while creating the milestone.');
         }
     }
 
@@ -267,10 +267,10 @@ class MilestoneController extends BaseController
 
             $this->render('Milestones/edit', compact('templates'));
         } catch (InvalidArgumentException $e) {
-            $this->redirectWithError(/milestones, $e->getMessage());
+            $this->redirectWithError('/milestones', $e->getMessage());
         } catch (\Exception $e) {
             error_log("Exception in MilestoneController::editForm: " . $e->getMessage());
-            $this->redirectWithError(/milestones, 'An error occurred while loading the edit form.');
+            $this->redirectWithError('/milestones', 'An error occurred while loading the edit form.');
         }
     }
 
@@ -362,7 +362,7 @@ class MilestoneController extends BaseController
     public function delete(string $requestMethod, array $data): void
     {
         if ($requestMethod !== 'POST') {
-            $this->redirectWithError(/milestones, 'Invalid request method.');
+            $this->redirectWithError('/milestones', 'Invalid request method.');
         }
 
         try {
@@ -388,12 +388,12 @@ class MilestoneController extends BaseController
 
             $this->milestoneModel->update($id, ['is_deleted' => true]);
 
-            $this->redirectWithSuccess(/milestones, 'Milestone deleted successfully.');
+            $this->redirectWithSuccess('/milestones', 'Milestone deleted successfully.');
         } catch (InvalidArgumentException $e) {
-            $this->redirectWithError(/milestones, $e->getMessage());
+            $this->redirectWithError('/milestones', $e->getMessage());
         } catch (\Exception $e) {
             error_log("Exception in MilestoneController::delete: " . $e->getMessage());
-            $this->redirectWithError(/milestones, 'An error occurred while deleting the milestone.');
+            $this->redirectWithError('/milestones', 'An error occurred while deleting the milestone.');
         }
     }
 

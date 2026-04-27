@@ -70,6 +70,15 @@ try {
     $container->get(\App\Middleware\CsrfMiddleware::class)->handleToken();
     $container->get(\App\Middleware\ActivityMiddleware::class)->handle();
 
+    // Global authentication gate — runs before routing.
+    // Public paths (login, register, activation, password reset) are exempted.
+    $publicPaths = ['login', 'register', 'activate', 'reset-password', 'forgot-password'];
+    $uri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
+    $firstSegment = trim(explode('/', ltrim($uri, '/'))[0]);
+    if (!in_array($firstSegment, $publicPaths, true)) {
+        $container->get(\App\Middleware\AuthMiddleware::class)->isAuthenticated();
+    }
+
     // Create Router Instance with DI container
     $router = new \App\Core\Router($container);
 

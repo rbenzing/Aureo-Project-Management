@@ -128,7 +128,7 @@ class SettingsController extends BaseController
 
         } catch (\Exception $e) {
             error_log("Settings index error: " . $e->getMessage());
-            $this->redirectWithError(/dashboard, 'An error occurred while loading settings.');
+            $this->redirectWithError('/dashboard', 'An error occurred while loading settings.');
         }
     }
 
@@ -146,7 +146,7 @@ class SettingsController extends BaseController
 
         // Validate CSRF token
         if (!isset($data['csrf_token']) || $data['csrf_token'] !== $_SESSION['csrf_token']) {
-            $this->redirectWithError(/settings, 'Invalid security token. Please try again.');
+            $this->redirectWithError('/settings', 'Invalid security token. Please try again.');
         }
 
         try {
@@ -190,7 +190,7 @@ class SettingsController extends BaseController
             $_SESSION['error'] = 'An error occurred while updating settings.';
         }
 
-        $this->redirect(/settings);
+        $this->redirect('/settings');
     }
 
     /**

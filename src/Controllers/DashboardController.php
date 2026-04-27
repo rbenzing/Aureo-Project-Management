@@ -138,7 +138,7 @@ class DashboardController extends BaseController
 
         } catch (\Exception $e) {
             // Only redirect to login for actual authentication/authorization errors
-            $this->redirectWithError(/login, Config::getErrorMessage(
+            $this->redirectWithError('/login', Config::getErrorMessage(
                 $e,
                 'DashboardController::index (critical)',
                 'A critical error occurred while loading the dashboard.'

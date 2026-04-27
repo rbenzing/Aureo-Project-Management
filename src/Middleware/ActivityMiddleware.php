@@ -113,21 +113,12 @@ class ActivityMiddleware
      */
     private function validateIpAddress(string $ip): bool
     {
-        try {
-            // Use IPTools for robust IP validation
-            $ipAddress = $_SERVER['REMOTE_ADDR'] ?? '::1';
-
-            if (!empty($_SERVER['HTTP_CLIENT_IP'])) {
-                $ipAddress = $_SERVER['HTTP_CLIENT_IP'];
-            } elseif (!empty($_SERVER['HTTP_X_FORWARDED_FOR'])) {
-                $ipAddress = $_SERVER['HTTP_X_FORWARDED_FOR'];
-            }
-
-            //TODO: Reject private, reserved, and loopback addresses
-            return $ip === $ipAddress;
-        } catch (\Exception $e) {
-            return false;
-        }
+        // Reject malformed IPs, private ranges, reserved ranges, and loopback.
+        return (bool) filter_var(
+            $ip,
+            FILTER_VALIDATE_IP,
+            FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE
+        );
     }
 
     /**

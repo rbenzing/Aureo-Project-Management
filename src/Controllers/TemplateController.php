@@ -77,7 +77,7 @@ class TemplateController extends BaseController
             $this->render('Templates/index', compact('totalPages'));
         } catch (\Exception $e) {
             $securityService = SecurityService::getInstance();
-            $this->redirectWithError(/dashboard, $securityService->handleError($e, 'TemplateController::index', 'An error occurred while fetching templates.'));
+            $this->redirectWithError('/dashboard', $securityService->handleError($e, 'TemplateController::index', 'An error occurred while fetching templates.'));
         }
     }
 
@@ -104,10 +104,10 @@ class TemplateController extends BaseController
 
             $this->render('Templates/view', compact('totalPages'));
         } catch (InvalidArgumentException $e) {
-            $this->redirectWithError(/templates, $e->getMessage());
+            $this->redirectWithError('/templates', $e->getMessage());
         } catch (\Exception $e) {
             error_log("Exception in TemplateController::view: " . $e->getMessage());
-            $this->redirectWithError(/templates, 'An error occurred while fetching template details.');
+            $this->redirectWithError('/templates', 'An error occurred while fetching template details.');
         }
     }
 
@@ -128,7 +128,7 @@ class TemplateController extends BaseController
             $this->render('Templates/create', compact('totalPages'));
         } catch (\Exception $e) {
             error_log("Exception in TemplateController::createForm: " . $e->getMessage());
-            $this->redirectWithError(/templates, 'An error occurred while loading the creation form.');
+            $this->redirectWithError('/templates', 'An error occurred while loading the creation form.');
         }
     }
 
@@ -142,7 +142,7 @@ class TemplateController extends BaseController
     public function create(string $requestMethod, array $data): void
     {
         if ($requestMethod !== 'POST') {
-            $this->redirect(/templates/create);
+            $this->redirect('/templates/create');
         }
 
         try {
@@ -182,7 +182,7 @@ class TemplateController extends BaseController
 
                 $this->templateModel->commit();
 
-                $this->redirectWithSuccess(/templates, 'Template created successfully.');
+                $this->redirectWithSuccess('/templates', 'Template created successfully.');
             } catch (\Exception $e) {
                 $this->templateModel->rollBack();
 
@@ -191,12 +191,12 @@ class TemplateController extends BaseController
         } catch (InvalidArgumentException $e) {
             $_SESSION['error'] = $e->getMessage();
             $_SESSION['form_data'] = $data;
-            $this->redirect(/templates/create);
+            $this->redirect('/templates/create');
         } catch (\Exception $e) {
             error_log("Exception in TemplateController::create: " . $e->getMessage());
             $_SESSION['error'] = 'An error occurred while creating the template.';
             $_SESSION['form_data'] = $data;
-            $this->redirect(/templates/create);
+            $this->redirect('/templates/create');
         }
     }
 
@@ -226,10 +226,10 @@ class TemplateController extends BaseController
 
             $this->render('Templates/edit', compact('companies'));
         } catch (InvalidArgumentException $e) {
-            $this->redirectWithError(/templates, $e->getMessage());
+            $this->redirectWithError('/templates', $e->getMessage());
         } catch (\Exception $e) {
             error_log("Exception in TemplateController::editForm: " . $e->getMessage());
-            $this->redirectWithError(/templates, 'An error occurred while loading the edit form.');
+            $this->redirectWithError('/templates', 'An error occurred while loading the edit form.');
         }
     }
 
@@ -243,7 +243,7 @@ class TemplateController extends BaseController
     public function update(string $requestMethod, array $data): void
     {
         if ($requestMethod !== 'POST') {
-            $this->redirect(/templates);
+            $this->redirect('/templates');
         }
 
         try {
@@ -288,7 +288,7 @@ class TemplateController extends BaseController
 
                 $this->templateModel->commit();
 
-                $this->redirectWithSuccess(/templates, 'Template updated successfully.');
+                $this->redirectWithSuccess('/templates', 'Template updated successfully.');
             } catch (\Exception $e) {
                 $this->templateModel->rollBack();
 
@@ -316,7 +316,7 @@ class TemplateController extends BaseController
     public function delete(string $requestMethod, array $data): void
     {
         if ($requestMethod !== 'POST') {
-            $this->redirect(/templates);
+            $this->redirect('/templates');
         }
 
         try {
@@ -334,12 +334,12 @@ class TemplateController extends BaseController
 
             $this->templateModel->update($id, ['is_deleted' => true]);
 
-            $this->redirectWithSuccess(/templates, 'Template deleted successfully.');
+            $this->redirectWithSuccess('/templates', 'Template deleted successfully.');
         } catch (InvalidArgumentException $e) {
-            $this->redirectWithError(/templates, $e->getMessage());
+            $this->redirectWithError('/templates', $e->getMessage());
         } catch (\Exception $e) {
             error_log("Exception in TemplateController::delete: " . $e->getMessage());
-            $this->redirectWithError(/templates, 'An error occurred while deleting the template.');
+            $this->redirectWithError('/templates', 'An error occurred while deleting the template.');
         }
     }
 

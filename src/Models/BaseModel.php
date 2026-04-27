@@ -162,14 +162,12 @@ abstract class BaseModel
 
             return $success ? $this->db->lastInsertId() : false;
         } catch (\Exception $e) {
+            $safeMessage = "Failed to create {$this->table} record";
             try {
-                $securityService = SecurityService::getInstance();
-                $safeMessage = $securityService->getSafeErrorMessage($e->getMessage(), "Failed to create {$this->table} record");
-
-                throw new RuntimeException($safeMessage);
-            } catch (\Exception $securityException) {
-                throw new RuntimeException("Failed to create {$this->table} record");
+                $safeMessage = SecurityService::getInstance()->getSafeErrorMessage($e->getMessage(), $safeMessage);
+            } catch (\Exception $ignored) {
             }
+            throw new RuntimeException($safeMessage);
         }
     }
 

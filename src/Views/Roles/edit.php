@@ -18,17 +18,11 @@ $permissionModel = new \App\Models\Permission();
 $organizedPermissions = $permissionModel->getOrganizedPermissions();
 $roleTemplates = $permissionModel->getRoleTemplates();
 
-// Debug: Count total permissions
+// Count total permissions
 $totalPermissions = 0;
-foreach ($organizedPermissions as $entity => $entityData) {
+foreach ($organizedPermissions as $entityData) {
     $totalPermissions += count($entityData['permissions']);
 }
-// Debug output - will be removed after verification
-$debugInfo = [];
-foreach ($organizedPermissions as $entity => $entityData) {
-    $debugInfo[] = $entity . ': ' . count($entityData['permissions']) . ' permissions';
-}
-echo "<script>console.log('Total permissions loaded: $totalPermissions'); console.log('Breakdown: " . implode(', ', $debugInfo) . "');</script>";
 
 // Get current role's permissions
 $currentPermissionIds = array_column($role->permissions, 'id');

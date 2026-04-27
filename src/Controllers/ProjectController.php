@@ -121,7 +121,7 @@ class ProjectController extends BaseController
             $this->render('Projects/index', compact('totalPages', 'projectStats', 'companies'));
         } catch (\Exception $e) {
             error_log("Exception in ProjectController::index: " . $e->getMessage());
-            $this->redirectWithError(/dashboard, 'An error occurred while fetching projects.');
+            $this->redirectWithError('/dashboard', 'An error occurred while fetching projects.');
         }
     }
 
@@ -159,10 +159,10 @@ class ProjectController extends BaseController
 
             $this->render('Projects/view', compact('tasksByStatus'));
         } catch (InvalidArgumentException $e) {
-            $this->redirectWithError(/projects, $e->getMessage());
+            $this->redirectWithError('/projects', $e->getMessage());
         } catch (\Exception $e) {
             error_log("Exception in ProjectController::view: " . $e->getMessage());
-            $this->redirectWithError(/projects, 'An error occurred while fetching project details.');
+            $this->redirectWithError('/projects', 'An error occurred while fetching project details.');
         }
     }
 
@@ -189,7 +189,7 @@ class ProjectController extends BaseController
             $this->render('Projects/create', compact('templates', 'companyId', 'statuses', 'companies', 'users'));
         } catch (\Exception $e) {
             error_log("Exception in ProjectController::createForm: " . $e->getMessage());
-            $this->redirectWithError(/projects, 'An error occurred while loading the creation form.');
+            $this->redirectWithError('/projects', 'An error occurred while loading the creation form.');
         }
     }
 
@@ -255,10 +255,10 @@ class ProjectController extends BaseController
         } catch (InvalidArgumentException $e) {
             $_SESSION['error'] = $e->getMessage();
             $_SESSION['form_data'] = $data;
-            $this->redirect(/projects/create);
+            $this->redirect('/projects/create');
         } catch (\Exception $e) {
             $securityService = SecurityService::getInstance();
-            $this->redirectWithError(/projects/create, $securityService->handleError($e, 'ProjectController::create', 'An error occurred while creating the project.'));
+            $this->redirectWithError('/projects/create', $securityService->handleError($e, 'ProjectController::create', 'An error occurred while creating the project.'));
         }
     }
 
@@ -293,10 +293,10 @@ class ProjectController extends BaseController
 
             $this->render('Projects/edit', compact('templates', 'companyId', 'statuses', 'companies'));
         } catch (InvalidArgumentException $e) {
-            $this->redirectWithError(/projects, $e->getMessage());
+            $this->redirectWithError('/projects', $e->getMessage());
         } catch (\Exception $e) {
             error_log("Exception in ProjectController::editForm: " . $e->getMessage());
-            $this->redirectWithError(/projects, 'An error occurred while loading the edit form.');
+            $this->redirectWithError('/projects', 'An error occurred while loading the edit form.');
         }
     }
 
@@ -378,7 +378,7 @@ class ProjectController extends BaseController
     public function delete(string $requestMethod, array $data): void
     {
         if ($requestMethod !== 'POST') {
-            $this->redirectWithError(/projects, 'Invalid request method.');
+            $this->redirectWithError('/projects', 'Invalid request method.');
         }
 
         try {
@@ -401,12 +401,12 @@ class ProjectController extends BaseController
 
             $this->projectModel->update($id, ['is_deleted' => true]);
 
-            $this->redirectWithSuccess(/projects, 'Project deleted successfully.');
+            $this->redirectWithSuccess('/projects', 'Project deleted successfully.');
         } catch (InvalidArgumentException $e) {
-            $this->redirectWithError(/projects, $e->getMessage());
+            $this->redirectWithError('/projects', $e->getMessage());
         } catch (\Exception $e) {
             error_log("Exception in ProjectController::delete: " . $e->getMessage());
-            $this->redirectWithError(/projects, 'An error occurred while deleting the project.');
+            $this->redirectWithError('/projects', 'An error occurred while deleting the project.');
         }
     }
 }

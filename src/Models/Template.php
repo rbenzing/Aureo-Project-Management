@@ -307,7 +307,7 @@ class Template extends BaseModel
 
             return $templateId;
         } catch (\Exception $e) {
-            $this->db->rollback();
+            $this->db->rollBack();
 
             throw new RuntimeException("Failed to create sprint template: " . $e->getMessage());
         }

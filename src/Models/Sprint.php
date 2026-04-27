@@ -846,7 +846,7 @@ class Sprint extends BaseModel
             ]);
 
             if (!$result) {
-                $this->db->rollback();
+                $this->db->rollBack();
 
                 return false;
             }
@@ -860,7 +860,7 @@ class Sprint extends BaseModel
 
             return true;
         } catch (\Exception $e) {
-            $this->db->rollback();
+            $this->db->rollBack();
 
             throw new RuntimeException("Error assigning task to sprint: " . $e->getMessage());
         }
@@ -955,7 +955,7 @@ class Sprint extends BaseModel
 
             return $result;
         } catch (\Exception $e) {
-            $this->db->rollback();
+            $this->db->rollBack();
             error_log("Error removing task from sprint: " . $e->getMessage());
 
             return false;
@@ -1141,7 +1141,7 @@ class Sprint extends BaseModel
 
             return true;
         } catch (\Exception $e) {
-            $this->db->rollback();
+            $this->db->rollBack();
             error_log("Error adding milestones to sprint: " . $e->getMessage());
 
             return false;
@@ -1346,7 +1346,7 @@ class Sprint extends BaseModel
 
             return $sprintId;
         } catch (\Exception $e) {
-            $this->db->rollback();
+            $this->db->rollBack();
             error_log("Error creating sprint from milestones: " . $e->getMessage());
 
             throw new RuntimeException("Failed to create sprint from milestones: " . $e->getMessage());

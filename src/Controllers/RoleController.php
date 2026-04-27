@@ -52,7 +52,7 @@ class RoleController extends BaseController
             $this->render('Roles/index', compact('totalPages', 'totalRoles', 'roles', 'results', 'limit', 'settingsService', 'page'));
         } catch (\Exception $e) {
             error_log("Exception in RoleController::index: " . $e->getMessage());
-            $this->redirectWithError(/dashboard, 'An error occurred while fetching roles.');
+            $this->redirectWithError('/dashboard', 'An error occurred while fetching roles.');
         }
     }
 
@@ -79,10 +79,10 @@ class RoleController extends BaseController
 
             $this->render('Roles/view', compact('totalPages', 'totalRoles', 'roles', 'results', 'limit', 'settingsService', 'page'));
         } catch (InvalidArgumentException $e) {
-            $this->redirectWithError(/roles, $e->getMessage());
+            $this->redirectWithError('/roles', $e->getMessage());
         } catch (\Exception $e) {
             error_log("Exception in RoleController::view: " . $e->getMessage());
-            $this->redirectWithError(/roles, 'An error occurred while fetching role details.');
+            $this->redirectWithError('/roles', 'An error occurred while fetching role details.');
         }
     }
 
@@ -102,7 +102,7 @@ class RoleController extends BaseController
             $this->render('Roles/create', compact('totalPages', 'totalRoles', 'roles', 'results', 'limit', 'settingsService', 'page'));
         } catch (\Exception $e) {
             error_log("Exception in RoleController::createForm: " . $e->getMessage());
-            $this->redirectWithError(/roles, 'An error occurred while loading the creation form.');
+            $this->redirectWithError('/roles', 'An error occurred while loading the creation form.');
         }
     }
 
@@ -158,7 +158,7 @@ class RoleController extends BaseController
 
                 $this->roleModel->commit();
 
-                $this->redirectWithSuccess(/roles, 'Role created successfully.');
+                $this->redirectWithSuccess('/roles', 'Role created successfully.');
 
             } catch (\Exception $e) {
                 $this->roleModel->rollBack();
@@ -169,10 +169,10 @@ class RoleController extends BaseController
         } catch (InvalidArgumentException $e) {
             $_SESSION['error'] = $e->getMessage();
             $_SESSION['form_data'] = $data;
-            $this->redirect(/roles/create);
+            $this->redirect('/roles/create');
         } catch (\Exception $e) {
             error_log("Exception in RoleController::create: " . $e->getMessage());
-            $this->redirectWithError(/roles/create, 'An error occurred while creating the role.');
+            $this->redirectWithError('/roles/create', 'An error occurred while creating the role.');
         }
     }
 
@@ -201,10 +201,10 @@ class RoleController extends BaseController
 
             $this->render('Roles/edit', compact('permissions'));
         } catch (InvalidArgumentException $e) {
-            $this->redirectWithError(/roles, $e->getMessage());
+            $this->redirectWithError('/roles', $e->getMessage());
         } catch (\Exception $e) {
             error_log("Exception in RoleController::editForm: " . $e->getMessage());
-            $this->redirectWithError(/roles, 'An error occurred while loading the edit form.');
+            $this->redirectWithError('/roles', 'An error occurred while loading the edit form.');
         }
     }
 
@@ -264,7 +264,7 @@ class RoleController extends BaseController
 
                 $this->roleModel->commit();
 
-                $this->redirectWithSuccess(/roles, 'Role updated successfully.');
+                $this->redirectWithSuccess('/roles', 'Role updated successfully.');
 
             } catch (\Exception $e) {
                 $this->roleModel->rollBack();
@@ -294,7 +294,7 @@ class RoleController extends BaseController
     public function delete(string $requestMethod, array $data): void
     {
         if ($requestMethod !== 'POST') {
-            $this->redirectWithError(/roles, 'Invalid request method.');
+            $this->redirectWithError('/roles', 'Invalid request method.');
         }
 
         try {
@@ -324,13 +324,13 @@ class RoleController extends BaseController
 
             $this->roleModel->update($id, ['is_deleted' => true]);
 
-            $this->redirectWithSuccess(/roles, 'Role deleted successfully.');
+            $this->redirectWithSuccess('/roles', 'Role deleted successfully.');
 
         } catch (InvalidArgumentException $e) {
-            $this->redirectWithError(/roles, $e->getMessage());
+            $this->redirectWithError('/roles', $e->getMessage());
         } catch (\Exception $e) {
             error_log("Exception in RoleController::delete: " . $e->getMessage());
-            $this->redirectWithError(/roles, 'An error occurred while deleting the role.');
+            $this->redirectWithError('/roles', 'An error occurred while deleting the role.');
         }
     }
 }

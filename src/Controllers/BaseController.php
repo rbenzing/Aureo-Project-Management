@@ -80,6 +80,17 @@ abstract class BaseController
     }
 
     /**
+     * Redirect to URL without a flash message
+     *
+     * @param string $url Target URL
+     */
+    protected function redirect(string $url): never
+    {
+        header("Location: {$url}");
+        exit;
+    }
+
+    /**
      * Redirect with success message
      *
      * @param string $url Target URL
@@ -140,6 +151,7 @@ abstract class BaseController
      *
      * @param string $defaultField Default sort field
      * @param string $defaultDirection Default sort direction (asc|desc)
+     * @param array $allowedFields Whitelist of permitted sort field names; empty means allow any
      * @param string $fieldParam GET parameter name for field (default: 'sort')
      * @param string $directionParam GET parameter name for direction (default: 'dir')
      * @return array{field: string, direction: string} Sorting parameters
@@ -147,10 +159,15 @@ abstract class BaseController
     protected function getSortParams(
         string $defaultField = 'created_at',
         string $defaultDirection = 'desc',
+        array $allowedFields = [],
         string $fieldParam = 'sort',
         string $directionParam = 'dir'
     ): array {
-        $field = $_GET[$fieldParam] ?? $defaultField;
+        $requested = $_GET[$fieldParam] ?? $defaultField;
+        $field = (!empty($allowedFields) && !in_array($requested, $allowedFields, true))
+            ? $defaultField
+            : $requested;
+
         $direction = isset($_GET[$directionParam]) && strtolower($_GET[$directionParam]) === 'asc'
             ? 'asc'
             : $defaultDirection;

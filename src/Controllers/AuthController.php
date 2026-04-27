@@ -102,12 +102,12 @@ class AuthController extends BaseController
                 'config' => Config::all(),
             ]);
 
-            $this->redirect(/dashboard);
+            $this->redirect('/dashboard');
 
         } catch (InvalidArgumentException $e) {
-            $this->redirectWithError(/login, $e->getMessage());
+            $this->redirectWithError('/login', $e->getMessage());
         } catch (\Exception $e) {
-            $this->redirectWithError(/login, $this->securityService->handleError($e, 'AuthController::login', 'An error occurred during login.'));
+            $this->redirectWithError('/login', $this->securityService->handleError($e, 'AuthController::login', 'An error occurred during login.'));
         }
     }
 
@@ -120,9 +120,9 @@ class AuthController extends BaseController
     {
         try {
             SessionMiddleware::destroySession();
-            $this->redirect(/login);
+            $this->redirect('/login');
         } catch (\Exception $e) {
-            $this->redirectWithError(/dashboard, Config::getErrorMessage(
+            $this->redirectWithError('/dashboard', Config::getErrorMessage(
                 $e,
                 'AuthController::logout',
                 'An error occurred during logout.'
@@ -166,12 +166,14 @@ class AuthController extends BaseController
                 throw new InvalidArgumentException(implode(', ', $validator->errors()));
             }
 
+            $defaultRoleId = (int) (\App\Core\Config::get('default_registration_role_id', 2));
+
             $userData = [
                 'first_name' => htmlspecialchars($data['first_name']),
                 'last_name' => htmlspecialchars($data['last_name']),
                 'email' => filter_var($data['email'], FILTER_SANITIZE_EMAIL),
                 'password_hash' => password_hash($data['password'], PASSWORD_ARGON2ID),
-                'role_id' => 2, // Default role for new registrations (client role)
+                'role_id' => $defaultRoleId,
                 'is_active' => false,
             ];
 
@@ -181,14 +183,14 @@ class AuthController extends BaseController
             // This needs to be updated in your Email class to match schema
             Email::sendActivationEmail($userData['email'], $activationToken);
 
-            $this->redirectWithSuccess(/login, 'Registration successful. Please check your email to activate your account.');
+            $this->redirectWithSuccess('/login', 'Registration successful. Please check your email to activate your account.');
 
         } catch (InvalidArgumentException $e) {
             $_SESSION['error'] = $e->getMessage();
             $_SESSION['form_data'] = $data;
-            $this->redirect(/register);
+            $this->redirect('/register');
         } catch (\Exception $e) {
-            $this->redirectWithError(/register, $this->securityService->handleError($e, 'AuthController::register', 'An error occurred during registration.'));
+            $this->redirectWithError('/register', $this->securityService->handleError($e, 'AuthController::register', 'An error occurred during registration.'));
         }
     }
 
@@ -224,15 +226,15 @@ class AuthController extends BaseController
 
                 $this->userModel->clearPasswordResetToken($user->id);
 
-                $this->redirectWithSuccess(/login, 'Password reset successfully.');
+                $this->redirectWithSuccess('/login', 'Password reset successfully.');
             }
 
             $this->render('Auth/reset-password');
 
         } catch (InvalidArgumentException $e) {
-            $this->redirectWithError(/login, $e->getMessage());
+            $this->redirectWithError('/login', $e->getMessage());
         } catch (\Exception $e) {
-            $this->redirectWithError(/login, $this->securityService->handleError($e, 'AuthController::resetPassword', 'An error occurred during password reset.'));
+            $this->redirectWithError('/login', $this->securityService->handleError($e, 'AuthController::resetPassword', 'An error occurred during password reset.'));
         }
     }
 
@@ -283,9 +285,9 @@ class AuthController extends BaseController
             $this->render('Auth/login', compact('companyName'));
 
         } catch (InvalidArgumentException $e) {
-            $this->redirectWithError(/login, $e->getMessage());
+            $this->redirectWithError('/login', $e->getMessage());
         } catch (\Exception $e) {
-            $this->redirectWithError(/login, $this->securityService->handleError($e, 'AuthController::activate', 'An error occurred during account activation.'));
+            $this->redirectWithError('/login', $this->securityService->handleError($e, 'AuthController::activate', 'An error occurred during account activation.'));
         }
     }
 
@@ -326,9 +328,9 @@ class AuthController extends BaseController
             $this->render('Auth/forgot-password');
 
         } catch (InvalidArgumentException $e) {
-            $this->redirectWithError(/forgot-password, $e->getMessage());
+            $this->redirectWithError('/forgot-password', $e->getMessage());
         } catch (\Exception $e) {
-            $this->redirectWithError(/forgot-password, $this->securityService->handleError($e, 'AuthController::forgotPassword'));
+            $this->redirectWithError('/forgot-password', $this->securityService->handleError($e, 'AuthController::forgotPassword'));
         }
     }
 }

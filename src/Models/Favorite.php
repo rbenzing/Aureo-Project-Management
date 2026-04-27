@@ -265,7 +265,7 @@ class Favorite extends BaseModel
 
             return true;
         } catch (\Exception $e) {
-            $this->db->rollback();
+            $this->db->rollBack();
 
             throw new RuntimeException("Failed to update sort order: " . $e->getMessage());
         }

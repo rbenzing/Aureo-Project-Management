@@ -92,7 +92,7 @@ class TimeTrackingController extends BaseController
 
         } catch (RuntimeException $e) {
             error_log("Time tracking index error: " . $e->getMessage());
-            $this->redirectWithError(/dashboard, $e->getMessage());
+            $this->redirectWithError('/dashboard', $e->getMessage());
         }
     }
 
@@ -336,7 +336,7 @@ class TimeTrackingController extends BaseController
     public function startTimer(string $requestMethod, array $data): void
     {
         if ($requestMethod !== 'POST') {
-            $this->redirectWithError(/tasks, 'Invalid request method.');
+            $this->redirectWithError('/tasks', 'Invalid request method.');
         }
 
         try {
@@ -373,10 +373,10 @@ class TimeTrackingController extends BaseController
             exit;
 
         } catch (InvalidArgumentException $e) {
-            $this->redirectWithError(/tasks, $e->getMessage());
+            $this->redirectWithError('/tasks', $e->getMessage());
         } catch (\Exception $e) {
             error_log("Exception in TimeTrackingController::startTimer: " . $e->getMessage());
-            $this->redirectWithError(/tasks, 'An error occurred while starting the timer.');
+            $this->redirectWithError('/tasks', 'An error occurred while starting the timer.');
         }
     }
 
@@ -389,7 +389,7 @@ class TimeTrackingController extends BaseController
     public function stopTimer(string $requestMethod, array $data): void
     {
         if ($requestMethod !== 'POST') {
-            $this->redirectWithError(/tasks, 'Invalid request method.');
+            $this->redirectWithError('/tasks', 'Invalid request method.');
         }
 
         try {
@@ -442,10 +442,10 @@ class TimeTrackingController extends BaseController
             exit;
 
         } catch (InvalidArgumentException $e) {
-            $this->redirectWithError(/tasks, $e->getMessage());
+            $this->redirectWithError('/tasks', $e->getMessage());
         } catch (\Exception $e) {
             error_log("Exception in TimeTrackingController::stopTimer: " . $e->getMessage());
-            $this->redirectWithError(/tasks, 'An error occurred while stopping the timer.');
+            $this->redirectWithError('/tasks', 'An error occurred while stopping the timer.');
         }
     }
 
