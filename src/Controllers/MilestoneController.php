@@ -5,7 +5,6 @@ declare(strict_types=1);
 
 namespace App\Controllers;
 
-use App\Middleware\AuthMiddleware;
 use App\Models\Milestone;
 use App\Models\Project;
 use App\Models\Template;
@@ -63,7 +62,9 @@ class MilestoneController extends BaseController
             $totalMilestones = $this->milestoneModel->count(['is_deleted' => 0]);
             $totalPages = ceil($totalMilestones / $limit);
 
-            $this->render('Milestones/index', compact('totalPages', 'totalMilestones'));
+            $milestones = $milestones ?? [];
+            $project = $project ?? null;
+            $this->render('Milestones/index', compact('milestones', 'totalPages', 'totalMilestones', 'project', 'page', 'limit'));
         } catch (InvalidArgumentException $e) {
             $this->redirectWithError('/milestones', $e->getMessage());
         } catch (\Exception $e) {
@@ -122,7 +123,7 @@ class MilestoneController extends BaseController
                 $relatedSprints = []; // Default to empty array if there's an error
             }
 
-            $this->render('Milestones/view');
+            $this->render('Milestones/view', compact('milestone', 'project', 'epic', 'relatedMilestones', 'relatedSprints'));
         } catch (InvalidArgumentException $e) {
             $this->redirectWithError('/milestones', $e->getMessage());
         } catch (\Exception $e) {
@@ -265,7 +266,7 @@ class MilestoneController extends BaseController
             // Load templates available for this company or global templates
             $templates = $this->templateModel->getAvailableTemplates('milestone', $companyId);
 
-            $this->render('Milestones/edit', compact('templates'));
+            $this->render('Milestones/edit', compact('milestone', 'project', 'templates', 'statuses', 'projects', 'epics', 'companyId'));
         } catch (InvalidArgumentException $e) {
             $this->redirectWithError('/milestones', $e->getMessage());
         } catch (\Exception $e) {

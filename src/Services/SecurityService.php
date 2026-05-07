@@ -120,7 +120,11 @@ class SecurityService
     }
 
     /**
-     * Enhanced HTML sanitization for rich content
+     * Enhanced HTML sanitization for rich content.
+     *
+     * Uses DOMDocument to strip all tags except an explicit allowlist, then removes
+     * every attribute that is not on a per-element safe list. This prevents event-handler
+     * injection (onclick, onerror, etc.) that strip_tags() alone cannot block.
      */
     public function sanitizeRichContent(string $content): string
     {
@@ -128,10 +132,86 @@ class SecurityService
             return $content;
         }
 
-        // Allow basic formatting but remove dangerous elements
-        $allowedTags = '<p><br><strong><em><ul><ol><li><h1><h2><h3><h4><h5><h6><blockquote><code>';
+        if (trim($content) === '') {
+            return '';
+        }
 
-        return strip_tags($content, $allowedTags);
+        $allowedElements = [
+            'p', 'br', 'strong', 'em', 'ul', 'ol', 'li',
+            'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote', 'code',
+        ];
+
+        // Only these attributes are permitted on the elements that support them.
+        $allowedAttributes = [
+            // no element in the allowlist needs href/src, so the map is intentionally empty.
+        ];
+
+        $doc = new \DOMDocument();
+        // Suppress parse warnings for malformed HTML; UTF-8 wrapper keeps encoding intact.
+        @$doc->loadHTML(
+            '<?xml encoding="utf-8"?><body>' . $content . '</body>',
+            LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD
+        );
+
+        $this->sanitizeDomNode($doc->getElementsByTagName('body')->item(0), $allowedElements, $allowedAttributes);
+
+        // Extract only the inner content of <body>.
+        $output = '';
+        foreach ($doc->getElementsByTagName('body')->item(0)->childNodes as $child) {
+            $output .= $doc->saveHTML($child);
+        }
+
+        return $output;
+    }
+
+    /**
+     * Recursively strips disallowed elements and attributes from a DOM node.
+     *
+     * @param \DOMNode          $node
+     * @param string[]          $allowedElements   Lower-case tag names to keep.
+     * @param array<string,string[]> $allowedAttributes Map of tag => allowed attr names.
+     */
+    private function sanitizeDomNode(\DOMNode $node, array $allowedElements, array $allowedAttributes): void
+    {
+        $remove = [];
+
+        foreach ($node->childNodes as $child) {
+            if ($child->nodeType === XML_ELEMENT_NODE) {
+                $tag = strtolower($child->nodeName);
+
+                if (!in_array($tag, $allowedElements, true)) {
+                    // Replace disallowed element with its text content so copy is preserved.
+                    $remove[] = ['node' => $child, 'replace' => true];
+
+                    continue;
+                }
+
+                // Strip every attribute not on the per-element safe list.
+                $permittedAttrs = $allowedAttributes[$tag] ?? [];
+                $attrsToRemove = [];
+                foreach ($child->attributes as $attr) {
+                    if (!in_array(strtolower($attr->name), $permittedAttrs, true)) {
+                        $attrsToRemove[] = $attr->name;
+                    }
+                }
+                foreach ($attrsToRemove as $attrName) {
+                    $child->removeAttribute($attrName);
+                }
+
+                $this->sanitizeDomNode($child, $allowedElements, $allowedAttributes);
+            }
+        }
+
+        foreach ($remove as $entry) {
+            $child = $entry['node'];
+            if ($entry['replace']) {
+                // Move child's own children up before removing it.
+                while ($child->firstChild !== null) {
+                    $node->insertBefore($child->firstChild, $child);
+                }
+            }
+            $node->removeChild($child);
+        }
     }
 
     /**

@@ -5,7 +5,6 @@ declare(strict_types=1);
 
 namespace App\Controllers;
 
-use App\Middleware\AuthMiddleware;
 use App\Middleware\CSRFMiddleware;
 use App\Models\Permission;
 use App\Models\Role;
@@ -77,7 +76,7 @@ class RoleController extends BaseController
                 throw new InvalidArgumentException('Role not found');
             }
 
-            $this->render('Roles/view', compact('totalPages', 'totalRoles', 'roles', 'results', 'limit', 'settingsService', 'page'));
+            $this->render('Roles/view', compact('role'));
         } catch (InvalidArgumentException $e) {
             $this->redirectWithError('/roles', $e->getMessage());
         } catch (\Exception $e) {
@@ -99,7 +98,7 @@ class RoleController extends BaseController
 
             $permissions = $this->permissionModel->getOrganizedPermissions();
 
-            $this->render('Roles/create', compact('totalPages', 'totalRoles', 'roles', 'results', 'limit', 'settingsService', 'page'));
+            $this->render('Roles/create', compact('permissions'));
         } catch (\Exception $e) {
             error_log("Exception in RoleController::createForm: " . $e->getMessage());
             $this->redirectWithError('/roles', 'An error occurred while loading the creation form.');

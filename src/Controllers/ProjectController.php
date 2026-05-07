@@ -5,7 +5,6 @@ declare(strict_types=1);
 
 namespace App\Controllers;
 
-use App\Middleware\AuthMiddleware;
 use App\Models\Company;
 use App\Models\Project;
 use App\Models\Task;
@@ -118,7 +117,7 @@ class ProjectController extends BaseController
 
             $totalPages = ceil($totalProjects / $limit);
 
-            $this->render('Projects/index', compact('totalPages', 'projectStats', 'companies'));
+            $this->render('Projects/index', compact('projects', 'totalPages', 'totalProjects', 'projectStats', 'companies', 'page', 'limit'));
         } catch (\Exception $e) {
             error_log("Exception in ProjectController::index: " . $e->getMessage());
             $this->redirectWithError('/dashboard', 'An error occurred while fetching projects.');
@@ -157,7 +156,7 @@ class ProjectController extends BaseController
 
             $tasksByStatus = $this->taskModel->getByProjectId($id);
 
-            $this->render('Projects/view', compact('tasksByStatus'));
+            $this->render('Projects/view', compact('project', 'tasksByStatus'));
         } catch (InvalidArgumentException $e) {
             $this->redirectWithError('/projects', $e->getMessage());
         } catch (\Exception $e) {
@@ -291,7 +290,7 @@ class ProjectController extends BaseController
             // Load templates available for this company or global templates
             $templates = $this->templateModel->getAvailableTemplates('project', $companyId);
 
-            $this->render('Projects/edit', compact('templates', 'companyId', 'statuses', 'companies'));
+            $this->render('Projects/edit', compact('project', 'templates', 'companyId', 'statuses', 'companies'));
         } catch (InvalidArgumentException $e) {
             $this->redirectWithError('/projects', $e->getMessage());
         } catch (\Exception $e) {

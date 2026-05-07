@@ -7,7 +7,6 @@ namespace App\Controllers;
 
 use App\Enums\SprintStatus;
 use App\Enums\TaskStatus;
-use App\Middleware\AuthMiddleware;
 use App\Models\Project;
 use App\Models\Sprint;
 use App\Models\Task;
@@ -16,9 +15,8 @@ use App\Utils\Validator;
 use InvalidArgumentException;
 use RuntimeException;
 
-class SprintController
+class SprintController extends BaseController
 {
-    private AuthMiddleware $authMiddleware;
     private Sprint $sprintModel;
     private Project $projectModel;
     private Task $taskModel;
@@ -26,8 +24,7 @@ class SprintController
 
     public function __construct()
     {
-        $this->authMiddleware = new AuthMiddleware();
-        $this->requirePermission('manage_sprints');
+        parent::__construct();
         $this->sprintModel = new Sprint();
         $this->projectModel = new Project();
         $this->taskModel = new Task();
@@ -98,7 +95,11 @@ class SprintController
                 }
             }
 
-            $this->render('Sprints/index');
+            $project = $project ?? null;
+            $projects = $projects ?? [];
+            $projectSprintCounts = $projectSprintCounts ?? [];
+            $sprints = $sprints ?? [];
+            $this->render('Sprints/index', compact('sprints', 'projects', 'project', 'projectSprintCounts', 'page', 'limit'));
         } catch (InvalidArgumentException $e) {
             $this->redirectWithError('/sprints', $e->getMessage());
         } catch (\Exception $e) {
@@ -134,7 +135,7 @@ class SprintController
             // Add hierarchical task data
             $sprint->hierarchy = $this->sprintModel->getSprintHierarchy($id);
 
-            $this->render('Sprints/view', compact('project', 'tasks'));
+            $this->render('Sprints/view', compact('sprint', 'project', 'tasks'));
         } catch (InvalidArgumentException $e) {
             $this->redirectWithError('/sprints', $e->getMessage());
         } catch (\Exception $e) {
@@ -204,7 +205,7 @@ class SprintController
             // Get today's focus items across all active sprints
             $todaysFocus = !empty($sprintIds) ? $this->getTodaysFocusItems($userId, $sprintIds) : [];
 
-            include BASE_PATH . '/../views/Sprints/current.php';
+            $this->render('Sprints/current', compact('sprintDetails', 'todaysFocus'));
         } catch (\Exception $e) {
             error_log("Exception in SprintController::current: " . $e->getMessage());
             $this->redirectWithError('/dashboard', 'An error occurred while fetching current sprint information.');
@@ -262,7 +263,7 @@ class SprintController
             // Get sprint statistics
             $sprintStats = $this->calculateSprintStats($tasks);
 
-            include BASE_PATH . '/../views/Sprints/board.php';
+            $this->render('Sprints/board', compact('sprint', 'project', 'tasksByStatus', 'sprintStats'));
         } catch (InvalidArgumentException $e) {
             $this->redirectWithError('/sprints', $e->getMessage());
         } catch (\Exception $e) {
@@ -282,7 +283,10 @@ class SprintController
         try {
             $this->requirePermission('view_sprints');
 
-            $userId = $_SESSION['user']['profile']['id'];
+            $userId = $_SESSION['user']['profile']['id'] ?? null;
+            if (!$userId) {
+                throw new \RuntimeException('User session invalid');
+            }
 
             // Get user's projects for project selection
             $userModel = new \App\Models\User();
@@ -319,7 +323,7 @@ class SprintController
                 }
             }
 
-            include BASE_PATH . '/../views/Sprints/planning.php';
+            $this->render('Sprints/planning', compact('userProjects', 'selectedProject', 'selectedProjectId', 'productBacklog', 'activeSprints', 'sprintCapacity'));
         } catch (\Exception $e) {
             error_log("Exception in SprintController::planning: " . $e->getMessage());
             $this->redirectWithError('/sprints', 'An error occurred while loading sprint planning.');
@@ -574,7 +578,7 @@ class SprintController
             // Load templates available for this company or global templates
             $templates = $this->templateModel->getAvailableTemplates('sprint', $companyId);
 
-            $this->render('Sprints/edit', compact('templates', 'companyId', 'statuses'));
+            $this->render('Sprints/edit', compact('sprint', 'project', 'templates', 'companyId', 'statuses', 'projectTasks', 'sprintTasks', 'sprintTaskIds'));
         } catch (InvalidArgumentException $e) {
             $_SESSION['error'] = $e->getMessage();
             header('Location: /sprints/view/' . $id);
@@ -1192,6 +1196,164 @@ class SprintController
             error_log("Exception in SprintController::getTasksFromMilestones: " . $e->getMessage());
             http_response_code(500);
             echo json_encode(['success' => false, 'message' => 'Error fetching tasks']);
+        }
+    }
+
+    /**
+     * Start a sprint (transition Planning → Active)
+     * @param string $requestMethod
+     * @param array $data
+     */
+    public function startSprint(string $requestMethod, array $data): void
+    {
+        if ($requestMethod !== 'POST') {
+            $this->redirectWithError('/sprints', 'Invalid request method.');
+        }
+
+        try {
+            $this->requirePermission('edit_sprints');
+
+            $id = filter_var($data['id'] ?? null, FILTER_VALIDATE_INT);
+            if (!$id) {
+                throw new InvalidArgumentException('Invalid sprint ID');
+            }
+
+            $sprint = $this->sprintModel->find($id);
+            if (!$sprint || $sprint->is_deleted) {
+                throw new InvalidArgumentException('Sprint not found');
+            }
+
+            if ($sprint->status_id !== SprintStatus::PLANNING->value) {
+                throw new InvalidArgumentException('Only sprints in Planning status can be started');
+            }
+
+            $this->sprintModel->update($id, ['status_id' => SprintStatus::ACTIVE->value]);
+
+            $this->redirectWithSuccess('/sprints/view/' . $id, 'Sprint started successfully.');
+        } catch (InvalidArgumentException $e) {
+            $this->redirectWithError('/sprints/view/' . ($id ?? ''), $e->getMessage());
+        } catch (\Exception $e) {
+            error_log("Error in SprintController::startSprint: " . $e->getMessage());
+            $this->redirectWithError('/sprints/view/' . ($id ?? ''), 'An error occurred while starting the sprint.');
+        }
+    }
+
+    /**
+     * Complete a sprint (transition Active/Review → Completed)
+     * @param string $requestMethod
+     * @param array $data
+     */
+    public function completeSprint(string $requestMethod, array $data): void
+    {
+        if ($requestMethod !== 'POST') {
+            $this->redirectWithError('/sprints', 'Invalid request method.');
+        }
+
+        try {
+            $this->requirePermission('edit_sprints');
+
+            $id = filter_var($data['id'] ?? null, FILTER_VALIDATE_INT);
+            if (!$id) {
+                throw new InvalidArgumentException('Invalid sprint ID');
+            }
+
+            $sprint = $this->sprintModel->find($id);
+            if (!$sprint || $sprint->is_deleted) {
+                throw new InvalidArgumentException('Sprint not found');
+            }
+
+            $allowedFrom = [SprintStatus::ACTIVE->value, SprintStatus::REVIEW->value];
+            if (!in_array($sprint->status_id, $allowedFrom, true)) {
+                throw new InvalidArgumentException('Only active or in-review sprints can be completed');
+            }
+
+            $this->sprintModel->update($id, ['status_id' => SprintStatus::COMPLETED->value]);
+
+            $this->redirectWithSuccess('/sprints/view/' . $id, 'Sprint completed successfully.');
+        } catch (InvalidArgumentException $e) {
+            $this->redirectWithError('/sprints/view/' . ($id ?? ''), $e->getMessage());
+        } catch (\Exception $e) {
+            error_log("Error in SprintController::completeSprint: " . $e->getMessage());
+            $this->redirectWithError('/sprints/view/' . ($id ?? ''), 'An error occurred while completing the sprint.');
+        }
+    }
+
+    /**
+     * Delay a sprint (transition Active → Delayed)
+     * @param string $requestMethod
+     * @param array $data
+     */
+    public function delaySprint(string $requestMethod, array $data): void
+    {
+        if ($requestMethod !== 'POST') {
+            $this->redirectWithError('/sprints', 'Invalid request method.');
+        }
+
+        try {
+            $this->requirePermission('edit_sprints');
+
+            $id = filter_var($data['id'] ?? null, FILTER_VALIDATE_INT);
+            if (!$id) {
+                throw new InvalidArgumentException('Invalid sprint ID');
+            }
+
+            $sprint = $this->sprintModel->find($id);
+            if (!$sprint || $sprint->is_deleted) {
+                throw new InvalidArgumentException('Sprint not found');
+            }
+
+            if ($sprint->status_id !== SprintStatus::ACTIVE->value) {
+                throw new InvalidArgumentException('Only active sprints can be delayed');
+            }
+
+            $this->sprintModel->update($id, ['status_id' => SprintStatus::DELAYED->value]);
+
+            $this->redirectWithSuccess('/sprints/view/' . $id, 'Sprint marked as delayed.');
+        } catch (InvalidArgumentException $e) {
+            $this->redirectWithError('/sprints/view/' . ($id ?? ''), $e->getMessage());
+        } catch (\Exception $e) {
+            error_log("Error in SprintController::delaySprint: " . $e->getMessage());
+            $this->redirectWithError('/sprints/view/' . ($id ?? ''), 'An error occurred while delaying the sprint.');
+        }
+    }
+
+    /**
+     * Cancel a sprint (any non-final status → Cancelled)
+     * @param string $requestMethod
+     * @param array $data
+     */
+    public function cancelSprint(string $requestMethod, array $data): void
+    {
+        if ($requestMethod !== 'POST') {
+            $this->redirectWithError('/sprints', 'Invalid request method.');
+        }
+
+        try {
+            $this->requirePermission('delete_sprints');
+
+            $id = filter_var($data['id'] ?? null, FILTER_VALIDATE_INT);
+            if (!$id) {
+                throw new InvalidArgumentException('Invalid sprint ID');
+            }
+
+            $sprint = $this->sprintModel->find($id);
+            if (!$sprint || $sprint->is_deleted) {
+                throw new InvalidArgumentException('Sprint not found');
+            }
+
+            if (SprintStatus::tryFrom($sprint->status_id)?->isFinal()) {
+                throw new InvalidArgumentException('Sprint is already in a final state and cannot be cancelled');
+            }
+
+            $this->sprintModel->update($id, ['status_id' => SprintStatus::CANCELLED->value]);
+
+            $projectId = $sprint->project_id;
+            $this->redirectWithSuccess('/sprints/project/' . $projectId, 'Sprint cancelled successfully.');
+        } catch (InvalidArgumentException $e) {
+            $this->redirectWithError('/sprints/view/' . ($id ?? ''), $e->getMessage());
+        } catch (\Exception $e) {
+            error_log("Error in SprintController::cancelSprint: " . $e->getMessage());
+            $this->redirectWithError('/sprints/view/' . ($id ?? ''), 'An error occurred while cancelling the sprint.');
         }
     }
 

@@ -5,7 +5,6 @@ declare(strict_types=1);
 
 namespace App\Controllers;
 
-use App\Middleware\AuthMiddleware;
 use App\Models\Company;
 use App\Models\Project;
 use App\Models\Template;
@@ -76,10 +75,16 @@ class SprintTemplateController extends BaseController
         try {
             $this->requirePermission('create_templates');
 
+            $page = isset($data['page']) ? max(1, intval($data['page'])) : 1;
+            $limit = $this->settingsService->getResultsPerPage();
+            $companyId = $_SESSION['user']['company_id'] ?? null;
+            $projectId = isset($_GET['project_id']) ? intval($_GET['project_id']) : null;
+
             $companies = $this->companyModel->getAllCompanies();
             $projects = $this->projectModel->getAllWithDetails();
+            $templates = $this->templateModel->getSprintTemplates($companyId, $projectId);
 
-            $this->render('SprintTemplates/create', compact('projects', 'templates', 'companyId', 'projectId', 'limit', 'settingsService', 'page'));
+            $this->render('SprintTemplates/create', compact('projects', 'companies', 'templates', 'companyId', 'projectId', 'limit', 'page'));
         } catch (\Exception $e) {
             error_log("Exception in SprintTemplateController::createForm: " . $e->getMessage());
             $this->redirectWithError('/sprint-templates', 'An error occurred while loading the creation form.');
@@ -180,12 +185,121 @@ class SprintTemplateController extends BaseController
             $companies = $this->companyModel->getAllCompanies();
             $projects = $this->projectModel->getAllWithDetails();
 
-            $this->render('SprintTemplates/edit', compact('projects', 'companies', 'config'));
+            $this->render('SprintTemplates/edit', compact('template', 'projects', 'companies', 'config'));
         } catch (InvalidArgumentException $e) {
             $this->redirectWithError('/sprint-templates', $e->getMessage());
         } catch (\Exception $e) {
             error_log("Exception in SprintTemplateController::editForm: " . $e->getMessage());
             $this->redirectWithError('/sprint-templates', 'An error occurred while loading the edit form.');
+        }
+    }
+
+    /**
+     * Update existing sprint template
+     * @param string $requestMethod
+     * @param array $data
+     */
+    public function update(string $requestMethod, array $data): void
+    {
+        if ($requestMethod !== 'POST') {
+            $this->editForm($requestMethod, $data);
+
+            return;
+        }
+
+        try {
+            $this->requirePermission('edit_templates');
+
+            $id = filter_var($data['id'] ?? null, FILTER_VALIDATE_INT);
+            if (!$id) {
+                throw new InvalidArgumentException('Invalid template ID');
+            }
+
+            $template = $this->templateModel->find($id);
+            if (!$template || $template->is_deleted || $template->template_type !== 'sprint') {
+                throw new InvalidArgumentException('Sprint template not found');
+            }
+
+            $validator = new Validator($data, [
+                'name' => 'required|string|max:255',
+                'description' => 'required|string',
+                'company_id' => 'nullable|integer|exists:companies,id',
+                'is_default' => 'boolean',
+                'sprint_length' => 'required|integer|min:1|max:8',
+                'estimation_method' => 'required|in:hours,story_points,both',
+                'default_capacity' => 'required|integer|min:1|max:200',
+                'include_weekends' => 'boolean',
+                'auto_assign_subtasks' => 'boolean',
+            ]);
+
+            if ($validator->fails()) {
+                throw new InvalidArgumentException(implode(', ', $validator->errors()));
+            }
+
+            $templateData = [
+                'name' => htmlspecialchars($data['name']),
+                'description' => $data['description'],
+                'company_id' => !empty($data['company_id']) ?
+                    filter_var($data['company_id'], FILTER_VALIDATE_INT) : null,
+                'is_default' => isset($data['is_default']) ? true : false,
+            ];
+
+            $configData = [
+                'project_id' => !empty($data['project_id']) ?
+                    filter_var($data['project_id'], FILTER_VALIDATE_INT) : null,
+                'sprint_length' => intval($data['sprint_length']),
+                'estimation_method' => $data['estimation_method'],
+                'default_capacity' => intval($data['default_capacity']),
+                'include_weekends' => isset($data['include_weekends']) ? true : false,
+                'auto_assign_subtasks' => isset($data['auto_assign_subtasks']) ? true : false,
+                'ceremony_settings' => $this->processCeremonySettings($data),
+            ];
+
+            $this->templateModel->updateSprintTemplate($id, $templateData, $configData);
+
+            $this->redirectWithSuccess('/sprint-templates', 'Sprint template updated successfully.');
+        } catch (InvalidArgumentException $e) {
+            $_SESSION['error'] = $e->getMessage();
+            $_SESSION['form_data'] = $data;
+            $this->redirect('/sprint-templates/edit/' . ($data['id'] ?? ''));
+        } catch (\Exception $e) {
+            error_log("Exception in SprintTemplateController::update: " . $e->getMessage());
+            $this->redirectWithError('/sprint-templates/edit/' . ($data['id'] ?? ''), 'An error occurred while updating the sprint template.');
+        }
+    }
+
+    /**
+     * Delete sprint template (soft delete)
+     * @param string $requestMethod
+     * @param array $data
+     */
+    public function delete(string $requestMethod, array $data): void
+    {
+        if ($requestMethod !== 'POST') {
+            $this->redirectWithError('/sprint-templates', 'Invalid request method.');
+        }
+
+        try {
+            $this->requirePermission('delete_templates');
+
+            $id = filter_var($data['id'] ?? null, FILTER_VALIDATE_INT);
+            if (!$id) {
+                throw new InvalidArgumentException('Invalid template ID');
+            }
+
+            $template = $this->templateModel->find($id);
+            if (!$template || $template->is_deleted || $template->template_type !== 'sprint') {
+                throw new InvalidArgumentException('Sprint template not found');
+            }
+
+            $this->templateModel->update($id, ['is_deleted' => true]);
+
+            $this->redirectWithSuccess('/sprint-templates', 'Sprint template deleted successfully.');
+        } catch (InvalidArgumentException $e) {
+            $this->redirectWithError('/sprint-templates', $e->getMessage());
+        } catch (\Exception $e) {
+            error_log("Exception in SprintTemplateController::delete: " . $e->getMessage());
+            $this->redirectWithError('/sprint-templates', 'An error occurred while deleting the sprint template.');
         }
     }
 

@@ -79,6 +79,11 @@ try {
         $container->get(\App\Middleware\AuthMiddleware::class)->isAuthenticated();
     }
 
+    // Register event listeners
+    $dispatcher = \App\Events\EventDispatcher::getInstance();
+    $dispatcher->listen(\App\Events\TaskAssigned::class, \App\Listeners\LogTaskAssignment::class);
+    $dispatcher->listen(\App\Events\TaskAssigned::class, \App\Listeners\SendTaskAssignmentEmail::class);
+
     // Create Router Instance with DI container
     $router = new \App\Core\Router($container);
 

@@ -79,22 +79,22 @@ $breadcrumbs = [
 <body class="bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-gray-100 min-h-screen flex flex-col">
     <div class="flex min-h-screen">
         <!-- Sidebar -->
-        <?php include BASE_PATH . '/../src/views/layouts/sidebar.php'; ?>
+        <?php include BASE_PATH . '/../src/Views/Layouts/sidebar.php'; ?>
 
         <!-- Main Content Area -->
         <div class="flex-1 flex flex-col">
             <!-- Header -->
-            <?php include BASE_PATH . '/../src/views/layouts/header.php'; ?>
+            <?php include BASE_PATH . '/../src/Views/Layouts/header.php'; ?>
 
             <!-- Main Content -->
             <main class="w-full px-4 sm:px-6 md:px-8 lg:px-10 xl:px-12 py-6 flex-grow">
-                <?php include BASE_PATH . '/../src/views/layouts/notifications.php'; ?>
+                <?php include BASE_PATH . '/../src/Views/Layouts/notifications.php'; ?>
 
                 <!-- Page Header with Breadcrumb and Action Buttons -->
                 <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
                     <!-- Breadcrumb Section -->
                     <div class="flex-1">
-                        <?php include BASE_PATH . '/../src/views/layouts/breadcrumb.php'; ?>
+                        <?php include BASE_PATH . '/../src/Views/Layouts/breadcrumb.php'; ?>
                     </div>
 
                     <!-- Action Buttons Section -->
