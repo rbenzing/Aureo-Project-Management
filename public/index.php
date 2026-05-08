@@ -25,6 +25,10 @@ header($cspHeader);
 // Include Composer's autoloader
 require_once BASE_PATH . '/../vendor/autoload.php';
 
+// Load environment + configuration BEFORE building the DI container,
+// since container factories (e.g. SettingsService → Database) read $_ENV.
+\App\Core\Config::init();
+
 // Load the dependency injection container
 $container = require_once BASE_PATH . '/../config/container.php';
 
@@ -46,9 +50,6 @@ try {
 
 // Error handling
 try {
-    // Load configuration
-    \App\Core\Config::init();
-
     // Rate limiting check
     if (!$securityService->checkRateLimit()) {
         http_response_code(429);

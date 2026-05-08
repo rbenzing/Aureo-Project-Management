@@ -78,36 +78,41 @@ composer install
 npm install
 ```
 
-### 4. Environment Configuration
-```bash
-# Copy the example environment file
-cp .env.example .env
+### 4. One-step Setup (Recommended)
 
-# Edit the .env file with your configuration
-nano .env
+Make sure `mysqld` is running locally, then:
+
+```bash
+composer setup
 ```
 
-### 5. Database Setup
+This interactive installer will:
+- Create `.env` from `.env.example` if missing
+- Prompt for DB host/port/user/password/name (defaults: `127.0.0.1`, `3306`, `root`, empty, `aureo_db` — i.e. a stock local MySQL)
+- Test the connection and `CREATE DATABASE IF NOT EXISTS`
+- Persist credentials to `.env`
+- Run Phinx migrations
+- Optionally import `sample-data.sql` (no `mysql` CLI required)
 
-#### Using Migrations (Recommended)
+### 5. Manual Database Setup (alternative)
+
+If you prefer to do it by hand:
+
 ```bash
-# Create your MySQL database
+cp .env.example .env       # then edit DB_* values
+
+# Create the database (any one of these)
 mysql -u root -p -e "CREATE DATABASE aureo_db;"
+# ...or let composer setup handle it.
 
-# Run migrations to create tables
-composer migrate
-
-# Check migration status
-composer migrate:status
+composer migrate           # run migrations
+composer migrate:status    # verify
 ```
 
-#### Alternative: Direct SQL Import (Legacy)
+#### Legacy: Direct SQL Import
 ```bash
-# Import the schema directly (not recommended for production)
 mysql -u root -p aureo_db < schema.sql
-
-# Optional: Import sample data
-mysql -u root -p aureo_db < sample-data.sql
+mysql -u root -p aureo_db < sample-data.sql   # optional sample data
 ```
 
 ### 6. Build Frontend Assets
