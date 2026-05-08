@@ -36,6 +36,8 @@
         ],
         "start": "php -S localhost:8000 -t public",
         "setup": "@php bin/setup.php",
+        "pma": "@php bin/pma.php",
+        "pma:install": "@php bin/pma.php install",
         "test": "phpunit --testdox",
         "test:coverage": "phpunit --coverage-html coverage",
         "cs:check": "php-cs-fixer fix --dry-run --diff",

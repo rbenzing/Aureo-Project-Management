@@ -115,13 +115,26 @@ mysql -u root -p aureo_db < schema.sql
 mysql -u root -p aureo_db < sample-data.sql   # optional sample data
 ```
 
-### 6. Build Frontend Assets
+### 6. (Optional) phpMyAdmin
+
+To browse the database with phpMyAdmin without needing XAMPP/Apache:
+
+```bash
+composer pma          # downloads phpMyAdmin to tools/pma (first run) and serves it on http://localhost:8081
+composer pma:install  # download/upgrade only, don't start the server
+```
+
+The script auto-generates `tools/pma/config.inc.php` from your `.env`, so log in with the same MySQL credentials. The `tools/` directory is gitignored.
+
+To pick a different port: `composer pma -- port=8090`.
+
+### 7. Build Frontend Assets
 ```bash
 # Build CSS assets
 npm run build
 ```
 
-### 7. Web Server Configuration
+### 8. Web Server Configuration
 Point your web server document root to the `public/` directory.
 
 #### Apache (.htaccess included)
