@@ -249,6 +249,7 @@ try {
     // Settings Routes
     $router->get('settings', ['controller' => 'Settings', 'action' => 'index']);
     $router->post('settings/update', ['controller' => 'Settings', 'action' => 'update']);
+    $router->get('api/dev/pma-status', ['controller' => 'Settings', 'action' => 'pmaStatus']);
 
     // Activity Routes
     $router->get('activity', ['controller' => 'Activity', 'action' => 'index']);

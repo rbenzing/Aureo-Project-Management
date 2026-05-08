@@ -123,8 +123,17 @@ class SettingsController extends BaseController
                 }
             }
 
+            // Developer tools (only relevant outside production)
+            $isDevEnv = ($_ENV['APP_ENV'] ?? 'production') !== 'production'
+                || ($_ENV['APP_DEBUG'] ?? 'false') === 'true';
+
             // Load the view
-            $this->render('Settings/index');
+            $this->render('Settings/index', [
+                'settings' => $settings,
+                'errors' => [],
+                'isDevEnv' => $isDevEnv,
+                'pmaUrl' => 'http://localhost:8081',
+            ]);
 
         } catch (\Exception $e) {
             error_log("Settings index error: " . $e->getMessage());
@@ -191,6 +200,39 @@ class SettingsController extends BaseController
         }
 
         $this->redirect('/settings');
+    }
+
+    /**
+     * JSON probe used by the Developer tab to show phpMyAdmin status.
+     * Restricted to non-production environments.
+     */
+    public function pmaStatus(string $requestMethod, array $data): void
+    {
+        $isDevEnv = ($_ENV['APP_ENV'] ?? 'production') !== 'production'
+            || ($_ENV['APP_DEBUG'] ?? 'false') === 'true';
+
+        header('Content-Type: application/json');
+        if (!$isDevEnv) {
+            http_response_code(404);
+            echo json_encode(['error' => 'not available']);
+            return;
+        }
+
+        $url = 'http://localhost:8081';
+        $running = false;
+        $errno = 0;
+        $errstr = '';
+        $sock = @fsockopen('127.0.0.1', 8081, $errno, $errstr, 0.4);
+        if ($sock !== false) {
+            $running = true;
+            fclose($sock);
+        }
+
+        echo json_encode([
+            'running' => $running,
+            'url' => $url,
+            'launchCommand' => 'composer pma',
+        ]);
     }
 
     /**

@@ -93,6 +93,11 @@ $pageTitle = 'Settings';
                                 <button type="button" class="tab-button border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm" data-tab="sprints">
                                     Sprints
                                 </button>
+                                <?php if (!empty($isDevEnv)): ?>
+                                <button type="button" class="tab-button border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm" data-tab="developer">
+                                    Developer
+                                </button>
+                                <?php endif; ?>
                             </nav>
                         </div>
 
@@ -915,6 +920,47 @@ $pageTitle = 'Settings';
                                     </div>
                                 </div>
                             </div>
+
+                            <?php if (!empty($isDevEnv)): ?>
+                            <!-- Developer Tab -->
+                            <div id="developer" class="tab-content hidden">
+                                <h3 class="text-lg font-medium text-gray-900 dark:text-gray-200 mb-1">Developer Tools</h3>
+                                <p class="text-sm text-gray-500 dark:text-gray-400 mb-6">Local development helpers. This tab is only visible when <code>APP_ENV</code> isn't <code>production</code>.</p>
+
+                                <!-- phpMyAdmin status card -->
+                                <div class="border border-gray-200 dark:border-gray-700 rounded-lg p-5 bg-gray-50 dark:bg-gray-900/40">
+                                    <div class="flex items-start justify-between gap-4">
+                                        <div class="min-w-0">
+                                            <div class="flex items-center gap-3">
+                                                <h4 class="text-base font-semibold text-gray-900 dark:text-gray-100">phpMyAdmin</h4>
+                                                <span id="pmaStatusBadge"
+                                                    class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-200">
+                                                    <span class="w-2 h-2 rounded-full bg-gray-400"></span>
+                                                    Checking…
+                                                </span>
+                                            </div>
+                                            <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">
+                                                Browse the database GUI without needing XAMPP/Apache. URL:
+                                                <code class="font-mono"><?= htmlspecialchars($pmaUrl ?? 'http://localhost:8081') ?></code>
+                                            </p>
+                                            <p id="pmaHint" class="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                                                Not running? Start it with <code class="font-mono px-1.5 py-0.5 rounded bg-gray-200 dark:bg-gray-700">composer pma</code> in a terminal.
+                                            </p>
+                                        </div>
+                                        <a id="pmaOpenLink"
+                                            href="<?= htmlspecialchars($pmaUrl ?? 'http://localhost:8081') ?>"
+                                            target="_blank"
+                                            rel="noopener"
+                                            class="shrink-0 inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md bg-indigo-600 text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed">
+                                            Open
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 3h7m0 0v7m0-7L10 14M5 5h4M5 5v14h14v-4"/>
+                                            </svg>
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                            <?php endif; ?>
                         </div>
                     </form>
                 </div>
@@ -961,6 +1007,33 @@ $pageTitle = 'Settings';
             const firstTab = tabButtons[0];
             if (firstTab) {
                 firstTab.click();
+            }
+
+            // Developer tab: phpMyAdmin status probe
+            const pmaBadge = document.getElementById('pmaStatusBadge');
+            const pmaHint = document.getElementById('pmaHint');
+            const pmaLink = document.getElementById('pmaOpenLink');
+            if (pmaBadge && pmaLink) {
+                const renderStatus = (running) => {
+                    pmaBadge.innerHTML = running
+                        ? '<span class="w-2 h-2 rounded-full bg-green-500"></span> Running'
+                        : '<span class="w-2 h-2 rounded-full bg-red-500"></span> Stopped';
+                    pmaBadge.className = 'inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium ' + (running
+                        ? 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300'
+                        : 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300');
+                    pmaLink.classList.toggle('pointer-events-none', !running);
+                    pmaLink.classList.toggle('opacity-50', !running);
+                    if (pmaHint) pmaHint.classList.toggle('hidden', running);
+                };
+
+                const checkPma = () => {
+                    fetch('/api/dev/pma-status', { cache: 'no-store' })
+                        .then(r => r.ok ? r.json() : null)
+                        .then(data => { if (data) renderStatus(!!data.running); })
+                        .catch(() => renderStatus(false));
+                };
+                checkPma();
+                setInterval(checkPma, 5000);
             }
         });
     </script>
