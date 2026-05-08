@@ -135,15 +135,43 @@ function importSqlFile(PDO $pdo, string $file): void
     $pdo->exec($sql);
 }
 
+function parseArgs(array $argv): array
+{
+    $opts = ['yes' => false, 'skip_if_configured' => false, 'sample_data' => null];
+    foreach (array_slice($argv, 1) as $arg) {
+        if ($arg === '--yes' || $arg === '-y') { $opts['yes'] = true; continue; }
+        if ($arg === '--skip-if-configured') { $opts['skip_if_configured'] = true; continue; }
+        if ($arg === '--no-sample-data') { $opts['sample_data'] = false; continue; }
+        if ($arg === '--sample-data') { $opts['sample_data'] = true; continue; }
+    }
+    return $opts;
+}
+
+function looksConfigured(array $env): bool
+{
+    $name = (string) ($env['DB_NAME'] ?? '');
+    $user = (string) ($env['DB_USERNAME'] ?? '');
+    $placeholders = ['', 'your_database_name', 'your_database_user'];
+    return !in_array($name, $placeholders, true) && !in_array($user, $placeholders, true);
+}
+
 // --- Main ---------------------------------------------------------------
 
 try {
+    $opts = parseArgs($argv);
+
     out('=== Aureo Project Management — Setup ===');
     out('');
 
     ensureEnvFile();
 
     $existing = parse_ini_file(envPath()) ?: [];
+
+    if ($opts['skip_if_configured'] && looksConfigured($existing)) {
+        out('Skipping setup — .env already has DB credentials.');
+        out('Re-run `composer setup` if you need to reconfigure.');
+        exit(0);
+    }
 
     [$defHost, $defPort] = (function () use ($existing): array {
         $raw = (string) ($existing['DB_HOST'] ?? '127.0.0.1:3306');
@@ -167,14 +195,18 @@ try {
         $defName = 'aureo_db';
     }
 
-    out('Enter your local MySQL connection details. Press Enter to accept defaults.');
-    out('');
-
-    $host = ask('DB host', $defHost);
-    $port = (int) ask('DB port', (string) $defPort);
-    $user = ask('DB user', $defUser);
-    $pass = ask('DB password (leave blank for none)', $defPass, true);
-    $name = ask('DB name', $defName);
+    if ($opts['yes']) {
+        out('Running with --yes; using defaults without prompting.');
+        [$host, $port, $user, $pass, $name] = [$defHost, $defPort, $defUser, $defPass, $defName];
+    } else {
+        out('Enter your local MySQL connection details. Press Enter to accept defaults.');
+        out('');
+        $host = ask('DB host', $defHost);
+        $port = (int) ask('DB port', (string) $defPort);
+        $user = ask('DB user', $defUser);
+        $pass = ask('DB password (leave blank for none)', $defPass, true);
+        $name = ask('DB name', $defName);
+    }
 
     out('');
     out("Connecting to mysql://{$user}@{$host}:{$port} ...");
@@ -215,7 +247,14 @@ try {
     }
 
     out('');
-    if (file_exists(ROOT . '/sample-data.sql') && confirm('Import sample data (sample-data.sql)?', false)) {
+    $shouldImport = $opts['sample_data'];
+    if ($shouldImport === null) {
+        $shouldImport = $opts['yes']
+            ? false
+            : confirm('Import sample data (sample-data.sql)?', false);
+    }
+
+    if (file_exists(ROOT . '/sample-data.sql') && $shouldImport) {
         out('Importing sample data ...');
         $dbPdo = new PDO(
             "mysql:host={$host};port={$port};dbname={$name};charset=utf8mb4",

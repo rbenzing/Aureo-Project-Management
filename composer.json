@@ -34,7 +34,10 @@
         "post-root-package-install": [
             "@php -r \"file_exists('.env') || copy('.env.example', '.env');\""
         ],
+        "post-install-cmd": "@php bin/install.php",
+        "post-update-cmd": "@php bin/install.php",
         "start": "php -S localhost:8000 -t public",
+        "install-app": "@php bin/install.php",
         "setup": "@php bin/setup.php",
         "pma": "@php bin/pma.php",
         "pma:install": "@php bin/pma.php install",

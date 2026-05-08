@@ -62,39 +62,34 @@ Aureo Project Management is a comprehensive project management application desig
 
 ## 🚀 Installation
 
-### 1. Clone the Repository
-```bash
-git clone https://github.com/rbenzing/aureo-project-management.git
-cd aureo-project-management
-```
-
-### 2. Install PHP Dependencies
-```bash
-composer install
-```
-
-### 3. Install Node.js Dependencies
-```bash
-npm install
-```
-
-### 4. One-step Setup (Recommended)
+### Quick start (recommended)
 
 Make sure `mysqld` is running locally, then:
 
 ```bash
-composer setup
+git clone https://github.com/rbenzing/Aureo-Project-Management.git
+cd Aureo-Project-Management
+composer install     # also runs npm install, builds CSS, and prompts for DB config
+composer start       # http://localhost:8000
 ```
 
-This interactive installer will:
-- Create `.env` from `.env.example` if missing
-- Prompt for DB host/port/user/password/name (defaults: `127.0.0.1`, `3306`, `root`, empty, `aureo_db` — i.e. a stock local MySQL)
-- Test the connection and `CREATE DATABASE IF NOT EXISTS`
-- Persist credentials to `.env`
-- Run Phinx migrations
-- Optionally import `sample-data.sql` (no `mysql` CLI required)
+`composer install` triggers `bin/install.php`, which runs all post-install steps idempotently:
 
-### 5. Manual Database Setup (alternative)
+1. `npm install` (skipped if `node_modules/` exists)
+2. `npm run build` (skipped if `public/assets/css/styles.css` exists)
+3. **Interactive DB setup** — only on first install. Prompts for DB host/port/user/password/name (defaults: `127.0.0.1`, `3306`, `root`, empty, `aureo_db`), creates the database, writes `.env`, and runs Phinx migrations. Press Enter at each prompt to accept the default for stock local MySQL.
+
+Subsequent runs of `composer install` or `composer update` are quiet — every step skips itself if it's already done.
+
+#### Re-run any step manually
+
+```bash
+composer install-app    # re-run the orchestrator
+composer setup          # re-prompt for DB config
+composer setup -- --yes # non-interactive: accept all defaults
+```
+
+### Manual database setup (alternative)
 
 If you prefer to do it by hand:
 
@@ -115,7 +110,7 @@ mysql -u root -p aureo_db < schema.sql
 mysql -u root -p aureo_db < sample-data.sql   # optional sample data
 ```
 
-### 6. (Optional) phpMyAdmin
+### (Optional) phpMyAdmin
 
 To browse the database with phpMyAdmin without needing XAMPP/Apache:
 
@@ -128,13 +123,16 @@ The script auto-generates `tools/pma/config.inc.php` from your `.env`, so log in
 
 To pick a different port: `composer pma -- port=8090`.
 
-### 7. Build Frontend Assets
+### Build Frontend Assets manually
 ```bash
-# Build CSS assets
 npm run build
+# or, for development with auto-rebuild:
+npm run watch
 ```
 
-### 8. Web Server Configuration
+(`composer install` already builds CSS for you on first run.)
+
+### Web Server Configuration
 Point your web server document root to the `public/` directory.
 
 #### Apache (.htaccess included)
