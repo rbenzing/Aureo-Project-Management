@@ -281,14 +281,14 @@ try {
         } else {
             echo "Database error occurred";
         }
-    } catch (\Exception $securityException) {
+    } catch (\Throwable $securityException) {
         $logger->exception($securityException, ['type' => 'security_service_error']);
         echo "Database error occurred";
     }
-} catch (\Exception $e) {
-    // Other errors
+} catch (\Throwable $e) {
+    // Other errors (including PHP Errors / fatal type errors)
     $logger->exception($e, ['type' => 'general_error']);
-    $code = $e->getCode() ?: 500;
+    $code = (is_int($e->getCode()) && $e->getCode() >= 400 && $e->getCode() < 600) ? $e->getCode() : 500;
     http_response_code($code);
 
     // Check if we should hide error details
@@ -299,7 +299,7 @@ try {
         } else {
             echo $e->getMessage();
         }
-    } catch (\Exception $securityException) {
+    } catch (\Throwable $securityException) {
         $logger->exception($securityException, ['type' => 'security_service_error']);
         echo "An error occurred. Please try again later.";
     }

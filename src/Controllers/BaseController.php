@@ -57,7 +57,7 @@ abstract class BaseController
         extract($data);
 
         // Include the view file
-        include BASE_PATH . "/../Views/{$view}.php";
+        include BASE_PATH . "/../src/Views/{$view}.php";
     }
 
     /**
