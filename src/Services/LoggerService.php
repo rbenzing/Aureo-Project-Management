@@ -128,7 +128,7 @@ class LoggerService
     /**
      * Log an exception with full stack trace
      */
-    public function exception(Exception $exception, array $context = []): void
+    public function exception(\Throwable $exception, array $context = []): void
     {
         $message = sprintf(
             "Exception: %s in %s:%d\nStack trace:\n%s",

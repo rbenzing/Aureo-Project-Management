@@ -134,7 +134,11 @@ class DashboardController extends BaseController
                 ];
             }
 
-            $this->render('Dashboard/index');
+            $this->render('Dashboard/index', [
+                'user' => $user,
+                'userPermissions' => $userPermissions,
+                'dashboardData' => $dashboardData,
+            ]);
 
         } catch (\Exception $e) {
             // Only redirect to login for actual authentication/authorization errors

@@ -139,6 +139,7 @@ class Sprint extends BaseModel
 
         $sprints = $this->queryBuilder([
             'select' => 's.*, p.name as project_name, ss.name as status_name',
+            'alias' => 's',
             'joins' => [
                 ['type' => 'LEFT', 'table' => 'projects p', 'on' => 's.project_id = p.id'],
                 ['type' => 'LEFT', 'table' => 'statuses_sprint ss', 'on' => 's.status_id = ss.id'],

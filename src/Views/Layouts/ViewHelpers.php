@@ -454,7 +454,7 @@ function renderActionButtons(string $entityType, int $id, array $permissions = [
  */
 function hasUserPermission(string $permission): bool
 {
-    $userPermissions = $currentUser['permissions'] ?? [];
+    $userPermissions = $_SESSION['user']['permissions'] ?? [];
 
     return in_array($permission, $userPermissions, true);
 }
@@ -464,7 +464,7 @@ function hasUserPermission(string $permission): bool
  */
 function hasAnyUserPermission(array $permissions): bool
 {
-    $userPermissions = $currentUser['permissions'] ?? [];
+    $userPermissions = $_SESSION['user']['permissions'] ?? [];
     foreach ($permissions as $permission) {
         if (in_array($permission, $userPermissions, true)) {
             return true;
@@ -479,7 +479,7 @@ function hasAnyUserPermission(array $permissions): bool
  */
 function hasAllUserPermissions(array $permissions): bool
 {
-    $userPermissions = $currentUser['permissions'] ?? [];
+    $userPermissions = $_SESSION['user']['permissions'] ?? [];
     foreach ($permissions as $permission) {
         if (!in_array($permission, $userPermissions, true)) {
             return false;

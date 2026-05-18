@@ -321,52 +321,46 @@ class SecurityService
 
         $identifier = $identifier ?? ($_SERVER['REMOTE_ADDR'] ?? 'unknown');
 
-        // Clean up expired rate limit entries
+        // Opportunistically clean up long-stale rows; not relied on for correctness.
         $this->cleanupExpiredRateLimits();
 
         try {
-            // Check for existing rate limit record
-            $query = "SELECT attempts, expires_at FROM `rate_limits`
-                     WHERE identifier = :identifier AND action = :action
-                     AND expires_at > NOW()";
-            $stmt = $this->db->executeQuery($query, [
+            // Single atomic upsert: if the row is fresh (expires_at > NOW()), increment
+            // attempts; if it's stale or missing, reset to a new window. Avoids the
+            // SELECT/INSERT race that produced duplicate-key errors every request.
+            $sql = "INSERT INTO `rate_limits`
+                        (identifier, action, attempts, window_start, expires_at)
+                    VALUES
+                        (:identifier, :action, 1, NOW(), DATE_ADD(NOW(), INTERVAL :window SECOND))
+                    ON DUPLICATE KEY UPDATE
+                        attempts = IF(expires_at > NOW(), attempts + 1, 1),
+                        window_start = IF(expires_at > NOW(), window_start, NOW()),
+                        expires_at = IF(expires_at > NOW(), expires_at, DATE_ADD(NOW(), INTERVAL :window2 SECOND)),
+                        updated_at = NOW()";
+            $this->db->executeQuery($sql, [
                 ':identifier' => $identifier,
                 ':action' => $action,
+                ':window' => $windowSeconds,
+                ':window2' => $windowSeconds,
             ]);
-            $record = $stmt->fetch();
 
-            if ($record) {
-                // Update existing record
-                $newAttempts = $record['attempts'] + 1;
-                $updateQuery = "UPDATE `rate_limits`
-                              SET attempts = :attempts, updated_at = NOW()
-                              WHERE identifier = :identifier AND action = :action";
-                $this->db->executeQuery($updateQuery, [
-                    ':attempts' => $newAttempts,
-                    ':identifier' => $identifier,
-                    ':action' => $action,
+            // Read back the post-upsert attempt count to enforce the limit.
+            $stmt = $this->db->executeQuery(
+                "SELECT attempts FROM `rate_limits`
+                 WHERE identifier = :identifier AND action = :action",
+                [':identifier' => $identifier, ':action' => $action]
+            );
+            $row = $stmt->fetch();
+            $attempts = $row ? (int) $row['attempts'] : 1;
+
+            if ($attempts > $maxAttempts) {
+                $this->logSecurityEvent('rate_limit_exceeded', [
+                    'identifier' => $identifier,
+                    'action' => $action,
+                    'attempts' => $attempts,
+                    'limit' => $maxAttempts,
                 ]);
-
-                if ($newAttempts > $maxAttempts) {
-                    $this->logSecurityEvent('rate_limit_exceeded', [
-                        'identifier' => $identifier,
-                        'action' => $action,
-                        'attempts' => $newAttempts,
-                        'limit' => $maxAttempts,
-                    ]);
-
-                    return false;
-                }
-            } else {
-                // Create new rate limit record
-                $insertQuery = "INSERT INTO `rate_limits`
-                              (identifier, action, attempts, window_start, expires_at)
-                              VALUES (:identifier, :action, 1, NOW(), DATE_ADD(NOW(), INTERVAL :window SECOND))";
-                $this->db->executeQuery($insertQuery, [
-                    ':identifier' => $identifier,
-                    ':action' => $action,
-                    ':window' => $windowSeconds,
-                ]);
+                return false;
             }
 
             return true;

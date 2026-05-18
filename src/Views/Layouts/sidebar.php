@@ -125,7 +125,7 @@ function hasPermission($permission)
     }
 
     // Get user permissions from session
-    $userPermissions = $currentUser['permissions'] ?? [];
+    $userPermissions = $_SESSION['user']['permissions'] ?? [];
 
     return in_array($permission, $userPermissions, true);
 }

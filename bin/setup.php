@@ -38,13 +38,23 @@ function ask(string $label, string $default = '', bool $secret = false): string
     if ($secret && stripos(PHP_OS, 'WIN') !== 0) {
         // POSIX: disable echo
         @shell_exec('stty -echo');
-        $line = trim((string) fgets(STDIN));
+        $raw = fgets(STDIN);
         @shell_exec('stty echo');
         fwrite(STDOUT, PHP_EOL);
     } else {
-        $line = trim((string) fgets(STDIN));
+        $raw = fgets(STDIN);
     }
 
+    if ($raw === false) {
+        throw new RuntimeException(
+            "STDIN closed before input could be read.\n" .
+            "If you ran this via `composer setup`, Composer is piping STDIN.\n" .
+            "Run directly instead:  php bin/setup.php\n" .
+            "Or accept defaults non-interactively:  php bin/setup.php --yes"
+        );
+    }
+
+    $line = trim($raw);
     return $line === '' ? $default : $line;
 }
 
@@ -247,6 +257,25 @@ try {
     }
 
     out('');
+    out('Set the admin password for admin@aureo.us.');
+    if ($opts['yes']) {
+        $adminPass = 'password';
+        out('  Using default password "password" (--yes).');
+    } else {
+        $adminPass = ask('Admin password (leave blank to keep "password")', 'password', true);
+    }
+
+    $dbPdo = new PDO(
+        "mysql:host={$host};port={$port};dbname={$name};charset=utf8mb4",
+        $user,
+        $pass,
+        [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]
+    );
+    $stmt = $dbPdo->prepare("UPDATE users SET password_hash = :h WHERE email = 'admin@aureo.us'");
+    $stmt->execute([':h' => password_hash($adminPass, PASSWORD_ARGON2ID)]);
+    out('  Admin password set.');
+
+    out('');
     $shouldImport = $opts['sample_data'];
     if ($shouldImport === null) {
         $shouldImport = $opts['yes']
@@ -256,12 +285,6 @@ try {
 
     if (file_exists(ROOT . '/sample-data.sql') && $shouldImport) {
         out('Importing sample data ...');
-        $dbPdo = new PDO(
-            "mysql:host={$host};port={$port};dbname={$name};charset=utf8mb4",
-            $user,
-            $pass,
-            [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]
-        );
         importSqlFile($dbPdo, ROOT . '/sample-data.sql');
         out('  Sample data imported.');
     }

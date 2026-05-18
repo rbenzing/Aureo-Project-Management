@@ -186,7 +186,7 @@ class Task extends BaseModel
             $low = Priority::LOW->sortOrder();
             $none = Priority::NONE->sortOrder();
 
-            return "ORDER BY {$hierarchicalOrder}, CASE
+            return "{$hierarchicalOrder}, CASE
                         WHEN t.priority = '" . Priority::HIGH->value . "' THEN {$high}
                         WHEN t.priority = '" . Priority::MEDIUM->value . "' THEN {$medium}
                         WHEN t.priority = '" . Priority::LOW->value . "' THEN {$low}
@@ -196,10 +196,10 @@ class Task extends BaseModel
 
         // Special handling for due_date (null values last)
         if ($sortField === 'due_date') {
-            return "ORDER BY {$hierarchicalOrder}, CASE WHEN t.due_date IS NULL THEN 1 ELSE 0 END, t.due_date {$sortDirection}";
+            return "{$hierarchicalOrder}, CASE WHEN t.due_date IS NULL THEN 1 ELSE 0 END, t.due_date {$sortDirection}";
         }
 
-        return "ORDER BY {$hierarchicalOrder}, {$dbField} {$sortDirection}";
+        return "{$hierarchicalOrder}, {$dbField} {$sortDirection}";
     }
 
     /**
@@ -256,6 +256,7 @@ class Task extends BaseModel
 
         $tasks = $this->queryBuilder([
             'select' => 't.*, p.name as project_name, ts.name as status_name, u.first_name, u.last_name',
+            'alias' => 't',
             'joins' => [
                 ['type' => 'LEFT', 'table' => 'projects p', 'on' => 't.project_id = p.id'],
                 ['type' => 'LEFT', 'table' => 'statuses_task ts', 'on' => 't.status_id = ts.id'],
@@ -340,6 +341,7 @@ class Task extends BaseModel
 
         $tasks = $this->queryBuilder([
             'select' => 't.*, ts.name AS status_name, u.first_name, u.last_name, p.name as project_name',
+            'alias' => 't',
             'joins' => [
                 ['type' => 'LEFT', 'table' => 'statuses_task ts', 'on' => 't.status_id = ts.id'],
                 ['type' => 'LEFT', 'table' => 'users u', 'on' => 't.assigned_to = u.id'],
@@ -501,7 +503,7 @@ class Task extends BaseModel
                     t.priority DESC,
                     t.created_at DESC";
             } else {
-                $orderBy = $this->buildOrderByClause($sortField, $sortDirection);
+                $orderBy = "ORDER BY " . $this->buildOrderByClause($sortField, $sortDirection);
             }
 
             $sql = "SELECT t.*,

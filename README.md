@@ -1,149 +1,129 @@
 # Aureo Project Management
 
-[![PHP Version](https://img.shields.io/badge/PHP-8.1%2B-blue.svg)](https://php.net)
+[![PHP](https://img.shields.io/badge/PHP-8.1%2B-blue.svg)](https://php.net)
 [![License](https://img.shields.io/badge/License-AGPLv3-blue.svg)](LICENSE)
 [![TailwindCSS](https://img.shields.io/badge/TailwindCSS-3.4-blue.svg)](https://tailwindcss.com)
 
-Aureo Project Management is a comprehensive project management application designed for modern agile teams. Built with PHP and featuring a clean, responsive interface powered by TailwindCSS, it provides everything you need to manage projects, tasks, sprints, and team collaboration effectively.
+Project, task, sprint, and time-tracking app for agile teams. PHP 8.1+, MySQL, TailwindCSS. No framework, no ORM — small and inspectable.
 
-## 🚀 Features
+---
 
-### Core Project Management
-- **Project Management**: Create and manage multiple projects with detailed tracking
-- **Task Management**: Advanced task system with subtasks, priorities, and custom types (story, bug, task, epic)
-- **Sprint Planning**: Full Scrum/Agile support with sprint management and backlog prioritization
-- **Milestone Tracking**: Epic and milestone management with progress tracking
-- **Time Tracking**: Built-in time tracking with billable hours and project costing
+## Get running in under a minute
 
-### Team Collaboration
-- **User Management**: Comprehensive user system with profile management
-- **Company Management**: Multi-company support with user associations
-- **Role-Based Access Control**: Granular permission system with customizable roles
-- **Activity Logging**: Track all user activities and system changes
-- **Task Comments**: Collaborative task discussions with comment system
-
-### Advanced Features
-- **Templates**: Reusable templates for projects, tasks, milestones, and sprints
-- **Dashboard Analytics**: Real-time project metrics and team performance insights
-- **Security**: Enterprise-grade security with CSRF protection, rate limiting, and secure headers
-- **Responsive Design**: Mobile-friendly interface that works on all devices
-- **Settings Management**: Configurable application settings and preferences
-
-## 🛠️ Technology Stack
-
-### Backend
-- **PHP 8.1+** - Core application logic with strict typing
-- **MySQL** - Primary database with comprehensive relational schema
-- **PDO** - Database abstraction layer with prepared statements
-- **Custom MVC Architecture** - Clean separation of concerns
-- **Composer** - Dependency management
-- **PHPUnit** - Testing framework
-- **PHP CS Fixer** - Code style enforcement (PSR-12)
-
-### Frontend
-- **TailwindCSS 3.4** - Utility-first CSS framework
-- **PostCSS** - CSS processing with plugins
-- **Responsive Design** - Mobile-first approach
-
-### Security & Infrastructure
-- **Argon2** - Password hashing
-- **CSRF Protection** - Cross-site request forgery prevention
-- **Rate Limiting** - API and request rate limiting
-- **Security Headers** - Comprehensive security header implementation
-- **Session Management** - Secure session handling
-
-## 📋 Requirements
-
-- **PHP 8.1 or higher** (with strict type support)
-- **MySQL 5.7 or higher** (InnoDB engine required)
-- **Composer** - For PHP dependency management
-- **Node.js & NPM** - For frontend asset compilation
-- **Web Server** - Apache/Nginx with PHP support and HTTPS (production)
-
-## 🚀 Installation
-
-### Quick start (recommended)
-
-Make sure `mysqld` is running locally, then:
+**Prerequisites:** PHP 8.1+, MySQL 8.0+, Composer, Node.js + npm, and a local `mysqld` running.
 
 ```bash
 git clone https://github.com/rbenzing/Aureo-Project-Management.git
 cd Aureo-Project-Management
-composer install     # also runs npm install, builds CSS, and prompts for DB config
-composer start       # http://localhost:8000
+
+composer install      # installs PHP + npm deps, builds CSS
+php bin/setup.php     # interactive: DB creds, migrations, admin password, sample data
+composer start        # serves http://localhost:8000
 ```
 
-`composer install` triggers `bin/install.php`, which runs all post-install steps idempotently:
+Open <http://localhost:8000> and log in:
 
-1. `npm install` (skipped if `node_modules/` exists)
-2. `npm run build` (skipped if `public/assets/css/styles.css` exists)
-3. **Interactive DB setup** — only on first install. Prompts for DB host/port/user/password/name (defaults: `127.0.0.1`, `3306`, `root`, empty, `aureo_db`), creates the database, writes `.env`, and runs Phinx migrations. Press Enter at each prompt to accept the default for stock local MySQL.
+| Email | Password |
+|---|---|
+| `admin@aureo.us` | `password` |
 
-Subsequent runs of `composer install` or `composer update` are quiet — every step skips itself if it's already done.
+The admin user is seeded with **all 55 permissions** and full access to every feature. Change the password from Settings → Profile after first login.
 
-#### Re-run any step manually
+> **Why `php bin/setup.php` and not `composer setup`?** Composer pipes STDIN through its process wrapper, which breaks interactive prompts. Run the setup script directly so it can talk to your terminal.
+
+---
+
+## What `php bin/setup.php` does
+
+1. Copies `.env.example` → `.env` if missing.
+2. Prompts for MySQL host/port/user/password/database (defaults work for stock XAMPP / local MySQL with no root password).
+3. Connects, creates the database if needed, writes credentials to `.env`.
+4. Runs Phinx migrations (schema + admin user + 55 permissions).
+5. Prompts for the admin password (defaults to `password`).
+6. Optionally imports `sample-data.sql` (5 companies, 25 fake users, 50 projects, 5000 tasks, 50 sprints).
+
+Re-run it any time to reconfigure. Pass `--yes` to accept every default non-interactively.
+
+---
+
+## Common commands
 
 ```bash
-composer install-app    # re-run the orchestrator
-composer setup          # re-prompt for DB config
-composer setup -- --yes # non-interactive: accept all defaults
+composer start              # PHP dev server at http://localhost:8000
+composer pma                # phpMyAdmin at http://localhost:8081
+composer test               # PHPUnit
+composer cs:check           # PSR-12 lint
+composer cs:fix             # auto-fix style
+composer migrate            # apply pending Phinx migrations
+composer migrate:status     # show migration state
+composer migrate:rollback   # undo the last migration
+composer migrate:create Foo # create a new migration in db/migrations/
+npm run build               # rebuild Tailwind CSS to public/assets/css/styles.css
+npm run watch               # rebuild on change
 ```
 
-### Manual database setup (alternative)
+---
 
-If you prefer to do it by hand:
+## Configuration (`.env`)
 
-```bash
-cp .env.example .env       # then edit DB_* values
+`bin/setup.php` writes a working `.env` for local development. Key values:
 
-# Create the database (any one of these)
-mysql -u root -p -e "CREATE DATABASE aureo_db;"
-# ...or let composer setup handle it.
+```ini
+DB_HOST=127.0.0.1:3306
+DB_NAME=aureo_db
+DB_USERNAME=root
+DB_PASSWORD=
 
-composer migrate           # run migrations
-composer migrate:status    # verify
+APP_ENV=local        # production requires non-empty DB_PASSWORD
+APP_DEBUG=true
+APP_SCHEME=http      # set to https in production
+SESSION_SECURE=false # set to true in production (requires HTTPS)
 ```
 
-#### Legacy: Direct SQL Import
-```bash
-mysql -u root -p aureo_db < schema.sql
-mysql -u root -p aureo_db < sample-data.sql   # optional sample data
+For email/SMTP, see `.env.example`.
+
+---
+
+## Project layout
+
+```
+public/             # web root — point your server here
+  index.php         # entry point and route registry
+src/
+  Controllers/      # HTTP handlers; extend BaseController
+  Models/           # PDO models; extend BaseModel
+  Services/         # business logic and infrastructure
+  Middleware/       # Auth, CSRF, Activity, Session
+  Views/            # plain PHP templates (no engine)
+  Enums/            # backed enums (string and int)
+  Core/             # Router, Config, Database
+config/             # DI container wiring
+db/
+  migrations/       # Phinx migrations (canonical schema lives here)
+  seeds/            # Phinx seed files
+bin/
+  setup.php         # interactive installer
+  install.php       # composer post-install orchestrator (npm only)
+  pma.php           # downloads + serves phpMyAdmin locally
+log/                # application log: log/aureo.log
 ```
 
-### (Optional) phpMyAdmin
+---
 
-To browse the database with phpMyAdmin without needing XAMPP/Apache:
+## Deploying to a real server
 
-```bash
-composer pma          # downloads phpMyAdmin to tools/pma (first run) and serves it on http://localhost:8081
-composer pma:install  # download/upgrade only, don't start the server
-```
+1. Point the web server's document root at `public/`.
+2. Set `APP_ENV=production`, `APP_DEBUG=false`, `APP_SCHEME=https`, `SESSION_SECURE=true`.
+3. Provide non-empty `DB_PASSWORD` (production refuses to boot without it).
+4. Configure HTTPS — `SECURITY.md` covers the headers and cookie posture.
 
-The script auto-generates `tools/pma/config.inc.php` from your `.env`, so log in with the same MySQL credentials. The `tools/` directory is gitignored.
+### Nginx example
 
-To pick a different port: `composer pma -- port=8090`.
-
-### Build Frontend Assets manually
-```bash
-npm run build
-# or, for development with auto-rebuild:
-npm run watch
-```
-
-(`composer install` already builds CSS for you on first run.)
-
-### Web Server Configuration
-Point your web server document root to the `public/` directory.
-
-#### Apache (.htaccess included)
-The application includes `.htaccess` files for Apache configuration.
-
-#### Nginx
 ```nginx
 server {
-    listen 80;
+    listen 443 ssl http2;
     server_name your-domain.com;
-    root /path/to/aureo-project-management/public;
+    root /var/www/aureo/public;
     index index.php;
 
     location / {
@@ -151,7 +131,7 @@ server {
     }
 
     location ~ \.php$ {
-        fastcgi_pass unix:/var/run/php/php7.4-fpm.sock;
+        fastcgi_pass unix:/run/php/php8.1-fpm.sock;
         fastcgi_index index.php;
         fastcgi_param SCRIPT_FILENAME $realpath_root$fastcgi_script_name;
         include fastcgi_params;
@@ -159,397 +139,40 @@ server {
 }
 ```
 
-## ⚙️ Configuration
-
-### Environment Variables (.env)
-```env
-# Database Configuration
-DB_HOST=localhost
-DB_NAME=aureo_db
-DB_USER=your_username
-DB_PASS=your_password
-
-# Application Settings
-APP_DEBUG=false
-TIMEZONE=America/New_York
-DOMAIN=your-domain.com
-COMPANY=Your Company Name
-SCHEME=https
-
-# Email Configuration (for notifications)
-MAIL_HOST=smtp.your-provider.com
-MAIL_PORT=587
-MAIL_USERNAME=your-email@domain.com
-MAIL_PASSWORD=your-password
-MAIL_ENCRYPTION=tls
-```
-
-### Default Admin User
-After running the schema, a default admin user is created:
-- **Email**: `admin@aureo.us`
-- **Password**: `password` (change immediately after first login)
-
-## 📁 Project Structure
-
-```
-aureo-project-management/
-├── public/                 # Web server document root
-│   ├── assets/            # Compiled CSS and static assets
-│   └── index.php          # Application entry point
-├── src/                   # Application source code
-│   ├── Core/              # Core framework classes
-│   │   ├── Config.php     # Configuration management
-│   │   ├── Database.php   # Database connection and queries
-│   │   └── Router.php     # URL routing system
-│   ├── Controllers/       # MVC Controllers
-│   ├── Models/           # Data models and business logic
-│   ├── Views/            # HTML templates and views
-│   ├── Middleware/       # Request middleware (Auth, CSRF, etc.)
-│   ├── Services/         # Business services (Security, Email, etc.)
-│   └── Utils/            # Utility classes and helpers
-├── schema.sql            # Database schema
-├── sample-data.sql       # Sample data for testing
-├── composer.json         # PHP dependencies
-├── package.json          # Node.js dependencies
-├── tailwind.config.js    # TailwindCSS configuration
-└── postcss.config.js     # PostCSS configuration
-```
-
-## 🎯 Usage
-
-### Getting Started
-1. **Access the Application**: Navigate to your configured domain
-2. **Login**: Use the default admin credentials or register a new account
-3. **Create a Company**: Set up your organization
-4. **Add Team Members**: Invite users and assign roles
-5. **Create Projects**: Start your first project with tasks and milestones
-
-### Key Workflows
-
-#### Project Management
-1. **Create Project**: Define project scope, assign owner, set dates
-2. **Add Milestones**: Break project into manageable milestones/epics
-3. **Create Tasks**: Add detailed tasks with priorities and assignments
-4. **Track Progress**: Monitor project health and team performance
-
-#### Sprint Planning (Agile/Scrum)
-1. **Product Backlog**: Create and prioritize user stories
-2. **Sprint Planning**: Assign tasks to sprints with story points
-3. **Sprint Execution**: Track daily progress and time spent
-4. **Sprint Review**: Complete sprints and analyze velocity
-
-#### Time Tracking
-1. **Start Timer**: Begin tracking time on active tasks
-2. **Log Hours**: Record billable and non-billable time
-3. **Generate Reports**: Analyze time spent across projects
-4. **Project Costing**: Calculate project profitability
-
-## 🔐 Security Features
-
-### Authentication & Authorization
-- **Secure Login**: Argon2 password hashing with account activation
-- **Role-Based Access**: Granular permissions for different user types
-- **Session Security**: Secure session management with timeout
-- **Password Reset**: Secure password reset via email tokens
-
-### Application Security
-- **CSRF Protection**: Cross-site request forgery prevention
-- **Rate Limiting**: Prevent abuse with configurable rate limits
-- **Input Validation**: Comprehensive input sanitization
-- **Security Headers**: HSTS, CSP, and other security headers
-- **Activity Logging**: Track all user actions for audit trails
-
-### Data Protection
-- **SQL Injection Prevention**: Prepared statements and parameterized queries
-- **XSS Protection**: Output encoding and content security policy
-- **File Upload Security**: Secure file handling (if implemented)
-- **Environment Configuration**: Sensitive data in environment variables
-
-## 📊 Database Schema
-
-The application uses a comprehensive MySQL schema with the following key entities:
-
-### Core Tables
-- **users**: User accounts with authentication and profile data
-- **companies**: Organization management with multi-tenancy support
-- **roles**: Role definitions with hierarchical permissions
-- **permissions**: Granular permission system
-
-### Project Management
-- **projects**: Project definitions with status and ownership
-- **tasks**: Task management with subtasks and dependencies
-- **milestones**: Epic and milestone tracking
-- **sprints**: Sprint management for agile workflows
-
-### Collaboration & Tracking
-- **task_comments**: Task discussion and collaboration
-- **time_entries**: Time tracking with billable hours
-- **activity_logs**: Comprehensive audit trail
-- **templates**: Reusable project and task templates
-
-### System Tables
-- **settings**: Application configuration (InnoDB)
-- **sessions**: Session management
-- **csrf_tokens**: CSRF protection tokens
-- **rate_limits**: Database-persisted rate limiting
-
-## 🔧 Development
-
-### Local Development Setup
-```bash
-# Start PHP development server
-composer start
-
-# Watch for CSS changes
-npm run build
-
-# For development with auto-rebuild
-npm run watch
-
-# Run tests
-composer test
-
-# Run code style checks
-composer cs:check
-
-# Auto-fix code style issues
-composer cs:fix
-```
-
-### Database Migrations
-
-The application uses **Phinx** for database migrations, providing version control for your database schema.
-
-#### Migration Commands
-```bash
-# Run all pending migrations
-composer migrate
-
-# Rollback the last migration
-composer migrate:rollback
-
-# Check migration status
-composer migrate:status
-
-# Create a new migration
-composer migrate:create MyNewMigration
-```
-
-#### Creating a Migration
-```bash
-# Create a new migration file
-composer migrate:create AddColumnToUsers
-
-# Edit the generated file in db/migrations/
-# Example: db/migrations/20231215123456_add_column_to_users.php
-```
-
-Example migration structure:
-```php
-<?php
-
-declare(strict_types=1);
-
-use Phinx\Migration\AbstractMigration;
-
-final class AddColumnToUsers extends AbstractMigration
-{
-    public function up(): void
-    {
-        $this->execute("
-            ALTER TABLE `users`
-            ADD COLUMN `phone_verified` TINYINT(1) UNSIGNED DEFAULT 0
-        ");
-    }
-
-    public function down(): void
-    {
-        $this->execute("
-            ALTER TABLE `users`
-            DROP COLUMN `phone_verified`
-        ");
-    }
-}
-```
-
-#### Migration Best Practices
-- Always test migrations on a development database first
-- Write both `up()` and `down()` methods for reversibility
-- Use transactions for data migrations when possible
-- Never modify existing migrations that have been deployed
-- Keep migrations focused on a single change
-- Use meaningful migration names
-
-#### Important Notes
-- All primary and foreign keys use **BIGINT UNSIGNED** for scalability
-- The initial migration includes all core tables with seed data
-- Migrations are tracked in the `phinxlog` table
-- Configuration is in [phinx.php](phinx.php)
-
-### Code Structure
-
-#### MVC Architecture
-- **Models**: Handle data logic and database interactions
-- **Views**: PHP templates with embedded HTML/CSS
-- **Controllers**: Handle HTTP requests and coordinate between models and views
-
-#### Core Classes
-- **Router**: Custom URL routing with parameter extraction
-- **Database**: PDO wrapper with query logging and error handling
-- **Config**: Environment-based configuration management
-- **SecurityService**: Centralized security features
-
-#### Middleware Stack
-- **AuthMiddleware**: Authentication and authorization
-- **CsrfMiddleware**: CSRF token validation
-- **ActivityMiddleware**: User activity logging
-- **SessionMiddleware**: Session management
-
-### Extending the Application
-
-#### Adding New Features
-1. **Create Model**: Extend `BaseModel` for data operations
-2. **Create Controller**: Handle HTTP requests and business logic
-3. **Add Routes**: Register new routes in `public/index.php`
-4. **Create Views**: Build PHP templates for UI
-5. **Update Permissions**: Add new permissions if needed
-
-#### Custom Permissions
-```php
-// Add to permissions table
-INSERT INTO permissions (name, description) VALUES
-('custom_feature', 'Access to custom feature');
-
-// Assign to role
-INSERT INTO role_permissions (role_id, permission_id)
-SELECT r.id, p.id FROM roles r, permissions p
-WHERE r.name = 'admin' AND p.name = 'custom_feature';
-```
-
-## 🧪 Testing
-
-### Automated Testing
-The project uses PHPUnit for automated testing:
-```bash
-# Run all tests
-composer test
-
-# Run tests with coverage report
-composer test:coverage
-
-# View coverage report
-open coverage/index.html
-```
-
-### Code Quality
-Enforce PSR-12 coding standards with PHP CS Fixer:
-```bash
-# Check code style
-composer cs:check
-
-# Automatically fix code style issues
-composer cs:fix
-```
-
-### Sample Data
-The application includes comprehensive sample data for testing:
-```bash
-# Import sample data (includes users, projects, tasks, etc.)
-mysql -u root -p aureo_db < sample-data.sql
-```
-
-### Test Accounts
-After importing sample data, you can use these test accounts:
-- **Admin**: `admin@aureo.us` / `password`
-- **Manager**: Various manager accounts with different permissions
-- **Developer**: Multiple developer accounts for testing team features
-
-## 🚀 Deployment
-
-### Production Deployment
-1. **Server Requirements**: Ensure PHP 7.4+, MySQL 5.7+, and web server
-2. **Environment**: Set `APP_DEBUG=false` in production
-3. **Database**: Use production database credentials
-4. **SSL**: Configure HTTPS with proper certificates
-5. **Security**: Review and configure security settings
-6. **Backups**: Implement regular database backups
-
-### Performance Optimization
-- **Database Indexing**: Schema includes optimized indexes
-- **Query Optimization**: Efficient queries with proper joins
-- **Asset Optimization**: Minified CSS in production
-- **Caching**: Consider implementing Redis/Memcached for sessions
-
-## 📝 API Documentation
-
-### Authentication Endpoints
-- `POST /login` - User authentication
-- `POST /register` - User registration
-- `GET /logout` - User logout
-- `POST /forgot-password` - Password reset request
-
-### Project Management Endpoints
-- `GET /projects` - List projects
-- `POST /projects/create` - Create new project
-- `GET /projects/view/{id}` - View project details
-- `POST /projects/update` - Update project
-
-### Task Management Endpoints
-- `GET /tasks` - List tasks with filtering
-- `POST /tasks/create` - Create new task
-- `POST /tasks/update` - Update task
-- `POST /tasks/start-timer/{id}` - Start time tracking
-- `POST /tasks/stop-timer/{id}` - Stop time tracking
-
-## 🤝 Contributing
-
-1. **Fork the Repository**
-2. **Create Feature Branch**: `git checkout -b feature/amazing-feature`
-3. **Commit Changes**: `git commit -m 'Add amazing feature'`
-4. **Push to Branch**: `git push origin feature/amazing-feature`
-5. **Open Pull Request**
-
-### Development Guidelines
-- Follow **PSR-12** coding standards (enforced by PHP CS Fixer)
-- Follow **PSR-4** autoloading standards
-- Use **strict typing** (`declare(strict_types=1)`) in all PHP files
-- Write **PHPUnit tests** for new features
-- Use meaningful commit messages
-- Add comments for complex logic
-- Run `composer cs:fix` before committing
-- Update documentation as needed
-
-### Security Guidelines
-Before contributing, review [SECURITY.md](SECURITY.md) for security best practices:
-- Never commit `.env` files
-- Use prepared statements for all database queries
-- Validate and sanitize all user input
-- Follow password hashing guidelines (Argon2ID)
-- Implement CSRF protection for state-changing operations
-
-## 📄 License
-
-This project is licensed under the GNU Affero General Public License v3.0 (AGPL-3.0) - see the [LICENSE](LICENSE) file for details.
-
-**Important:** The AGPL-3.0 license requires that if you modify this software and use it to provide a service over a network, you must make the complete source code of your modified version available to users of that service.
-
-## 👨‍💻 Author
-
-**Russell Benzing**
-- Email: me@russellbenzing.com
-- GitHub: [@rbenzing](https://github.com/rbenzing)
-
-## 🙏 Acknowledgments
-
-- **TailwindCSS** - For the excellent utility-first CSS framework
-- **PHP Community** - For the robust ecosystem and best practices
-- **Agile/Scrum Methodology** - For inspiring the project management features
-- **Open Source Community** - For the tools and libraries that make this possible
-
-## 📞 Support
-
-For support, email me@russellbenzing.com or create an issue in the GitHub repository.
+Apache works with the bundled `.htaccess`.
 
 ---
 
-**Aureo Project Management** - Making project management simple and effective for teams of all sizes.
+## Troubleshooting
+
+**White screen after install.** Tail `log/aureo.log` — that's the FIRST place to look on any 500 or blank page.
+
+**`composer setup` hangs or instantly accepts defaults.** Composer pipes STDIN. Use `php bin/setup.php` directly.
+
+**`Cannot redeclare X::tryfrom()`.** PHP opcache is serving a stale enum. Restart `composer start`.
+
+**`Unknown table 'u'` in a query.** The Models's `queryBuilder` call is missing `'alias' => 'u'`. See [.claude/CLAUDE.md](.claude/CLAUDE.md) for the convention.
+
+**Session/CSRF silently fails on `http://localhost`.** Set `SESSION_SECURE=false` and `APP_SCHEME=http` in `.env`.
+
+**XAMPP `mysql.exe` errors with `caching_sha2_password could not be loaded`.** Use PDO from PHP scripts or phpMyAdmin (`composer pma`) instead of the CLI client.
+
+---
+
+## Contributing
+
+- PSR-12 style, enforced by `composer cs:check` / `composer cs:fix`.
+- `declare(strict_types=1);` on all non-view PHP files.
+- New routes go in `public/index.php`. New DB changes go in a new Phinx migration — never edit the canonical migration.
+- See [.claude/CLAUDE.md](.claude/CLAUDE.md) for project-specific conventions and footguns (load it before doing any non-trivial work).
+- Run `composer test` and `composer cs:check` before opening a PR.
+
+---
+
+## License
+
+[AGPL-3.0](LICENSE). Network use of modified versions requires publishing your source.
+
+## Author
+
+Russell Benzing · [me@russellbenzing.com](mailto:me@russellbenzing.com) · [@rbenzing](https://github.com/rbenzing)

@@ -105,19 +105,6 @@ enum Priority: string
     }
 
     /**
-     * Try to create enum from string value
-     */
-    public static function tryFrom(string $value): ?self
-    {
-        foreach (self::cases() as $case) {
-            if ($case->value === $value) {
-                return $case;
-            }
-        }
-        return null;
-    }
-
-    /**
      * Create enum from string value or return default
      */
     public static function fromOrDefault(string $value, self $default = self::NONE): self

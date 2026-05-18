@@ -87,28 +87,6 @@ function stepNpmBuild(): void
     }
 }
 
-function stepSetup(): void
-{
-    step('Step 3/3 — Database setup');
-
-    // If stdin isn't a TTY (e.g. CI), pass --yes so it doesn't hang on prompts.
-    $isTty = function_exists('stream_isatty') ? @stream_isatty(STDIN) : true;
-    $args = '--skip-if-configured';
-    if (!$isTty) {
-        $args .= ' --yes';
-    }
-
-    $cmd = sprintf('%s %s %s',
-        escapeshellarg(PHP_BINARY),
-        escapeshellarg(ROOT . '/bin/setup.php'),
-        $args
-    );
-    $code = run($cmd, ROOT);
-    if ($code !== 0) {
-        warn("Setup exited with code {$code}. Run `composer setup` manually to retry.");
-    }
-}
-
 // --- main ---------------------------------------------------------------
 
 out('');
@@ -116,9 +94,14 @@ out('Aureo Project Management — post-install');
 
 stepNpmInstall();
 stepNpmBuild();
-stepSetup();
 
-step('All done');
-out('Start the app:    composer start    (http://localhost:8000)');
-out('Open phpMyAdmin:  composer pma      (http://localhost:8081)');
+step('Next: database setup');
+out('Composer pipes STDIN, which breaks interactive prompts.');
+out('Run the setup script directly in your terminal:');
+out('');
+out('  php bin/setup.php');
+out('');
+out('Then:');
+out('  composer start    (http://localhost:8000)');
+out('  composer pma      (http://localhost:8081)');
 out('');

@@ -720,11 +720,12 @@ final class InitialDatabaseSchema extends AbstractMigration
             (5, 'closed', 'Task has been closed', 0),
             (6, 'completed', 'Task has been completed', 0)");
 
-        // Insert default admin user
-        $this->execute("
-            INSERT INTO `users` (`id`, `guid`, `company_id`, `role_id`, `first_name`, `last_name`, `email`, `password_hash`, `is_active`, `is_deleted`) VALUES
-            (1, UUID(), NULL, 1, 'Admin', 'User', 'admin@aureo.us', '\$argon2id\$v=19\$m=65536,t=4,p=1\$dkcub0FTU2NENTRmdXBSeQ\$cAZna9wkkfUbCM5PPRjh3KvEjga+dP56xqnOvfbam0U', 1, 0)
-        ");
+        // Insert default admin user. Password = "password" (change on first login).
+        $adminHash = password_hash('password', PASSWORD_ARGON2ID);
+        $this->getAdapter()->getConnection()->prepare(
+            "INSERT INTO `users` (`id`, `guid`, `company_id`, `role_id`, `first_name`, `last_name`, `email`, `password_hash`, `is_active`, `is_deleted`)
+             VALUES (1, UUID(), NULL, 1, 'Admin', 'User', 'admin@aureo.us', :hash, 1, 0)"
+        )->execute([':hash' => $adminHash]);
     }
 
     /**

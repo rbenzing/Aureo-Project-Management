@@ -124,6 +124,7 @@ class User extends BaseModel
 
         $options = [
             'select' => 'u.*, c.name as company_name, r.name as role_name',
+            'alias' => 'u',
             'joins' => [
                 ['type' => 'LEFT', 'table' => 'companies c', 'on' => 'u.company_id = c.id'],
                 ['type' => 'LEFT', 'table' => 'roles r', 'on' => 'u.role_id = r.id'],

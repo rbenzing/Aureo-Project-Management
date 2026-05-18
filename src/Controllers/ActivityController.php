@@ -49,6 +49,8 @@ class ActivityController extends BaseController
             // Check if user has permission to view activity logs
             $this->requirePermission('view_activity');
 
+            $userPermissions = $currentUser['permissions'] ?? [];
+
             // Get filter parameters
             $filters = $this->getFilters($data);
             $page = max(1, (int)($data['page'] ?? 1));

@@ -503,6 +503,7 @@ abstract class BaseModel
     {
         $defaults = [
             'select' => '*',
+            'alias' => '',
             'joins' => [],
             'where' => [],
             'whereRaw' => [],
@@ -515,8 +516,15 @@ abstract class BaseModel
         $opts = array_merge($defaults, $options);
         $params = $opts['params'];
 
+        // Validate alias (single identifier only)
+        if ($opts['alias'] !== '' && !preg_match('/^[a-zA-Z_][a-zA-Z0-9_]*$/', $opts['alias'])) {
+            throw new InvalidArgumentException("Invalid alias: {$opts['alias']}");
+        }
+        $tableRef = $opts['alias'] !== '' ? "{$this->table} {$opts['alias']}" : $this->table;
+        $softDeleteRef = $opts['alias'] !== '' ? $opts['alias'] : $this->table;
+
         // Build SELECT clause
-        $sql = "SELECT {$opts['select']} FROM {$this->table} ";
+        $sql = "SELECT {$opts['select']} FROM {$tableRef} ";
 
         // Build JOINs
         foreach ($opts['joins'] as $join) {
@@ -542,7 +550,7 @@ abstract class BaseModel
 
         // Add soft delete filter if enabled
         if ($this->usesSoftDeletes && !isset($opts['ignoreSoftDelete'])) {
-            $whereClauses[] = "{$this->table}.is_deleted = 0";
+            $whereClauses[] = "{$softDeleteRef}.is_deleted = 0";
         }
 
         // Build WHERE conditions from array
@@ -644,9 +652,16 @@ abstract class BaseModel
         $params = $options['params'] ?? [];
         $whereClauses = [];
 
+        $alias = $options['alias'] ?? '';
+        if ($alias !== '' && !preg_match('/^[a-zA-Z_][a-zA-Z0-9_]*$/', $alias)) {
+            throw new InvalidArgumentException("Invalid alias: {$alias}");
+        }
+        $tableRef = $alias !== '' ? "{$this->table} {$alias}" : $this->table;
+        $softDeleteRef = $alias !== '' ? $alias : $this->table;
+
         // Add soft delete filter if enabled
         if ($this->usesSoftDeletes && !isset($options['ignoreSoftDelete'])) {
-            $whereClauses[] = "{$this->table}.is_deleted = 0";
+            $whereClauses[] = "{$softDeleteRef}.is_deleted = 0";
         }
 
         // Build WHERE conditions
@@ -681,7 +696,7 @@ abstract class BaseModel
             }
         }
 
-        $sql = "SELECT COUNT(*) FROM {$this->table} ";
+        $sql = "SELECT COUNT(*) FROM {$tableRef} ";
 
         // Build JOINs if needed for count
         foreach ($options['joins'] ?? [] as $join) {

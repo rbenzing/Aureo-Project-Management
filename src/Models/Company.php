@@ -80,6 +80,7 @@ class Company extends BaseModel
             // Get basic company info with owner
             $companies = $this->queryBuilder([
                 'select' => 'c.*, u.first_name as owner_first_name, u.last_name as owner_last_name',
+                'alias' => 'c',
                 'joins' => [
                     ['type' => 'LEFT', 'table' => 'users u', 'on' => 'c.user_id = u.id'],
                 ],
@@ -265,6 +266,7 @@ class Company extends BaseModel
         try {
             return $this->queryBuilder([
                 'select' => 'c.*, u.first_name as owner_first_name, u.last_name as owner_last_name',
+                'alias' => 'c',
                 'joins' => [
                     ['type' => 'LEFT', 'table' => 'users u', 'on' => 'c.user_id = u.id'],
                 ],

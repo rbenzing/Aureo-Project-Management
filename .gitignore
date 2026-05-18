@@ -1,122 +1,191 @@
-# ===============================
-# General Files to Ignore
-# ===============================
-*.log
-*.lock
-*.sqlite
-*.env
+# =============================================================================
+# Aureo Project Management — .gitignore
+# =============================================================================
+# Policy: commit only sources, the schema-of-record migration, and config
+# required for reproducible installs. Everything generated, environment-
+# specific, or transient stays out.
+# =============================================================================
+
+
+# -----------------------------------------------------------------------------
+# Secrets, env, credentials  (NEVER commit)
+# -----------------------------------------------------------------------------
+.env
 .env.*
 !.env.example
 *.key
+*.pem
+*.p12
+*.pfx
 *.ppk
+*.crt
+auth.json
+secrets/
+.secrets/
 
-# ===============================
-# IDE-Specific Files
-# ===============================
-# PhpStorm / WebStorm
-.idea/
-*.iml
 
-# Visual Studio Code
-.vscode/
-*.code-workspace
-
-# Sublime Text
-*.sublime-project
-*.sublime-workspace
-
-# Eclipse
-.settings/
-.project
-.classpath
-
-# NetBeans
-nbproject/
-
-# ===============================
-# PHP-Specific Files
-# ===============================
-# Composer
+# -----------------------------------------------------------------------------
+# PHP / Composer
+# -----------------------------------------------------------------------------
 /vendor/
 composer.lock
 composer.phar
+.php-cs-fixer.cache
+.phpunit.cache/
+.phpunit.result.cache
+.phpstan.cache/
+.psalm-cache/
+/coverage/
+/coverage.xml
+/clover.xml
+/report.xml
 
-# Cache and Logs
-cache/
+
+# -----------------------------------------------------------------------------
+# Database — Phinx migrations & seeds
+# -----------------------------------------------------------------------------
+# The canonical migration in db/migrations/ IS committed; `composer setup`
+# depends on it. Ignore only generated scratch files, editor backups, and
+# developer-local experiments that must not reach main.
+db/migrations/*.bak
+db/migrations/*.tmp
+db/migrations/*.orig
+db/migrations/*.swp
+db/migrations/*.local.php
+db/migrations/_*.php
+db/migrations/scratch/
+db/seeds/*.bak
+db/seeds/*.tmp
+db/seeds/*.local.php
+db/seeds/scratch/
+
+# Raw SQL dumps and one-off scripts produced during development
+*.sql.bak
+*.dump
+*.dump.sql
+dump.sql
+dump_*.sql
+backup_*.sql
+*.mwb.bak
+
+
+# -----------------------------------------------------------------------------
+# Logs (the app writes to /log; webserver logs may also land in tree)
+# -----------------------------------------------------------------------------
+*.log
+log/
 logs/
+storage/logs/
+npm-debug.log*
+yarn-error.log*
+
+
+# -----------------------------------------------------------------------------
+# Cache / runtime / temp
+# -----------------------------------------------------------------------------
+cache/
 tmp/
+temp/
+var/cache/
+var/tmp/
+var/sessions/
 storage/framework/cache/
 storage/framework/sessions/
 storage/framework/views/
-storage/logs/
+sessions/
+.session
 
-# Laravel-specific (if applicable)
-bootstrap/cache/*.php
-.env.testing
 
-# ===============================
-# Node.js-Specific Files
-# ===============================
-# Node Modules
+# -----------------------------------------------------------------------------
+# Node / Tailwind / build artifacts
+# -----------------------------------------------------------------------------
 /node_modules/
 package-lock.json
 yarn.lock
-npm-debug.log*
-
-# Build Output
-/public/css/output.css
-/public/js/*.js
-
-# Tailwind CSS
+pnpm-lock.yaml
+.npm/
+.yarn/
+.pnp.*
 .tailwindcss/
 tailwind.config.cache
+postcss.cache/
 
-# ===============================
-# Assets and Media
-# ===============================
-# Compiled Assets
+# Compiled CSS/JS — keep sources, not output
+/public/assets/css/styles.css
+/public/css/output.css
+/public/js/*.bundle.js
 /public/build/
 /public/dist/
 
-# Uploaded Media
+
+# -----------------------------------------------------------------------------
+# Local tooling installed via composer scripts (phpMyAdmin etc.)
+# -----------------------------------------------------------------------------
+/tools/
+
+
+# -----------------------------------------------------------------------------
+# User uploads / runtime media (per-environment, never committed)
+# -----------------------------------------------------------------------------
 /uploads/
+/public/uploads/
 /storage/app/public/
 
-# ===============================
-# OS-Specific Files
-# ===============================
-# macOS
+
+# -----------------------------------------------------------------------------
+# IDE / editor
+# -----------------------------------------------------------------------------
+.idea/
+*.iml
+.vscode/
+*.code-workspace
+.history/
+*.sublime-project
+*.sublime-workspace
+.settings/
+.project
+.classpath
+.buildpath
+nbproject/
+*.swp
+*.swo
+*~
+
+
+# -----------------------------------------------------------------------------
+# OS metadata
+# -----------------------------------------------------------------------------
 .DS_Store
 .AppleDouble
 .LSOverride
 Icon?
 ._*
-
-# Windows
 Thumbs.db
 ehthumbs.db
+ehthumbs_vista.db
 Desktop.ini
+$RECYCLE.BIN/
 
-# Linux
-*~
 
-# ===============================
-# Testing and Debugging
-# ===============================
-.phpunit.cache/
-/coverage/
-/report.xml
-.php-cs-fixer.cache
-
-# ===============================
-# Backup Files
-# ===============================
+# -----------------------------------------------------------------------------
+# Generic temp/backup file patterns
+# -----------------------------------------------------------------------------
 *.bak
+*.backup
 *.tmp
-*~
+*.temp
 *.orig
-*.swp
-/.claude/
+*.rej
+*.old
 
-# Local tools (phpMyAdmin etc., installed via `composer pma`)
-/tools/
+
+# -----------------------------------------------------------------------------
+# Claude / agent local state
+# -----------------------------------------------------------------------------
+# .claude/CLAUDE.md IS committed (agentic project guidance). Per-developer
+# memory, settings, and orchestrator output are not.
+/.claude/memory/
+/.claude/settings.local.json
+/.claude/cache/
+/.claude/artifacts/
+/.claude/orchestrator/

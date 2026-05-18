@@ -35,47 +35,46 @@ INSERT INTO users (
     password_hash, 
     is_active
 ) 
-SELECT 
+SELECT
     r.id AS role_id,
     c.id AS company_id,
-    first_name,
-    last_name,
-    email,
-    phone,
+    user_data.first_name,
+    user_data.last_name,
+    user_data.email,
+    user_data.phone,
     '$argon2id$v=19$m=65536,t=4,p=1$dkcub0FTU2NENTRmdXBSeQ$cAZna9wkkfUbCM5PPRjh3KvEjga+dP56xqnOvfbam0U',
     1
 FROM (
-    VALUES 
-    ('Emma', 'Rodriguez', 'emma.rodriguez@techinnovations.com', '+1-555-123-4567'),
-    ('Liam', 'Chen', 'liam.chen@digitalsolutions.com', '+1-555-234-5678'),
-    ('Sophia', 'Patel', 'sophia.patel@globalsystems.com', '+1-555-345-6789'),
-    ('Noah', 'Kim', 'noah.kim@cloudarchitects.com', '+1-555-456-7890'),
-    ('Olivia', 'Martinez', 'olivia.martinez@startupsynergy.com', '+1-555-567-8901'),
-    ('Daniel', 'Wong', 'daniel.wong@techinnovations.com', '+1-555-678-9012'),
-    ('Ava', 'Gupta', 'ava.gupta@digitalsolutions.com', '+1-555-789-0123'),
-    ('Ethan', 'Nakamura', 'ethan.nakamura@globalsystems.com', '+1-555-890-1234'),
-    ('Isabella', 'Lee', 'isabella.lee@cloudarchitects.com', '+1-555-901-2345'),
-    ('Mason', 'Gonzalez', 'mason.gonzalez@startupsynergy.com', '+1-555-012-3456'),
-    ('Emily', 'Tanaka', 'emily.tanaka@techinnovations.com', '+1-555-123-4567'),
-    ('Jacob', 'Singh', 'jacob.singh@digitalsolutions.com', '+1-555-234-5678'),
-    ('Madison', 'Park', 'madison.park@globalsystems.com', '+1-555-345-6789'),
-    ('Michael', 'Zhang', 'michael.zhang@cloudarchitects.com', '+1-555-456-7890'),
-    ('Emma', 'Yamamoto', 'emma.yamamoto@startupsynergy.com', '+1-555-567-8901'),
-    ('Alexander', 'Kumar', 'alexander.kumar@techinnovations.com', '+1-555-678-9012'),
-    ('Mia', 'Choi', 'mia.choi@digitalsolutions.com', '+1-555-789-0123'),
-    ('William', 'Suzuki', 'william.suzuki@globalsystems.com', '+1-555-890-1234'),
-    ('Charlotte', 'Lin', 'charlotte.lin@cloudarchitects.com', '+1-555-901-2345'),
-    ('Benjamin', 'Ramirez', 'benjamin.ramirez@startupsynergy.com', '+1-555-012-3456'),
-    ('Amelia', 'Sato', 'amelia.sato@techinnovations.com', '+1-555-123-4567'),
-    ('Logan', 'Mehta', 'logan.mehta@digitalsolutions.com', '+1-555-234-5678'),
-    ('Harper', 'Kim', 'harper.kim@globalsystems.com', '+1-555-345-6789'),
-    ('Lucas', 'Wang', 'lucas.wang@cloudarchitects.com', '+1-555-456-7890'),
-    ('Evelyn', 'Rodriguez', 'evelyn.rodriguez@startupsynergy.com', '+1-555-567-8901')
+    VALUES
+    ROW('Emma', 'Rodriguez', 'emma.rodriguez@techinnovations.com', '+1-555-123-4567'),
+    ROW('Liam', 'Chen', 'liam.chen@digitalsolutions.com', '+1-555-234-5678'),
+    ROW('Sophia', 'Patel', 'sophia.patel@globalsystems.com', '+1-555-345-6789'),
+    ROW('Noah', 'Kim', 'noah.kim@cloudarchitects.com', '+1-555-456-7890'),
+    ROW('Olivia', 'Martinez', 'olivia.martinez@startupsynergy.com', '+1-555-567-8901'),
+    ROW('Daniel', 'Wong', 'daniel.wong@techinnovations.com', '+1-555-678-9012'),
+    ROW('Ava', 'Gupta', 'ava.gupta@digitalsolutions.com', '+1-555-789-0123'),
+    ROW('Ethan', 'Nakamura', 'ethan.nakamura@globalsystems.com', '+1-555-890-1234'),
+    ROW('Isabella', 'Lee', 'isabella.lee@cloudarchitects.com', '+1-555-901-2345'),
+    ROW('Mason', 'Gonzalez', 'mason.gonzalez@startupsynergy.com', '+1-555-012-3456'),
+    ROW('Emily', 'Tanaka', 'emily.tanaka@techinnovations.com', '+1-555-123-4567'),
+    ROW('Jacob', 'Singh', 'jacob.singh@digitalsolutions.com', '+1-555-234-5678'),
+    ROW('Madison', 'Park', 'madison.park@globalsystems.com', '+1-555-345-6789'),
+    ROW('Michael', 'Zhang', 'michael.zhang@cloudarchitects.com', '+1-555-456-7890'),
+    ROW('Emma', 'Yamamoto', 'emma.yamamoto@startupsynergy.com', '+1-555-567-8901'),
+    ROW('Alexander', 'Kumar', 'alexander.kumar@techinnovations.com', '+1-555-678-9012'),
+    ROW('Mia', 'Choi', 'mia.choi@digitalsolutions.com', '+1-555-789-0123'),
+    ROW('William', 'Suzuki', 'william.suzuki@globalsystems.com', '+1-555-890-1234'),
+    ROW('Charlotte', 'Lin', 'charlotte.lin@cloudarchitects.com', '+1-555-901-2345'),
+    ROW('Benjamin', 'Ramirez', 'benjamin.ramirez@startupsynergy.com', '+1-555-012-3456'),
+    ROW('Amelia', 'Sato', 'amelia.sato@techinnovations.com', '+1-555-123-4567'),
+    ROW('Logan', 'Mehta', 'logan.mehta@digitalsolutions.com', '+1-555-234-5678'),
+    ROW('Harper', 'Kim', 'harper.kim@globalsystems.com', '+1-555-345-6789'),
+    ROW('Lucas', 'Wang', 'lucas.wang@cloudarchitects.com', '+1-555-456-7890'),
+    ROW('Evelyn', 'Rodriguez', 'evelyn.rodriguez@startupsynergy.com', '+1-555-567-8901')
 ) AS user_data (first_name, last_name, email, phone)
 CROSS JOIN roles r
-CROSS JOIN companies c
-WHERE r.name = 'developer'
-LIMIT 25;
+LEFT JOIN companies c ON SUBSTRING_INDEX(user_data.email, '@', -1) = SUBSTRING_INDEX(c.website, '//', -1)
+WHERE r.name = 'admin';
 
 -- Link Users to Companies
 INSERT INTO user_companies (user_id, company_id)
@@ -138,7 +137,7 @@ FROM (
         CONCAT('Comprehensive epic description for ', p.name, ' focusing on key strategic objectives') AS epic_description,
         p.start_date,
         p.end_date AS due_date,
-        ROW_NUMBER() OVER (PARTITION BY p.id ORDER BY RAND()) AS epic_order
+        ROW_NUMBER() OVER (PARTITION BY p.id ORDER BY p.id) AS epic_order
     FROM 
         projects p
 ) AS ProjectEpics

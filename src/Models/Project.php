@@ -97,6 +97,7 @@ class Project extends BaseModel
 
         $projects = $this->queryBuilder([
             'select' => 'p.*, c.name AS company_name, ps.name AS status_name, u.first_name AS owner_firstname, u.last_name AS owner_lastname',
+            'alias' => 'p',
             'joins' => [
                 ['type' => 'LEFT', 'table' => 'statuses_project ps', 'on' => 'p.status_id = ps.id'],
                 ['type' => 'LEFT', 'table' => 'companies c', 'on' => 'c.id = p.company_id'],
@@ -178,6 +179,7 @@ class Project extends BaseModel
             'select' => 'p.*, c.name AS company_name, ps.name AS status_name, u.first_name AS owner_firstname, u.last_name AS owner_lastname,
                 (SELECT COUNT(*) FROM tasks t WHERE t.project_id = p.id AND t.is_deleted = 0) as task_count,
                 (SELECT COUNT(*) FROM milestones m WHERE m.project_id = p.id AND m.is_deleted = 0) as milestone_count',
+            'alias' => 'p',
             'joins' => [
                 ['type' => 'LEFT', 'table' => 'statuses_project ps', 'on' => 'p.status_id = ps.id'],
                 ['type' => 'LEFT', 'table' => 'companies c', 'on' => 'c.id = p.company_id'],
@@ -204,28 +206,30 @@ class Project extends BaseModel
             // Task completion rate
             $taskSql = "SELECT
                 COUNT(*) as total_tasks,
-                SUM(CASE WHEN status_id = :completed_status THEN 1 ELSE 0 END) as completed_tasks,
-                SUM(CASE WHEN due_date < CURDATE() AND status_id != :completed_status THEN 1 ELSE 0 END) as overdue_tasks
+                SUM(CASE WHEN status_id = :completed_a THEN 1 ELSE 0 END) as completed_tasks,
+                SUM(CASE WHEN due_date < CURDATE() AND status_id != :completed_b THEN 1 ELSE 0 END) as overdue_tasks
             FROM tasks
             WHERE project_id = :project_id AND is_deleted = 0";
 
             $taskStmt = $this->db->executeQuery($taskSql, [
                 ':project_id' => $projectId,
-                ':completed_status' => $completedTaskStatus
+                ':completed_a' => $completedTaskStatus,
+                ':completed_b' => $completedTaskStatus,
             ]);
             $taskMetrics = $taskStmt->fetch(PDO::FETCH_ASSOC);
 
             // Milestone completion rate
             $milestoneSql = "SELECT
                 COUNT(*) as total_milestones,
-                SUM(CASE WHEN status_id = :completed_status THEN 1 ELSE 0 END) as completed_milestones,
-                SUM(CASE WHEN due_date < CURDATE() AND status_id != :completed_status THEN 1 ELSE 0 END) as overdue_milestones
+                SUM(CASE WHEN status_id = :completed_a THEN 1 ELSE 0 END) as completed_milestones,
+                SUM(CASE WHEN due_date < CURDATE() AND status_id != :completed_b THEN 1 ELSE 0 END) as overdue_milestones
             FROM milestones
             WHERE project_id = :project_id AND is_deleted = 0";
 
             $milestoneStmt = $this->db->executeQuery($milestoneSql, [
                 ':project_id' => $projectId,
-                ':completed_status' => $completedMilestoneStatus
+                ':completed_a' => $completedMilestoneStatus,
+                ':completed_b' => $completedMilestoneStatus,
             ]);
             $milestoneMetrics = $milestoneStmt->fetch(PDO::FETCH_ASSOC);
 
