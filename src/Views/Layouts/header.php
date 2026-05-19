@@ -50,6 +50,30 @@ function hasHeaderPermission($permission)
             <?php if (isset($currentUser['profile']['id'])): ?>
                 <a href="/activity" class="hover:text-indigo-200">📄 Activity</a>
 
+                <!-- Command Palette Trigger -->
+                <button type="button"
+                        id="cmd-open-btn"
+                        class="hidden sm:flex items-center gap-2 px-3 py-1.5 text-sm
+                               text-indigo-200 hover:text-white
+                               bg-indigo-700 hover:bg-indigo-500
+                               rounded-lg border border-indigo-500/50
+                               transition-colors focus:outline-none focus:ring-2
+                               focus:ring-white/50"
+                        aria-label="Open command palette (Ctrl+K)"
+                        title="Search (Ctrl+K)">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                    </svg>
+                    <span>Search</span>
+                    <kbd class="hidden lg:inline-flex items-center gap-0.5 px-1.5 py-0.5
+                                text-xs font-medium rounded
+                                bg-indigo-600 border border-indigo-400/50
+                                text-indigo-300">
+                        <span>⌘</span><span>K</span>
+                    </kbd>
+                </button>
+
                 <!-- User Avatar Dropdown -->
                 <div class="relative dropdown">
                     <button type="button" class="h-11 w-11 rounded-full bg-indigo-100 dark:bg-indigo-900 flex-shrink-0 flex items-center justify-center hover:bg-indigo-200 dark:hover:bg-indigo-800 transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500" aria-expanded="false" aria-haspopup="true">

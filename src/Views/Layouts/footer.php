@@ -31,7 +31,11 @@ try {
 <!-- Include Floating Timer -->
 <?php include BASE_PATH . '/../src/Views/Layouts/FloatingTimer.php'; ?>
 
+<!-- Include Command Palette -->
+<?php include BASE_PATH . '/../src/Views/Layouts/CommandPalette.php'; ?>
+
 <script type="text/javascript" src="/assets/js/scripts.js"></script>
+<script src="/assets/js/command-palette.js" defer></script>
 
 <!-- Ensure hamburger menu works on all pages - robust fallback initialization -->
 <script>
