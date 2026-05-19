@@ -84,6 +84,9 @@ try {
     $dispatcher = \App\Events\EventDispatcher::getInstance();
     $dispatcher->listen(\App\Events\TaskAssigned::class, \App\Listeners\LogTaskAssignment::class);
     $dispatcher->listen(\App\Events\TaskAssigned::class, \App\Listeners\SendTaskAssignmentEmail::class);
+    $dispatcher->listen(\App\Events\TaskAssigned::class, \App\Listeners\UpdateSearchIndex::class);
+    $dispatcher->listen(\App\Events\TaskCompleted::class, \App\Listeners\UpdateSearchIndex::class);
+    $dispatcher->listen(\App\Events\ProjectCreated::class, \App\Listeners\UpdateSearchIndex::class);
 
     // Create Router Instance with DI container
     $router = new \App\Core\Router($container);
@@ -148,6 +151,11 @@ try {
     $router->post('api/favorites/remove', ['controller' => 'Favorites', 'action' => 'remove']);
     $router->post('api/favorites/update-order', ['controller' => 'Favorites', 'action' => 'updateOrder']);
     $router->get('api/favorites/check', ['controller' => 'Favorites', 'action' => 'check']);
+
+    // Search API Routes
+    $router->get('api/search', ['controller' => 'Search', 'action' => 'search']);
+    $router->post('api/search/click', ['controller' => 'Search', 'action' => 'recordClick']);
+    $router->get('api/search/recent', ['controller' => 'Search', 'action' => 'recentQueries']);
 
     // User Routes
     $router->get('users', ['controller' => 'User', 'action' => 'index']);

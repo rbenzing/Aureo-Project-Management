@@ -274,6 +274,29 @@ $containerBuilder->addDefinitions([
             $c->get(\App\Models\Sprint::class)
         );
     },
+
+    // Search
+    \App\Models\SearchIndex::class => function (ContainerInterface $c) {
+        return new \App\Models\SearchIndex();
+    },
+
+    \App\Repositories\SearchRepository::class => function (ContainerInterface $c) {
+        return new \App\Repositories\SearchRepository(
+            $c->get(\App\Models\SearchIndex::class)
+        );
+    },
+
+    \App\Services\SearchService::class => function (ContainerInterface $c) {
+        return new \App\Services\SearchService(
+            $c->get(\App\Repositories\SearchRepository::class)
+        );
+    },
+
+    \App\Controllers\SearchController::class => function (ContainerInterface $c) {
+        return new \App\Controllers\SearchController(
+            $c->get(\App\Services\SearchService::class)
+        );
+    },
 ]);
 
 // Build and return the container
