@@ -74,7 +74,7 @@ class TemplateController extends BaseController
 
             $totalPages = ceil($totalTemplates / $limit);
 
-            $this->render('Templates/index', compact('totalPages'));
+            $this->render('Templates/index', compact('templates', 'totalPages', 'page', 'limit', 'templateType'));
         } catch (\Exception $e) {
             $securityService = SecurityService::getInstance();
             $this->redirectWithError('/dashboard', $securityService->handleError($e, 'TemplateController::index', 'An error occurred while fetching templates.'));
@@ -102,7 +102,7 @@ class TemplateController extends BaseController
                 throw new InvalidArgumentException('Template not found');
             }
 
-            $this->render('Templates/view', compact('totalPages'));
+            $this->render('Templates/view', compact('template'));
         } catch (InvalidArgumentException $e) {
             $this->redirectWithError('/templates', $e->getMessage());
         } catch (\Exception $e) {
@@ -125,7 +125,7 @@ class TemplateController extends BaseController
 
             $companies = $this->companyModel->getAllCompanies();
 
-            $this->render('Templates/create', compact('totalPages'));
+            $this->render('Templates/create', compact('companies'));
         } catch (\Exception $e) {
             error_log("Exception in TemplateController::createForm: " . $e->getMessage());
             $this->redirectWithError('/templates', 'An error occurred while loading the creation form.');
@@ -224,7 +224,7 @@ class TemplateController extends BaseController
 
             $companies = $this->companyModel->getAllCompanies();
 
-            $this->render('Templates/edit', compact('companies'));
+            $this->render('Templates/edit', compact('template', 'companies'));
         } catch (InvalidArgumentException $e) {
             $this->redirectWithError('/templates', $e->getMessage());
         } catch (\Exception $e) {

@@ -5,7 +5,7 @@ declare(strict_types=1);
 
 namespace App\Controllers;
 
-use App\Middleware\CSRFMiddleware;
+use App\Middleware\CsrfMiddleware;
 use App\Models\Permission;
 use App\Models\Role;
 use App\Utils\Validator;
@@ -14,7 +14,7 @@ use RuntimeException;
 
 class RoleController extends BaseController
 {
-    private CSRFMiddleware $csrfMiddleware;
+    private CsrfMiddleware $csrfMiddleware;
     private Role $roleModel;
     private Permission $permissionModel;
 
@@ -23,7 +23,7 @@ class RoleController extends BaseController
         ?Permission $permissionModel = null
     ) {
         parent::__construct();
-        $this->csrfMiddleware = new CSRFMiddleware();
+        $this->csrfMiddleware = new CsrfMiddleware();
         $this->roleModel = $roleModel ?? new Role();
         $this->permissionModel = $permissionModel ?? new Permission();
     }
@@ -198,7 +198,7 @@ class RoleController extends BaseController
 
             $permissions = $this->permissionModel->getOrganizedPermissions();
 
-            $this->render('Roles/edit', compact('permissions'));
+            $this->render('Roles/edit', compact('role', 'permissions'));
         } catch (InvalidArgumentException $e) {
             $this->redirectWithError('/roles', $e->getMessage());
         } catch (\Exception $e) {

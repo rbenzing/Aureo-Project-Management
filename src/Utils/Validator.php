@@ -200,7 +200,7 @@ class Validator
         if (!empty($parameters)) {
             $message = str_replace(':param', implode(', ', $parameters), $message);
         }
-        $this->errors[] = $message;
+        $this->errors[$field] = $message;
     }
 
     /**

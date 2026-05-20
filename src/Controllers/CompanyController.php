@@ -95,7 +95,7 @@ class CompanyController extends BaseController
             $projects = $this->companyModel->getProjects();
             $users = $this->companyModel->getUsers($id);
 
-            $this->render('Companies/view', compact('users', 'projects'));
+            $this->render('Companies/view', compact('company', 'users', 'projects'));
         } catch (InvalidArgumentException $e) {
             $this->redirectWithError('/companies', $e->getMessage());
         } catch (\Exception $e) {
@@ -114,7 +114,7 @@ class CompanyController extends BaseController
     {
         try {
             $this->requirePermission('create_companies');
-            $this->render('Companies/create', compact('users', 'projects'));
+            $this->render('Companies/create');
         } catch (\Exception $e) {
             error_log("Exception in CompanyController::createForm: " . $e->getMessage());
             $this->redirectWithError('/companies', 'An error occurred while loading the creation form.');
@@ -205,7 +205,7 @@ class CompanyController extends BaseController
                 throw new InvalidArgumentException('Company not found');
             }
 
-            $this->render('Companies/edit');
+            $this->render('Companies/edit', compact('company'));
         } catch (InvalidArgumentException $e) {
             $this->redirectWithError('/companies', $e->getMessage());
         } catch (\Exception $e) {

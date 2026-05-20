@@ -596,11 +596,12 @@ class User extends BaseModel
         try {
             $sql = "INSERT INTO user_companies (user_id, company_id)
                     VALUES (:user_id, :company_id)
-                    ON DUPLICATE KEY UPDATE user_id = :user_id";
+                    ON DUPLICATE KEY UPDATE company_id = :company_id_dup";
 
             return $this->db->executeInsertUpdate($sql, [
-                ':user_id' => $userId,
-                ':company_id' => $companyId,
+                ':user_id'      => $userId,
+                ':company_id'   => $companyId,
+                ':company_id_dup' => $companyId,
             ]);
         } catch (\Exception $e) {
             throw new RuntimeException("Failed to add company association: " . $e->getMessage());
@@ -641,11 +642,12 @@ class User extends BaseModel
         try {
             $sql = "INSERT INTO user_projects (user_id, project_id)
                     VALUES (:user_id, :project_id)
-                    ON DUPLICATE KEY UPDATE user_id = :user_id";
+                    ON DUPLICATE KEY UPDATE project_id = :project_id_dup";
 
             return $this->db->executeInsertUpdate($sql, [
-                ':user_id' => $userId,
-                ':project_id' => $projectId,
+                ':user_id'        => $userId,
+                ':project_id'     => $projectId,
+                ':project_id_dup' => $projectId,
             ]);
         } catch (\Exception $e) {
             throw new RuntimeException("Failed to add project assignment: " . $e->getMessage());

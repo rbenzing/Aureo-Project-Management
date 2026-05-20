@@ -123,11 +123,11 @@ final class UserModelTest extends TestCase
      */
     public function testUserActiveStatus(): void
     {
-        $this->user->is_active = 1;
-        $this->assertEquals(1, $this->user->is_active);
+        $this->user->is_active = true;
+        $this->assertTrue($this->user->is_active);
 
-        $this->user->is_active = 0;
-        $this->assertEquals(0, $this->user->is_active);
+        $this->user->is_active = false;
+        $this->assertFalse($this->user->is_active);
     }
 
     /**
@@ -135,11 +135,11 @@ final class UserModelTest extends TestCase
      */
     public function testUserDeletionFlag(): void
     {
-        $this->user->is_deleted = 0;
-        $this->assertEquals(0, $this->user->is_deleted);
+        $this->user->is_deleted = false;
+        $this->assertFalse($this->user->is_deleted);
 
-        $this->user->is_deleted = 1;
-        $this->assertEquals(1, $this->user->is_deleted);
+        $this->user->is_deleted = true;
+        $this->assertTrue($this->user->is_deleted);
     }
 
     /**
