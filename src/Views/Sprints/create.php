@@ -317,7 +317,7 @@ if (!empty($templates)) {
 
     <?php
     // Include sprint helpers for status functions
-    include_once BASE_PATH . '/inc/helpers.php';
+    include_once BASE_PATH . '/../src/Views/Sprints/inc/helpers.php';
 ?>
 
     <script>

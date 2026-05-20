@@ -110,20 +110,20 @@ $viewTitle = 'Time Tracking';
         </div>
 
         <!-- Time Tracking Filters -->
-        <?php include BASE_PATH . '/inc/filters.php'; ?>
-        
+        <?php include BASE_PATH . '/../src/Views/TimeTracking/inc/filters.php'; ?>
+
         <!-- Time Entries Table -->
         <div class="bg-white dark:bg-gray-800 shadow overflow-hidden rounded-lg">
             <div class="overflow-x-auto">
                 <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                    <?php include BASE_PATH . '/inc/table_header.php'; ?>
-                    <?php include BASE_PATH . '/inc/table.php'; ?>
+                    <?php include BASE_PATH . '/../src/Views/TimeTracking/inc/table_header.php'; ?>
+                    <?php include BASE_PATH . '/../src/Views/TimeTracking/inc/table.php'; ?>
                 </table>
             </div>
         </div>
 
         <!-- Pagination -->
-        <?php include BASE_PATH . '/inc/pagination.php'; ?>
+        <?php include BASE_PATH . '/../src/Views/TimeTracking/inc/pagination.php'; ?>
     </main>
 
     <!-- Footer -->

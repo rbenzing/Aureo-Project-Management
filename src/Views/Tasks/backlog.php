@@ -14,7 +14,7 @@ use App\Core\Config;
 include BASE_PATH . '/../src/Views/Layouts/ViewHelpers.php';
 
 // Include task helper functions for consistent styling
-include_once BASE_PATH . '/inc/helper_functions.php';
+include_once BASE_PATH . '/../src/Views/Tasks/inc/helper_functions.php';
 
 // Set up filter options for backlog
 $filterOptions = [

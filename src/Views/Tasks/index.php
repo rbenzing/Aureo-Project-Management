@@ -50,8 +50,8 @@ if ($isMyTasksView && !$viewingOwnTasks) {
 }
 
 // Include task-specific helper functions if they exist
-if (file_exists(BASE_PATH . '/inc/helper_functions.php')) {
-    include BASE_PATH . '/inc/helper_functions.php';
+if (file_exists(BASE_PATH . '/../src/Views/Tasks/inc/helper_functions.php')) {
+    include BASE_PATH . '/../src/Views/Tasks/inc/helper_functions.php';
 }
 ?>
 
@@ -73,31 +73,31 @@ if (file_exists(BASE_PATH . '/inc/helper_functions.php')) {
         <?php include BASE_PATH . '/../src/Views/Layouts/notifications.php'; ?>
 
         <!-- Page Header with Breadcrumb and New Task Button -->
-        <?php include BASE_PATH . '/inc/page_header.php'; ?>
+        <?php include BASE_PATH . '/../src/Views/Tasks/inc/page_header.php'; ?>
 
         <?php if (isset($project) && !empty($project)): ?>
             <!-- Project Header with Navigation -->
-            <?php include BASE_PATH . '/inc/project_header.php'; ?>
+            <?php include BASE_PATH . '/../src/Views/Tasks/inc/project_header.php'; ?>
         <?php endif; ?>
 
         <!-- Task Stats Summary -->
-        <?php include BASE_PATH . '/inc/stats.php'; ?>
+        <?php include BASE_PATH . '/../src/Views/Tasks/inc/stats.php'; ?>
 
         <!-- Page Header with Filters -->
-        <?php include BASE_PATH . '/inc/filters.php'; ?>
-        
+        <?php include BASE_PATH . '/../src/Views/Tasks/inc/filters.php'; ?>
+
         <!-- Tasks Table -->
         <div class="bg-white dark:bg-gray-800 shadow overflow-hidden rounded-lg">
             <div class="overflow-x-auto">
                 <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                    <?php include BASE_PATH . '/inc/table_header.php'; ?>
-                    <?php include BASE_PATH . '/inc/table.php'; ?>
+                    <?php include BASE_PATH . '/../src/Views/Tasks/inc/table_header.php'; ?>
+                    <?php include BASE_PATH . '/../src/Views/Tasks/inc/table.php'; ?>
                 </table>
             </div>
         </div>
 
         <!-- Pagination -->
-        <?php include BASE_PATH . '/inc/pagination.php'; ?>
+        <?php include BASE_PATH . '/../src/Views/Tasks/inc/pagination.php'; ?>
     </main>
 
     <!-- Footer -->
@@ -105,7 +105,7 @@ if (file_exists(BASE_PATH . '/inc/helper_functions.php')) {
 
     <!-- JavaScript for Task Filtering -->
     <script>
-        <?php include BASE_PATH . '/inc/task_filtering.js'; ?>
+        <?php include BASE_PATH . '/../src/Views/Tasks/inc/task_filtering.js'; ?>
         
         // Additional script for active timer if needed
         <?php if (isset($activeTimer)): ?>

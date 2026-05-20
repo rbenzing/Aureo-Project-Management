@@ -14,7 +14,7 @@ use App\Core\Config;
 require_once BASE_PATH . '/../src/views/Layouts/ViewHelpers.php';
 
 // Include helper functions
-include_once BASE_PATH . '/inc/helpers.php';
+include_once BASE_PATH . '/../src/Views/Sprints/inc/helpers.php';
 ?>
 
 <!DOCTYPE html>

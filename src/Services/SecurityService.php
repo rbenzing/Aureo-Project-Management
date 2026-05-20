@@ -65,9 +65,17 @@ class SecurityService
             return false;
         }
 
-        // Allow relative URLs (same domain)
+        // Reject URLs with an invalid scheme (schemes must be alphanumeric + hyphens only)
+        if (isset($parsedUrl['scheme']) && !preg_match('/^[a-zA-Z][a-zA-Z0-9+\-.]*$/', $parsedUrl['scheme'])) {
+            return false;
+        }
+
+        // Allow relative URLs (same domain) — but only if the path looks like a valid URL path
         if (!isset($parsedUrl['host'])) {
-            return true;
+            $path = $parsedUrl['path'] ?? '';
+
+            // Reject if the path contains spaces or other characters that indicate a malformed URL
+            return preg_match('/^[^\s]*$/', $path) === 1 && !str_contains($path, '://');
         }
 
         // Get allowed domains
@@ -360,6 +368,7 @@ class SecurityService
                     'attempts' => $attempts,
                     'limit' => $maxAttempts,
                 ]);
+
                 return false;
             }
 

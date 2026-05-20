@@ -155,7 +155,7 @@ function formatActivityDescription(object $activity): string
         </div>
 
         <!-- Activity Filters -->
-        <?php include BASE_PATH . '/inc/filters.php'; ?>
+        <?php include BASE_PATH . '/../src/Views/Activity/inc/filters.php'; ?>
         
         <!-- Activity Timeline -->
         <div class="bg-white dark:bg-gray-800 shadow overflow-hidden rounded-lg">
@@ -236,7 +236,7 @@ function formatActivityDescription(object $activity): string
         </div>
 
         <!-- Pagination -->
-        <?php include BASE_PATH . '/inc/pagination.php'; ?>
+        <?php include BASE_PATH . '/../src/Views/Activity/inc/pagination.php'; ?>
     </main>
 
     <!-- Footer -->

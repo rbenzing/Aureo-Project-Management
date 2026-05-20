@@ -337,7 +337,7 @@ echo renderStatusPill($statusInfo['label'], $statusInfo['color'], 'sm');
     require_once BASE_PATH . '/../src/views/Layouts/ViewHelpers.php';
 
 // Include sprint helpers for additional functions
-include_once BASE_PATH . '/inc/helpers.php';
+include_once BASE_PATH . '/../src/Views/Sprints/inc/helpers.php';
 ?>
 
     <script>

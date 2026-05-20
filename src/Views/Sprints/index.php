@@ -11,7 +11,7 @@ if (!defined('BASE_PATH')) {
 use App\Core\Config;
 
 // Include helper functions
-include_once BASE_PATH . '/inc/helpers.php';
+include_once BASE_PATH . '/../src/Views/Sprints/inc/helpers.php';
 ?>
 
 <!DOCTYPE html>
@@ -158,14 +158,14 @@ include_once BASE_PATH . '/inc/helpers.php';
                 </div>
             </div>
 
-            <?php include BASE_PATH . '/inc/project_selection.php'; ?>
+            <?php include BASE_PATH . '/../src/Views/Sprints/inc/project_selection.php'; ?>
         <?php else: ?>
             <!-- Project is selected - display sprints -->
 
 
 
             <!-- Sprint Stats Summary -->
-            <?php include BASE_PATH . '/inc/sprint_stats.php'; ?>
+            <?php include BASE_PATH . '/../src/Views/Sprints/inc/sprint_stats.php'; ?>
 
             <!-- Page Title with Star Icon and Filters -->
             <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
@@ -246,12 +246,12 @@ if (!empty($sprints)) {
 }
 
 if ($activeSprint):
-    include BASE_PATH . '/inc/active_sprint.php';
+    include BASE_PATH . '/../src/Views/Sprints/inc/active_sprint.php';
 endif;
 ?>
 
             <!-- All Sprints List -->
-            <?php include BASE_PATH . '/inc/sprint_list.php'; ?>
+            <?php include BASE_PATH . '/../src/Views/Sprints/inc/sprint_list.php'; ?>
 
             <!-- Pagination (if needed) -->
             <?php if (isset($totalPages) && $totalPages > 1): ?>
