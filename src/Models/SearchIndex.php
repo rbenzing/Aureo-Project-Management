@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Models;
 
 use PDO;
-use RuntimeException;
 
 class SearchIndex extends BaseModel
 {
@@ -45,13 +44,13 @@ class SearchIndex extends BaseModel
 
         return $this->db->executeInsertUpdate($sql, [
             ':entity_type' => $entityType,
-            ':entity_id'   => $entityId,
-            ':title'       => $title,
-            ':snippet'     => $snippet,
-            ':project_id'  => $projectId,
+            ':entity_id' => $entityId,
+            ':title' => $title,
+            ':snippet' => $snippet,
+            ':project_id' => $projectId,
             ':search_blob' => $searchBlob,
-            ':updated_at'  => date('Y-m-d H:i:s'),
-            ':is_deleted'  => (int) $isDeleted,
+            ':updated_at' => date('Y-m-d H:i:s'),
+            ':is_deleted' => (int) $isDeleted,
         ]);
     }
 
@@ -65,9 +64,9 @@ class SearchIndex extends BaseModel
                 WHERE entity_type = :type AND entity_id = :id";
 
         return $this->db->executeInsertUpdate($sql, [
-            ':now'  => date('Y-m-d H:i:s'),
+            ':now' => date('Y-m-d H:i:s'),
             ':type' => $entityType,
-            ':id'   => $entityId,
+            ':id' => $entityId,
         ]);
     }
 
@@ -104,6 +103,7 @@ class SearchIndex extends BaseModel
         ";
 
         $stmt = $this->db->executeQuery($sql, $params);
+
         return $stmt->fetchAll(PDO::FETCH_OBJ);
     }
 
@@ -135,6 +135,7 @@ class SearchIndex extends BaseModel
         ";
 
         $stmt = $this->db->executeQuery($sql, $params);
+
         return $stmt->fetchAll(PDO::FETCH_OBJ);
     }
 }
