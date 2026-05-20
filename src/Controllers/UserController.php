@@ -6,7 +6,6 @@ declare(strict_types=1);
 namespace App\Controllers;
 
 use App\Core\Config;
-use App\Middleware\AuthMiddleware;
 use App\Models\Company;
 use App\Models\Role;
 use App\Models\User;
@@ -85,7 +84,7 @@ class UserController extends BaseController
             $user->roles = $userRoleData['roles'];
             $user->permissions = $userRoleData['permissions'];
 
-            $this->render('Users/view', compact('userRoleData'));
+            $this->render('Users/view', compact('user', 'userRoleData'));
         } catch (InvalidArgumentException $e) {
             $this->redirectWithError('/users', $e->getMessage());
         } catch (\Exception $e) {
@@ -120,10 +119,7 @@ class UserController extends BaseController
             $user->roles = $userRoleData['roles'];
             $user->permissions = $userRoleData['permissions'];
 
-            // Pass data for breadcrumb
-            $data = [];
-
-            $this->render('Users/profile', compact('data', 'userRoleData'));
+            $this->render('Users/profile', compact('user', 'userRoleData'));
         } catch (\Exception $e) {
             error_log("Exception in UserController::profile: " . $e->getMessage());
             $this->redirectWithError('/dashboard', 'An error occurred while fetching your profile.');
@@ -146,7 +142,7 @@ class UserController extends BaseController
             $rolesResult = $this->roleModel->getAll(['is_deleted' => 0], 1, 1000);
             $roles = $rolesResult['records'];
 
-            $this->render('Users/create', compact('data', 'userRoleData'));
+            $this->render('Users/create', ['roles' => $rolesResult, 'companies' => $companiesResult]);
         } catch (\Exception $e) {
             error_log("Exception in UserController::createForm: " . $e->getMessage());
             $this->redirectWithError('/users', 'An error occurred while loading the creation form.');
@@ -244,7 +240,7 @@ class UserController extends BaseController
             $rolesResult = $this->roleModel->getAll(['is_deleted' => 0], 1, 1000);
             $roles = $rolesResult['records'];
 
-            $this->render('Users/edit', compact('roles', 'rolesResult', 'companies', 'companiesResult'));
+            $this->render('Users/edit', ['user' => $user, 'roles' => $rolesResult, 'companies' => $companiesResult]);
         } catch (InvalidArgumentException $e) {
             $this->redirectWithError('/users', $e->getMessage());
         } catch (\Exception $e) {

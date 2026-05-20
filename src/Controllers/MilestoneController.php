@@ -260,13 +260,13 @@ class MilestoneController extends BaseController
             // Get company ID from milestone's project
             $companyId = null;
             if ($milestone->project_id) {
-                $project = $this->projectModel->find($milestone->project_id);
-                $companyId = $project->company_id ?? null;
+                $milestoneProject = $this->projectModel->find($milestone->project_id);
+                $companyId = $milestoneProject->company_id ?? null;
             }
             // Load templates available for this company or global templates
             $templates = $this->templateModel->getAvailableTemplates('milestone', $companyId);
 
-            $this->render('Milestones/edit', compact('milestone', 'project', 'templates', 'statuses', 'projects', 'epics', 'companyId'));
+            $this->render('Milestones/edit', compact('milestone', 'templates', 'statuses', 'projects', 'epics', 'companyId'));
         } catch (InvalidArgumentException $e) {
             $this->redirectWithError('/milestones', $e->getMessage());
         } catch (\Exception $e) {

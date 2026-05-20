@@ -6,7 +6,6 @@ declare(strict_types=1);
 namespace App\Controllers;
 
 use App\Core\Database;
-use App\Middleware\AuthMiddleware;
 use App\Models\User;
 use PDO;
 use RuntimeException;
@@ -26,9 +25,7 @@ class ActivityController extends BaseController
         }
 
         $this->userModel = $userModel ?? new User();
-
         $this->db = Database::getInstance();
-        $this->userModel = new User();
     }
 
     /**
@@ -164,24 +161,14 @@ class ActivityController extends BaseController
             }
 
             if (!empty($filters['search'])) {
-                $query .= " AND (al.path LIKE :search OR CONCAT(u.first_name, ' ', u.last_name) LIKE :search)";
-                $params[':search'] = '%' . $filters['search'] . '%';
+                $query .= " AND (al.path LIKE :search_path OR CONCAT(u.first_name, ' ', u.last_name) LIKE :search_name)";
+                $params[':search_path'] = '%' . $filters['search'] . '%';
+                $params[':search_name'] = '%' . $filters['search'] . '%';
             }
 
-            $query .= " ORDER BY al.created_at DESC LIMIT :limit OFFSET :offset";
+            $query .= " ORDER BY al.created_at DESC LIMIT {$limit} OFFSET {$offset}";
 
-            // Add LIMIT and OFFSET to params
-            $params[':limit'] = $limit;
-            $params[':offset'] = $offset;
-
-            // Use the Database class executeQuery method
             $stmt = $this->db->executeQuery($query, $params);
-
-            // Bind integer parameters for LIMIT and OFFSET
-            $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
-            $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
-
-            $stmt->execute();
 
             return $stmt->fetchAll(PDO::FETCH_OBJ);
 

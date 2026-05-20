@@ -6,7 +6,6 @@ declare(strict_types=1);
 namespace App\Controllers;
 
 use App\Core\Database;
-use App\Middleware\AuthMiddleware;
 use App\Models\Project;
 use App\Models\Task;
 use App\Models\User;
@@ -33,10 +32,6 @@ class TimeTrackingController extends BaseController
         $this->taskModel = $taskModel ?? new Task();
         $this->projectModel = $projectModel ?? new Project();
         $this->userModel = $userModel ?? new User();
-
-        $this->taskModel = new Task();
-        $this->projectModel = new Project();
-        $this->userModel = new User();
         $this->db = Database::getInstance();
     }
 
@@ -88,7 +83,17 @@ class TimeTrackingController extends BaseController
             ];
 
             // Render the view
-            $this->render('time-tracking/index', compact('pagination', 'totalPages'));
+            $this->render('time-tracking/index', compact(
+                'timeEntries',
+                'timeData',
+                'projects',
+                'users',
+                'filters',
+                'pagination',
+                'totalPages',
+                'page',
+                'limit'
+            ));
 
         } catch (RuntimeException $e) {
             error_log("Time tracking index error: " . $e->getMessage());
@@ -158,20 +163,9 @@ class TimeTrackingController extends BaseController
                 $query .= " AND te.is_billable = 1";
             }
 
-            $query .= " ORDER BY te.start_time DESC LIMIT :limit OFFSET :offset";
+            $query .= " ORDER BY te.start_time DESC LIMIT {$limit} OFFSET {$offset}";
 
-            // Add LIMIT and OFFSET to params
-            $params[':limit'] = $limit;
-            $params[':offset'] = $offset;
-
-            // Use the Database class executeQuery method
             $stmt = $this->db->executeQuery($query, $params);
-
-            // Bind integer parameters for LIMIT and OFFSET
-            $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
-            $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
-
-            $stmt->execute();
 
             return $stmt->fetchAll(PDO::FETCH_OBJ);
 
