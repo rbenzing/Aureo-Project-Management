@@ -5,7 +5,8 @@ declare(strict_types=1);
 /**
  * Interactive installer for Aureo Project Management.
  *
- * Run via: composer setup
+ * Run via: composer setup  (uses --yes defaults; non-interactive)
+ *       or: php bin/setup.php  (interactive prompts)
  *
  * Steps:
  *   1. Ensure .env exists (copy from .env.example)
@@ -48,7 +49,6 @@ function ask(string $label, string $default = '', bool $secret = false): string
     if ($raw === false) {
         throw new RuntimeException(
             "STDIN closed before input could be read.\n" .
-            "If you ran this via `composer setup`, Composer is piping STDIN.\n" .
             "Run directly instead:  php bin/setup.php\n" .
             "Or accept defaults non-interactively:  php bin/setup.php --yes"
         );

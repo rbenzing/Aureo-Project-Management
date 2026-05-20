@@ -9,8 +9,8 @@ Only facts an agent can't infer from code search. Update when something bites.
 - DB: raw PDO via `BaseModel::queryBuilder()`. Soft deletes auto-injected via `is_deleted = 0`.
 
 ## Lifecycle
-- `composer install` runs npm install + npm run build only. Composer pipes STDIN through its process wrapper, which breaks interactive prompts.
-- DB setup runs separately: `php bin/setup.php` (NOT `composer setup`). Writes `.env`, runs Phinx, sets admin password, optionally imports sample data.
+- `composer install` runs npm install + npm run build only.
+- DB setup: `composer setup` (non-interactive, uses `.env` defaults) or `php bin/setup.php` (interactive prompts). Writes `.env`, runs Phinx, sets admin password to `"password"`, optionally imports sample data.
 - `composer start` = `php -S` (opcaches aggressively — restart on edits). Composer times out at 300s unless `process-timeout: 0`.
 - App logs: `<repo>/log/aureo.log` — FIRST place to look on any failure. Resolved via `dirname(BASE_PATH, 2)` where `BASE_PATH = public/`.
 

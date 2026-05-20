@@ -38,7 +38,7 @@
         "post-update-cmd": "@php bin/install.php",
         "start": "php -S localhost:8000 -t public",
         "install-app": "@php bin/install.php",
-        "setup": "@php bin/setup.php",
+        "setup": "@php bin/setup.php --yes",
         "pma": "@php bin/pma.php",
         "pma:install": "@php bin/pma.php install",
         "test": "phpunit --testdox",
