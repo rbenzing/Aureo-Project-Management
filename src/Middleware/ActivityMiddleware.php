@@ -11,11 +11,14 @@ use Exception;
 class ActivityMiddleware
 {
     private $db;
+    private const RECENT_VIEWS_MAX = 20;
+
     private array $ignoredPaths = [
         '/assets/',
         '/favicon.ico',
         '/ping',
         '/health',
+        '/api/',
     ];
 
     private array $sensitiveFields = [
@@ -48,6 +51,7 @@ class ActivityMiddleware
         try {
             if (!$this->shouldIgnorePath($_SERVER['REQUEST_URI'])) {
                 $this->logActivity();
+                $this->trackRecentView();
             }
         } catch (Exception $e) {
             // Log error but don't interrupt the application flow
@@ -331,6 +335,35 @@ class ActivityMiddleware
             'logout' => 'logout',
             default => 'form_submission'
         };
+    }
+
+    /**
+     * Track the current GET page visit in $_SESSION['recent_views'].
+     * Keeps the last RECENT_VIEWS_MAX unique paths (most recent first).
+     */
+    private function trackRecentView(): void
+    {
+        if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'GET') {
+            return;
+        }
+
+        $path = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH);
+        if ($path === null || $path === '/' || $path === '') {
+            return;
+        }
+
+        if (!isset($_SESSION['recent_views'])) {
+            $_SESSION['recent_views'] = [];
+        }
+
+        // Remove duplicate, prepend current path, cap to max
+        $_SESSION['recent_views'] = array_values(array_unique(
+            array_merge([$path], $_SESSION['recent_views'])
+        ));
+
+        if (count($_SESSION['recent_views']) > self::RECENT_VIEWS_MAX) {
+            $_SESSION['recent_views'] = array_slice($_SESSION['recent_views'], 0, self::RECENT_VIEWS_MAX);
+        }
     }
 
     /**
