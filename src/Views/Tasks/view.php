@@ -33,6 +33,11 @@ function formatDate($date)
 
 // Remove local function - now using centralized helper
 
+// Subtasks/timer are not passed as standalone view vars; read what the
+// controller actually provides ($task->subtasks via findWithDetails).
+$subtasks = $task->subtasks ?? [];
+$activeTimer = $activeTimer ?? null;
+
 // Calculate progress
 $totalSubtasks = !empty($subtasks) ? count($subtasks) : 0;
 $completedSubtasks = 0;

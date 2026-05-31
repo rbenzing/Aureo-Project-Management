@@ -63,7 +63,7 @@ class CompanyController extends BaseController
             $activeProjects = $this->projectModel->count(['status_id' => 2, 'is_deleted' => 0]); // Assuming status_id 2 is "in_progress"
 
             $this->render('Companies/index', compact('activeProjects', 'totalUsers', 'totalPages', 'totalCompanies', 'companies', 'result'));
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             $securityService = SecurityService::getInstance();
             $this->redirectWithError('/dashboard', $securityService->handleError($e, 'CompanyController::index', 'An error occurred while fetching companies.'));
         }
@@ -98,8 +98,8 @@ class CompanyController extends BaseController
             $this->render('Companies/view', compact('company', 'users', 'projects'));
         } catch (InvalidArgumentException $e) {
             $this->redirectWithError('/companies', $e->getMessage());
-        } catch (\Exception $e) {
-            error_log("Exception in CompanyController::view: " . $e->getMessage());
+        } catch (\Throwable $e) {
+            $this->logException($e, 'CompanyController::view');
             $this->redirectWithError('/companies', 'An error occurred while fetching company details.');
         }
     }
@@ -115,8 +115,8 @@ class CompanyController extends BaseController
         try {
             $this->requirePermission('create_companies');
             $this->render('Companies/create');
-        } catch (\Exception $e) {
-            error_log("Exception in CompanyController::createForm: " . $e->getMessage());
+        } catch (\Throwable $e) {
+            $this->logException($e, 'CompanyController::createForm');
             $this->redirectWithError('/companies', 'An error occurred while loading the creation form.');
         }
     }
@@ -175,7 +175,7 @@ class CompanyController extends BaseController
             );
             $_SESSION['form_data'] = $data;
             $this->redirect('/companies/create');
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             $this->redirectWithError('/companies/create', Config::getErrorMessage(
                 $e,
                 'CompanyController::create',
@@ -208,8 +208,8 @@ class CompanyController extends BaseController
             $this->render('Companies/edit', compact('company'));
         } catch (InvalidArgumentException $e) {
             $this->redirectWithError('/companies', $e->getMessage());
-        } catch (\Exception $e) {
-            error_log("Error in CompanyController::editForm: " . $e->getMessage());
+        } catch (\Throwable $e) {
+            $this->logException($e, 'CompanyController::editForm');
             $this->redirectWithError('/companies', 'An error occurred while loading the edit form.');
         }
     }
@@ -270,8 +270,8 @@ class CompanyController extends BaseController
             $_SESSION['form_data'] = $data;
             header("Location: /companies/edit/{$id}");
             exit;
-        } catch (\Exception $e) {
-            error_log("Exception in CompanyController::update: " . $e->getMessage());
+        } catch (\Throwable $e) {
+            $this->logException($e, 'CompanyController::update');
             $_SESSION['error'] = 'An error occurred while updating the company.';
             header("Location: /companies/edit/{$id}");
             exit;
@@ -318,8 +318,8 @@ class CompanyController extends BaseController
 
         } catch (InvalidArgumentException $e) {
             $this->redirectWithError('/companies', $e->getMessage());
-        } catch (\Exception $e) {
-            error_log("Exception in CompanyController::delete: " . $e->getMessage());
+        } catch (\Throwable $e) {
+            $this->logException($e, 'CompanyController::delete');
             $this->redirectWithError('/companies', 'An error occurred while deleting the company.');
         }
     }

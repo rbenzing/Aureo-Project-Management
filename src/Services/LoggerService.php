@@ -25,7 +25,10 @@ class LoggerService
      */
     public function __construct(?string $logDirectory = null)
     {
-        $this->logDirectory = $logDirectory ?? dirname(BASE_PATH, 2) . '/log';
+        // BASE_PATH is the public/ dir, so the repo root is one level up — matches
+        // Config.php's dirname(BASE_PATH). Using level 2 wrote logs to the repo's
+        // PARENT dir, where nobody looks, silently hiding every logged error.
+        $this->logDirectory = $logDirectory ?? dirname(BASE_PATH) . '/log';
         $this->logFile = $this->logDirectory . '/aureo.log';
         $this->enabled = true;
 
@@ -218,9 +221,16 @@ class LoggerService
 
             $logEntry .= "\n" . str_repeat('-', 80) . "\n";
 
-            file_put_contents($this->logFile, $logEntry, FILE_APPEND | LOCK_EX);
+            // file_put_contents emits an E_WARNING (not an exception) on failure,
+            // which catch(Exception) would never see — silently dropping the log.
+            // Check the return value so write failures actually reach the fallback.
+            $written = @file_put_contents($this->logFile, $logEntry, FILE_APPEND | LOCK_EX);
+            if ($written === false) {
+                error_log("LoggerService could not write to {$this->logFile}");
+                error_log("Original message: {$level} - {$message}");
+            }
 
-        } catch (Exception $e) {
+        } catch (\Throwable $e) {
             // Fallback to PHP's error_log if our logging fails
             error_log("LoggerService failed: " . $e->getMessage());
             error_log("Original message: {$level} - {$message}");

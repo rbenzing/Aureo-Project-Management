@@ -106,7 +106,7 @@ class AuthController extends BaseController
 
         } catch (InvalidArgumentException $e) {
             $this->redirectWithError('/login', $e->getMessage());
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             $this->redirectWithError('/login', $this->securityService->handleError($e, 'AuthController::login', 'An error occurred during login.'));
         }
     }
@@ -121,7 +121,7 @@ class AuthController extends BaseController
         try {
             SessionMiddleware::destroySession();
             $this->redirect('/login');
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             $this->redirectWithError('/dashboard', Config::getErrorMessage(
                 $e,
                 'AuthController::logout',
@@ -189,7 +189,7 @@ class AuthController extends BaseController
             $_SESSION['error'] = $e->getMessage();
             $_SESSION['form_data'] = $data;
             $this->redirect('/register');
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             $this->redirectWithError('/register', $this->securityService->handleError($e, 'AuthController::register', 'An error occurred during registration.'));
         }
     }
@@ -233,7 +233,7 @@ class AuthController extends BaseController
 
         } catch (InvalidArgumentException $e) {
             $this->redirectWithError('/login', $e->getMessage());
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             $this->redirectWithError('/login', $this->securityService->handleError($e, 'AuthController::resetPassword', 'An error occurred during password reset.'));
         }
     }
@@ -286,7 +286,7 @@ class AuthController extends BaseController
 
         } catch (InvalidArgumentException $e) {
             $this->redirectWithError('/login', $e->getMessage());
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             $this->redirectWithError('/login', $this->securityService->handleError($e, 'AuthController::activate', 'An error occurred during account activation.'));
         }
     }
@@ -329,7 +329,7 @@ class AuthController extends BaseController
 
         } catch (InvalidArgumentException $e) {
             $this->redirectWithError('/forgot-password', $e->getMessage());
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             $this->redirectWithError('/forgot-password', $this->securityService->handleError($e, 'AuthController::forgotPassword'));
         }
     }

@@ -75,8 +75,8 @@ class TaskController extends BaseController
             $projects = $this->projectModel->getAllWithDetails();
 
             $this->render('Tasks/index', compact('tasks', 'totalTasks', 'totalPages', 'page', 'limit', 'statuses', 'projects', 'assignedUserId', 'projectId', 'isUnassigned'));
-        } catch (\Exception $e) {
-            error_log("Exception in TaskController::index: " . $e->getMessage());
+        } catch (\Throwable $e) {
+            $this->logException($e, 'TaskController::index');
             $this->redirectWithError('/dashboard', 'An error occurred while fetching tasks.');
         }
     }
@@ -99,8 +99,8 @@ class TaskController extends BaseController
             $projects = $this->projectModel->getAllWithDetails();
 
             $this->render('Tasks/backlog', compact('tasks', 'totalTasks', 'totalPages', 'page', 'limit', 'projects', 'projectId'));
-        } catch (\Exception $e) {
-            error_log("Exception in TaskController::backlog: " . $e->getMessage());
+        } catch (\Throwable $e) {
+            $this->logException($e, 'TaskController::backlog');
             $this->redirectWithError('/tasks', 'An error occurred while fetching the backlog.');
         }
     }
@@ -118,8 +118,8 @@ class TaskController extends BaseController
             $statuses = $this->taskModel->getTaskStatuses();
 
             $this->render('Tasks/sprint-planning', compact('projects', 'statuses'));
-        } catch (\Exception $e) {
-            error_log("Exception in TaskController::sprintPlanning: " . $e->getMessage());
+        } catch (\Throwable $e) {
+            $this->logException($e, 'TaskController::sprintPlanning');
             $this->redirectWithError('/tasks', 'An error occurred while loading sprint planning.');
         }
     }
@@ -149,8 +149,8 @@ class TaskController extends BaseController
             $this->render('Tasks/view', compact('task', 'project', 'statuses', 'users'));
         } catch (InvalidArgumentException $e) {
             $this->redirectWithError('/tasks', $e->getMessage());
-        } catch (\Exception $e) {
-            error_log("Exception in TaskController::view: " . $e->getMessage());
+        } catch (\Throwable $e) {
+            $this->logException($e, 'TaskController::view');
             $this->redirectWithError('/tasks', 'An error occurred while fetching task details.');
         }
     }
@@ -175,8 +175,8 @@ class TaskController extends BaseController
             unset($_SESSION['form_data']);
 
             $this->render('Tasks/create', compact('projects', 'statuses', 'users', 'priorities', 'taskTypes', 'projectId', 'parentTaskId', 'formData'));
-        } catch (\Exception $e) {
-            error_log("Exception in TaskController::createForm: " . $e->getMessage());
+        } catch (\Throwable $e) {
+            $this->logException($e, 'TaskController::createForm');
             $this->redirectWithError('/tasks', 'An error occurred while loading the creation form.');
         }
     }
@@ -248,8 +248,8 @@ class TaskController extends BaseController
             $_SESSION['error'] = $e->getMessage();
             $_SESSION['form_data'] = $data;
             $this->redirect('/tasks/create');
-        } catch (\Exception $e) {
-            error_log("Exception in TaskController::create: " . $e->getMessage());
+        } catch (\Throwable $e) {
+            $this->logException($e, 'TaskController::create');
             $this->redirectWithError('/tasks/create', 'An error occurred while creating the task.');
         }
     }
@@ -283,8 +283,8 @@ class TaskController extends BaseController
             $this->render('Tasks/edit', compact('task', 'projects', 'statuses', 'users', 'priorities', 'taskTypes', 'formData'));
         } catch (InvalidArgumentException $e) {
             $this->redirectWithError('/tasks', $e->getMessage());
-        } catch (\Exception $e) {
-            error_log("Exception in TaskController::editForm: " . $e->getMessage());
+        } catch (\Throwable $e) {
+            $this->logException($e, 'TaskController::editForm');
             $this->redirectWithError('/tasks', 'An error occurred while loading the edit form.');
         }
     }
@@ -369,8 +369,8 @@ class TaskController extends BaseController
             $_SESSION['form_data'] = $data;
             header('Location: /tasks/edit/' . ($data['id'] ?? ''));
             exit;
-        } catch (\Exception $e) {
-            error_log("Exception in TaskController::update: " . $e->getMessage());
+        } catch (\Throwable $e) {
+            $this->logException($e, 'TaskController::update');
             $this->redirectWithError('/tasks/edit/' . ($data['id'] ?? ''), 'An error occurred while updating the task.');
         }
     }
@@ -418,8 +418,8 @@ class TaskController extends BaseController
 
             header('Content-Type: application/json');
             echo json_encode(['success' => true, 'message' => 'Status updated']);
-        } catch (\Exception $e) {
-            error_log("Exception in TaskController::updateStatus: " . $e->getMessage());
+        } catch (\Throwable $e) {
+            $this->logException($e, 'TaskController::updateStatus');
             http_response_code(500);
             echo json_encode(['success' => false, 'message' => 'An error occurred']);
         }
@@ -453,8 +453,8 @@ class TaskController extends BaseController
             $this->redirectWithSuccess('/tasks/project/' . $projectId, 'Task deleted successfully.');
         } catch (InvalidArgumentException $e) {
             $this->redirectWithError('/tasks', $e->getMessage());
-        } catch (\Exception $e) {
-            error_log("Exception in TaskController::delete: " . $e->getMessage());
+        } catch (\Throwable $e) {
+            $this->logException($e, 'TaskController::delete');
             $this->redirectWithError('/tasks', 'An error occurred while deleting the task.');
         }
     }
@@ -495,8 +495,8 @@ class TaskController extends BaseController
 
             header('Content-Type: application/json');
             echo json_encode(['success' => true, 'message' => 'Timer started']);
-        } catch (\Exception $e) {
-            error_log("Exception in TaskController::startTimer: " . $e->getMessage());
+        } catch (\Throwable $e) {
+            $this->logException($e, 'TaskController::startTimer');
             http_response_code(500);
             echo json_encode(['success' => false, 'message' => $e->getMessage()]);
         }
@@ -550,8 +550,8 @@ class TaskController extends BaseController
 
             header('Content-Type: application/json');
             echo json_encode(['success' => true, 'elapsed' => $elapsed, 'time_spent' => $newTimeSpent]);
-        } catch (\Exception $e) {
-            error_log("Exception in TaskController::stopTimer: " . $e->getMessage());
+        } catch (\Throwable $e) {
+            $this->logException($e, 'TaskController::stopTimer');
             http_response_code(500);
             echo json_encode(['success' => false, 'message' => $e->getMessage()]);
         }
@@ -605,8 +605,8 @@ class TaskController extends BaseController
             $this->redirectWithSuccess('/tasks/view/' . $id, 'Comment added.');
         } catch (InvalidArgumentException $e) {
             $this->redirectWithError('/tasks/view/' . ($id ?? ''), $e->getMessage());
-        } catch (\Exception $e) {
-            error_log("Exception in TaskController::addComment: " . $e->getMessage());
+        } catch (\Throwable $e) {
+            $this->logException($e, 'TaskController::addComment');
             $this->redirectWithError('/tasks/view/' . ($id ?? ''), 'An error occurred while adding the comment.');
         }
     }
@@ -644,8 +644,8 @@ class TaskController extends BaseController
 
             header('Content-Type: application/json');
             echo json_encode(['success' => true, 'message' => 'Priorities updated']);
-        } catch (\Exception $e) {
-            error_log("Exception in TaskController::updateBacklogPriorities: " . $e->getMessage());
+        } catch (\Throwable $e) {
+            $this->logException($e, 'TaskController::updateBacklogPriorities');
             http_response_code(500);
             echo json_encode(['success' => false, 'message' => 'An error occurred']);
         }

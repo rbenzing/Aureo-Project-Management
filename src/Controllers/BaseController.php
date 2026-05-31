@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Controllers;
 
 use App\Middleware\AuthMiddleware;
+use App\Services\LoggerService;
 use App\Services\SettingsService;
 use RuntimeException;
 
@@ -16,6 +17,7 @@ abstract class BaseController
 {
     protected AuthMiddleware $authMiddleware;
     protected SettingsService $settingsService;
+    protected LoggerService $logger;
 
     /**
      * Initialize auth middleware and settings service
@@ -24,6 +26,22 @@ abstract class BaseController
     {
         $this->authMiddleware = $authMiddleware ?? new AuthMiddleware();
         $this->settingsService = SettingsService::getInstance();
+        $this->logger = LoggerService::getInstance();
+    }
+
+    /**
+     * Log a caught throwable to the application log (log/aureo.log).
+     *
+     * Use in `catch (\Throwable $e)` blocks instead of error_log(): error_log()
+     * is routed to PHP's ini error_log, while LoggerService writes structured
+     * entries (with session/user/request context) to the canonical app log.
+     *
+     * @param \Throwable $e The caught error or exception
+     * @param string $context A label such as "RoleController::view"
+     */
+    protected function logException(\Throwable $e, string $context): void
+    {
+        $this->logger->exception($e, ['action' => $context]);
     }
 
     /**
@@ -268,21 +286,16 @@ abstract class BaseController
     }
 
     /**
-     * Handle exception with safe error message and redirect
+     * Handle throwable with safe error message and redirect
      *
-     * @param \Exception $e Exception to handle
+     * @param \Throwable $e Throwable to handle (Error or Exception)
      * @param string $redirectUrl URL to redirect to
      * @param string|null $fallbackMessage Optional fallback error message
      */
-    protected function handleException(\Exception $e, string $redirectUrl, ?string $fallbackMessage = null): never
+    protected function handleException(\Throwable $e, string $redirectUrl, ?string $fallbackMessage = null): never
     {
-        // Log the actual error
-        error_log(sprintf(
-            "Controller Error: %s in %s:%d",
-            $e->getMessage(),
-            $e->getFile(),
-            $e->getLine()
-        ));
+        // Log the actual error to the application log (log/aureo.log)
+        $this->logger->exception($e, ['handler' => 'BaseController::handleException']);
 
         // Use fallback or safe error message
         $message = $fallbackMessage ?? 'An error occurred. Please try again.';

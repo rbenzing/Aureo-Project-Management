@@ -12,7 +12,7 @@ Only facts an agent can't infer from code search. Update when something bites.
 - `composer install` runs npm install + npm run build only.
 - DB setup: `composer setup` (non-interactive, uses `.env` defaults) or `php bin/setup.php` (interactive prompts). Writes `.env`, runs Phinx, sets admin password to `"password"`, optionally imports sample data.
 - `composer start` = `php -S` (opcaches aggressively — restart on edits). Composer times out at 300s unless `process-timeout: 0`.
-- App logs: `<repo>/log/aureo.log` — FIRST place to look on any failure. Resolved via `dirname(BASE_PATH, 2)` where `BASE_PATH = public/`.
+- App logs: `<repo>/log/aureo.log` — FIRST place to look on any failure. Resolved via `dirname(BASE_PATH)` where `BASE_PATH = public/` (one level up = repo root, matching `Config.php`). NOTE: `dirname(BASE_PATH, 2)` is WRONG — it writes to the repo's PARENT dir, silently hiding every logged error (this bit us).
 
 ## Load-bearing rules
 - **`BaseController::render($view, $data)` includes from `BASE_PATH . '/../src/Views/...'`.** ANY variable the view needs must be in `$data`; controller-local vars are NOT in view scope. Auto-injected: `$currentUser`, `$csrfToken`, `$error/$success/$info`.

@@ -96,7 +96,7 @@ class TimeTrackingController extends BaseController
             ));
 
         } catch (RuntimeException $e) {
-            error_log("Time tracking index error: " . $e->getMessage());
+            $this->logException($e, 'TimeTrackingController::index');
             $this->redirectWithError('/dashboard', $e->getMessage());
         }
     }
@@ -216,8 +216,8 @@ class TimeTrackingController extends BaseController
 
             return (int)$result->fetchColumn();
 
-        } catch (\Exception $e) {
-            error_log("Time entries count query error: " . $e->getMessage());
+        } catch (\Throwable $e) {
+            $this->logException($e, 'TimeTrackingController::getTotalTimeEntries');
 
             return 0;
         }
@@ -238,8 +238,8 @@ class TimeTrackingController extends BaseController
 
             return $stats;
 
-        } catch (\Exception $e) {
-            error_log("Time data query error: " . $e->getMessage());
+        } catch (\Throwable $e) {
+            $this->logException($e, 'TimeTrackingController::getTimeData');
 
             return [
                 'today' => 0,
@@ -368,8 +368,8 @@ class TimeTrackingController extends BaseController
 
         } catch (InvalidArgumentException $e) {
             $this->redirectWithError('/tasks', $e->getMessage());
-        } catch (\Exception $e) {
-            error_log("Exception in TimeTrackingController::startTimer: " . $e->getMessage());
+        } catch (\Throwable $e) {
+            $this->logException($e, 'TimeTrackingController::startTimer');
             $this->redirectWithError('/tasks', 'An error occurred while starting the timer.');
         }
     }
@@ -437,8 +437,8 @@ class TimeTrackingController extends BaseController
 
         } catch (InvalidArgumentException $e) {
             $this->redirectWithError('/tasks', $e->getMessage());
-        } catch (\Exception $e) {
-            error_log("Exception in TimeTrackingController::stopTimer: " . $e->getMessage());
+        } catch (\Throwable $e) {
+            $this->logException($e, 'TimeTrackingController::stopTimer');
             $this->redirectWithError('/tasks', 'An error occurred while stopping the timer.');
         }
     }

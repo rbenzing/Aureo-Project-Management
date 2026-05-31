@@ -135,8 +135,8 @@ class SettingsController extends BaseController
                 'pmaUrl' => 'http://localhost:8081',
             ]);
 
-        } catch (\Exception $e) {
-            error_log("Settings index error: " . $e->getMessage());
+        } catch (\Throwable $e) {
+            $this->logException($e, 'SettingsController::index');
             $this->redirectWithError('/dashboard', 'An error occurred while loading settings.');
         }
     }
@@ -194,8 +194,8 @@ class SettingsController extends BaseController
 
             $_SESSION['success'] = 'Settings updated successfully.';
 
-        } catch (\Exception $e) {
-            error_log("Settings update error: " . $e->getMessage());
+        } catch (\Throwable $e) {
+            $this->logException($e, 'SettingsController::update');
             $_SESSION['error'] = 'An error occurred while updating settings.';
         }
 

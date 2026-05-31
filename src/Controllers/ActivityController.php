@@ -83,8 +83,8 @@ class ActivityController extends BaseController
             // Render the view
             $this->renderActivityIndex($activities, $stats, $pagination, $filters, $users);
 
-        } catch (RuntimeException $e) {
-            error_log("Activity index error: " . $e->getMessage());
+        } catch (\Throwable $e) {
+            $this->logException($e, 'ActivityController::index');
             $this->handleError($e->getMessage());
         }
     }
@@ -173,9 +173,8 @@ class ActivityController extends BaseController
             return $stmt->fetchAll(PDO::FETCH_OBJ);
 
         } catch (\Exception $e) {
-            error_log("Activity query error: " . $e->getMessage());
-            error_log("Query: " . $query);
-            error_log("Params: " . json_encode($params));
+            $this->logException($e, 'ActivityController::getActivities');
+            $this->logger->warning('ActivityController::getActivities query context', ['query' => $query, 'params' => $params]);
 
             throw new RuntimeException("Database query failed: " . $e->getMessage());
         }
@@ -245,8 +244,8 @@ class ActivityController extends BaseController
             $result = $this->db->executeQuery($query, $params);
 
             return (int)$result->fetchColumn();
-        } catch (\Exception $e) {
-            error_log("Activity count query error: " . $e->getMessage());
+        } catch (\Throwable $e) {
+            $this->logException($e, 'ActivityController::getTotalActivities');
 
             return 0;
         }
@@ -315,8 +314,8 @@ class ActivityController extends BaseController
                 'recent_logins' => $recentLogins,
                 'active_users' => $activeUsers,
             ];
-        } catch (\Exception $e) {
-            error_log("Activity stats query error: " . $e->getMessage());
+        } catch (\Throwable $e) {
+            $this->logException($e, 'ActivityController::getActivityStats');
 
             return [
                 'total_activities' => 0,

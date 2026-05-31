@@ -67,7 +67,7 @@ class MilestoneController extends BaseController
             $this->render('Milestones/index', compact('milestones', 'totalPages', 'totalMilestones', 'project', 'page', 'limit'));
         } catch (InvalidArgumentException $e) {
             $this->redirectWithError('/milestones', $e->getMessage());
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             $securityService = SecurityService::getInstance();
             $this->redirectWithError('/dashboard', $securityService->handleError($e, 'MilestoneController::index', 'An error occurred while fetching milestones.'));
         }
@@ -118,16 +118,16 @@ class MilestoneController extends BaseController
             // Use try-catch to ensure this new feature doesn't break existing functionality
             try {
                 $relatedSprints = $this->milestoneModel->getRelatedSprints($id);
-            } catch (\Exception $e) {
-                error_log("Error fetching related sprints for milestone {$id}: " . $e->getMessage());
+            } catch (\Throwable $e) {
+                $this->logException($e, 'MilestoneController::view (related sprints)');
                 $relatedSprints = []; // Default to empty array if there's an error
             }
 
             $this->render('Milestones/view', compact('milestone', 'project', 'epic', 'relatedMilestones', 'relatedSprints'));
         } catch (InvalidArgumentException $e) {
             $this->redirectWithError('/milestones', $e->getMessage());
-        } catch (\Exception $e) {
-            error_log("Exception in MilestoneController::view: " . $e->getMessage());
+        } catch (\Throwable $e) {
+            $this->logException($e, 'MilestoneController::view');
             $this->redirectWithError('/milestones', 'An error occurred while fetching milestone details.');
         }
     }
@@ -160,8 +160,8 @@ class MilestoneController extends BaseController
             $templates = $this->templateModel->getAvailableTemplates('milestone', $companyId);
 
             $this->render('Milestones/create', compact('templates', 'companyId', 'selectedEpicId', 'selectedProjectId', 'epics', 'epicId', 'projectId', 'statuses', 'projects', 'projectsResult'));
-        } catch (\Exception $e) {
-            error_log("Exception in MilestoneController::createForm: " . $e->getMessage());
+        } catch (\Throwable $e) {
+            $this->logException($e, 'MilestoneController::createForm');
             $this->redirectWithError('/milestones', 'An error occurred while loading the creation form.');
         }
     }
@@ -225,8 +225,8 @@ class MilestoneController extends BaseController
             $_SESSION['error'] = $e->getMessage();
             $_SESSION['form_data'] = $data;
             $this->redirect('/milestones/create');
-        } catch (\Exception $e) {
-            error_log("Exception in MilestoneController::create: " . $e->getMessage());
+        } catch (\Throwable $e) {
+            $this->logException($e, 'MilestoneController::create');
             $this->redirectWithError('/milestones/create', 'An error occurred while creating the milestone.');
         }
     }
@@ -269,8 +269,8 @@ class MilestoneController extends BaseController
             $this->render('Milestones/edit', compact('milestone', 'templates', 'statuses', 'projects', 'epics', 'companyId'));
         } catch (InvalidArgumentException $e) {
             $this->redirectWithError('/milestones', $e->getMessage());
-        } catch (\Exception $e) {
-            error_log("Exception in MilestoneController::editForm: " . $e->getMessage());
+        } catch (\Throwable $e) {
+            $this->logException($e, 'MilestoneController::editForm');
             $this->redirectWithError('/milestones', 'An error occurred while loading the edit form.');
         }
     }
@@ -346,8 +346,8 @@ class MilestoneController extends BaseController
             $_SESSION['form_data'] = $data;
             header("Location: /milestones/edit/{$id}");
             exit;
-        } catch (\Exception $e) {
-            error_log("Exception in MilestoneController::update: " . $e->getMessage());
+        } catch (\Throwable $e) {
+            $this->logException($e, 'MilestoneController::update');
             $_SESSION['error'] = 'An error occurred while updating the milestone.';
             header("Location: /milestones/edit/{$id}");
             exit;
@@ -392,8 +392,8 @@ class MilestoneController extends BaseController
             $this->redirectWithSuccess('/milestones', 'Milestone deleted successfully.');
         } catch (InvalidArgumentException $e) {
             $this->redirectWithError('/milestones', $e->getMessage());
-        } catch (\Exception $e) {
-            error_log("Exception in MilestoneController::delete: " . $e->getMessage());
+        } catch (\Throwable $e) {
+            $this->logException($e, 'MilestoneController::delete');
             $this->redirectWithError('/milestones', 'An error occurred while deleting the milestone.');
         }
     }
@@ -426,8 +426,8 @@ class MilestoneController extends BaseController
             // Return JSON response
             echo json_encode($epics);
 
-        } catch (\Exception $e) {
-            error_log("Exception in MilestoneController::getProjectEpicsApi: " . $e->getMessage());
+        } catch (\Throwable $e) {
+            $this->logException($e, 'MilestoneController::getProjectEpicsApi');
             http_response_code(500);
             echo json_encode(['error' => 'Failed to load epics']);
         }

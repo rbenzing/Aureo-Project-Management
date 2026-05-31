@@ -14,8 +14,8 @@ use App\Core\Config;
 $canEditRoles = isset($currentUser['permissions']) && in_array('edit_roles', $currentUser['permissions']);
 $canDeleteRoles = isset($currentUser['permissions']) && in_array('delete_roles', $currentUser['permissions']);
 
-// Get users with this role
-$usersWithRole = $this->roleModel->getUsers($role->id);
+// Users with this role are provided by the controller via $data.
+$usersWithRole = $usersWithRole ?? [];
 
 // Ensure permissions exist and are an array
 $role->permissions = $role->permissions ?? [];

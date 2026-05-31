@@ -44,7 +44,8 @@ class FavoritesController extends BaseController
                 'success' => true,
                 'favorites' => $favorites,
             ]);
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
+            $this->logException($e, 'FavoritesController::index');
             Response::json(['error' => 'Failed to get favorites: ' . $e->getMessage()], 500);
         }
     }
@@ -111,7 +112,8 @@ class FavoritesController extends BaseController
                     'message' => 'Favorite already exists or could not be added',
                 ]);
             }
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
+            $this->logException($e, 'FavoritesController::add');
             Response::json(['error' => 'Failed to add favorite: ' . $e->getMessage()], 500);
         }
     }
@@ -130,11 +132,13 @@ class FavoritesController extends BaseController
                 return;
             }
 
-            // Validate CSRF token
-            /*if (!$this->validateCsrfToken()) {
+            // Validate CSRF token (was disabled — left remove() CSRF-able while
+            // add() and updateOrder() validated; restored for consistency).
+            if (!$this->validateCsrfToken()) {
                 Response::json(['error' => 'Invalid CSRF token'], 403);
+
                 return;
-            }*/
+            }
 
             $input = json_decode(file_get_contents('php://input'), true);
 
@@ -167,7 +171,8 @@ class FavoritesController extends BaseController
                     'message' => 'Favorite not found or could not be removed',
                 ]);
             }
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
+            $this->logException($e, 'FavoritesController::remove');
             Response::json(['error' => 'Failed to remove favorite: ' . $e->getMessage()], 500);
         }
     }
@@ -216,7 +221,8 @@ class FavoritesController extends BaseController
                     'message' => 'Failed to update sort order',
                 ]);
             }
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
+            $this->logException($e, 'FavoritesController::updateOrder');
             Response::json(['error' => 'Failed to update sort order: ' . $e->getMessage()], 500);
         }
     }
@@ -251,7 +257,8 @@ class FavoritesController extends BaseController
                 'success' => true,
                 'is_favorited' => $exists,
             ]);
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
+            $this->logException($e, 'FavoritesController::check');
             Response::json(['error' => 'Failed to check favorite: ' . $e->getMessage()], 500);
         }
     }
@@ -269,7 +276,10 @@ class FavoritesController extends BaseController
         $sessionToken = $_SESSION['csrf_token'] ?? '';
 
         // Log for debugging
-        error_log("CSRF Debug - Token: " . substr($token, 0, 10) . "..., Session: " . substr($sessionToken, 0, 10) . "...");
+        $this->logger->warning('CSRF Debug', [
+            'token' => substr($token, 0, 10) . '...',
+            'session' => substr($sessionToken, 0, 10) . '...',
+        ]);
 
         return !empty($token) && !empty($sessionToken) && hash_equals($sessionToken, $token);
     }

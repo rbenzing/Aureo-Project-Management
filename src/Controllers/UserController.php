@@ -52,8 +52,8 @@ class UserController extends BaseController
             $totalPages = ceil($totalUsers / $limit);
 
             $this->render('Users/index', compact('totalPages', 'totalUsers', 'users', 'results', 'limit', 'settingsService', 'page'));
-        } catch (\Exception $e) {
-            error_log("Exception in UserController::index: " . $e->getMessage());
+        } catch (\Throwable $e) {
+            $this->logException($e, 'UserController::index');
             $this->redirectWithError('/dashboard', 'An error occurred while fetching users.');
         }
     }
@@ -87,8 +87,8 @@ class UserController extends BaseController
             $this->render('Users/view', compact('user', 'userRoleData'));
         } catch (InvalidArgumentException $e) {
             $this->redirectWithError('/users', $e->getMessage());
-        } catch (\Exception $e) {
-            error_log("Exception in UserController::view: " . $e->getMessage());
+        } catch (\Throwable $e) {
+            $this->logException($e, 'UserController::view');
             $this->redirectWithError('/users', 'An error occurred while fetching user details.');
         }
     }
@@ -120,8 +120,8 @@ class UserController extends BaseController
             $user->permissions = $userRoleData['permissions'];
 
             $this->render('Users/profile', compact('user', 'userRoleData'));
-        } catch (\Exception $e) {
-            error_log("Exception in UserController::profile: " . $e->getMessage());
+        } catch (\Throwable $e) {
+            $this->logException($e, 'UserController::profile');
             $this->redirectWithError('/dashboard', 'An error occurred while fetching your profile.');
         }
     }
@@ -143,8 +143,8 @@ class UserController extends BaseController
             $roles = $rolesResult['records'];
 
             $this->render('Users/create', ['roles' => $rolesResult, 'companies' => $companiesResult]);
-        } catch (\Exception $e) {
-            error_log("Exception in UserController::createForm: " . $e->getMessage());
+        } catch (\Throwable $e) {
+            $this->logException($e, 'UserController::createForm');
             $this->redirectWithError('/users', 'An error occurred while loading the creation form.');
         }
     }
@@ -205,7 +205,7 @@ class UserController extends BaseController
             );
             $_SESSION['form_data'] = $data;
             $this->redirect('/users/create');
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             $this->redirectWithError('/users/create', Config::getErrorMessage(
                 $e,
                 'UserController::create',
@@ -243,8 +243,8 @@ class UserController extends BaseController
             $this->render('Users/edit', ['user' => $user, 'roles' => $rolesResult, 'companies' => $companiesResult]);
         } catch (InvalidArgumentException $e) {
             $this->redirectWithError('/users', $e->getMessage());
-        } catch (\Exception $e) {
-            error_log("Exception in UserController::editForm: " . $e->getMessage());
+        } catch (\Throwable $e) {
+            $this->logException($e, 'UserController::editForm');
             $this->redirectWithError('/users', 'An error occurred while loading the edit form.');
         }
     }
@@ -301,8 +301,8 @@ class UserController extends BaseController
             $_SESSION['form_data'] = $data;
             header("Location: /users/edit/{$id}");
             exit;
-        } catch (\Exception $e) {
-            error_log("Exception in UserController::update: " . $e->getMessage());
+        } catch (\Throwable $e) {
+            $this->logException($e, 'UserController::update');
             $_SESSION['error'] = 'An error occurred while updating the user.';
             header("Location: /users/edit/{$id}");
             exit;
@@ -346,8 +346,8 @@ class UserController extends BaseController
 
         } catch (InvalidArgumentException $e) {
             $this->redirectWithError('/users', $e->getMessage());
-        } catch (\Exception $e) {
-            error_log("Exception in UserController::delete: " . $e->getMessage());
+        } catch (\Throwable $e) {
+            $this->logException($e, 'UserController::delete');
             $this->redirectWithError('/users', 'An error occurred while deleting the user.');
         }
     }

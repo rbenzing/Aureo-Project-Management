@@ -49,8 +49,8 @@ class RoleController extends BaseController
             $totalPages = ceil($totalRoles / $limit);
 
             $this->render('Roles/index', compact('totalPages', 'totalRoles', 'roles', 'results', 'limit', 'settingsService', 'page'));
-        } catch (\Exception $e) {
-            error_log("Exception in RoleController::index: " . $e->getMessage());
+        } catch (\Throwable $e) {
+            $this->logException($e, 'RoleController::index');
             $this->redirectWithError('/dashboard', 'An error occurred while fetching roles.');
         }
     }
@@ -76,11 +76,18 @@ class RoleController extends BaseController
                 throw new InvalidArgumentException('Role not found');
             }
 
-            $this->render('Roles/view', compact('role'));
+            // Views run in BaseController::render() scope and cannot reach
+            // RoleController's private $roleModel — pass the data in explicitly.
+            $usersWithRole = $this->roleModel->getUsers($id);
+
+            $this->render('Roles/view', compact('role', 'usersWithRole'));
         } catch (InvalidArgumentException $e) {
             $this->redirectWithError('/roles', $e->getMessage());
-        } catch (\Exception $e) {
-            error_log("Exception in RoleController::view: " . $e->getMessage());
+        } catch (\Throwable $e) {
+            // Catch \Throwable, not \Exception: PHP Errors/TypeErrors raised in the
+            // view (e.g. property access) are \Error, which \Exception misses — that
+            // is exactly how the private-property fatal reached the generic handler.
+            $this->logException($e, 'RoleController::view');
             $this->redirectWithError('/roles', 'An error occurred while fetching role details.');
         }
     }
@@ -99,8 +106,8 @@ class RoleController extends BaseController
             $permissions = $this->permissionModel->getOrganizedPermissions();
 
             $this->render('Roles/create', compact('permissions'));
-        } catch (\Exception $e) {
-            error_log("Exception in RoleController::createForm: " . $e->getMessage());
+        } catch (\Throwable $e) {
+            $this->logException($e, 'RoleController::createForm');
             $this->redirectWithError('/roles', 'An error occurred while loading the creation form.');
         }
     }
@@ -169,8 +176,8 @@ class RoleController extends BaseController
             $_SESSION['error'] = $e->getMessage();
             $_SESSION['form_data'] = $data;
             $this->redirect('/roles/create');
-        } catch (\Exception $e) {
-            error_log("Exception in RoleController::create: " . $e->getMessage());
+        } catch (\Throwable $e) {
+            $this->logException($e, 'RoleController::create');
             $this->redirectWithError('/roles/create', 'An error occurred while creating the role.');
         }
     }
@@ -201,8 +208,8 @@ class RoleController extends BaseController
             $this->render('Roles/edit', compact('role', 'permissions'));
         } catch (InvalidArgumentException $e) {
             $this->redirectWithError('/roles', $e->getMessage());
-        } catch (\Exception $e) {
-            error_log("Exception in RoleController::editForm: " . $e->getMessage());
+        } catch (\Throwable $e) {
+            $this->logException($e, 'RoleController::editForm');
             $this->redirectWithError('/roles', 'An error occurred while loading the edit form.');
         }
     }
@@ -276,8 +283,8 @@ class RoleController extends BaseController
             $_SESSION['form_data'] = $data;
             header("Location: /roles/edit/{$id}");
             exit;
-        } catch (\Exception $e) {
-            error_log("Exception in RoleController::update: " . $e->getMessage());
+        } catch (\Throwable $e) {
+            $this->logException($e, 'RoleController::update');
             $_SESSION['error'] = 'An error occurred while updating the role.';
             header("Location: /roles/edit/{$id}");
             exit;
@@ -327,8 +334,8 @@ class RoleController extends BaseController
 
         } catch (InvalidArgumentException $e) {
             $this->redirectWithError('/roles', $e->getMessage());
-        } catch (\Exception $e) {
-            error_log("Exception in RoleController::delete: " . $e->getMessage());
+        } catch (\Throwable $e) {
+            $this->logException($e, 'RoleController::delete');
             $this->redirectWithError('/roles', 'An error occurred while deleting the role.');
         }
     }

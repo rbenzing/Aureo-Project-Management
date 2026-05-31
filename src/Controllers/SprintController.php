@@ -102,8 +102,8 @@ class SprintController extends BaseController
             $this->render('Sprints/index', compact('sprints', 'projects', 'project', 'projectSprintCounts', 'page', 'limit'));
         } catch (InvalidArgumentException $e) {
             $this->redirectWithError('/sprints', $e->getMessage());
-        } catch (\Exception $e) {
-            error_log("Exception in SprintController::index: " . $e->getMessage());
+        } catch (\Throwable $e) {
+            $this->logException($e, 'SprintController::index');
             $this->redirectWithError('/dashboard', 'An error occurred while fetching sprints.');
         }
     }
@@ -138,8 +138,8 @@ class SprintController extends BaseController
             $this->render('Sprints/view', compact('sprint', 'project', 'tasks'));
         } catch (InvalidArgumentException $e) {
             $this->redirectWithError('/sprints', $e->getMessage());
-        } catch (\Exception $e) {
-            error_log("Exception in SprintController::view: " . $e->getMessage());
+        } catch (\Throwable $e) {
+            $this->logException($e, 'SprintController::view');
             $this->redirectWithError('/dashboard', 'An error occurred while fetching sprint details.');
         }
     }
@@ -206,8 +206,8 @@ class SprintController extends BaseController
             $todaysFocus = !empty($sprintIds) ? $this->getTodaysFocusItems($userId, $sprintIds) : [];
 
             $this->render('Sprints/current', compact('sprintDetails', 'todaysFocus'));
-        } catch (\Exception $e) {
-            error_log("Exception in SprintController::current: " . $e->getMessage());
+        } catch (\Throwable $e) {
+            $this->logException($e, 'SprintController::current');
             $this->redirectWithError('/dashboard', 'An error occurred while fetching current sprint information.');
         }
     }
@@ -266,8 +266,8 @@ class SprintController extends BaseController
             $this->render('Sprints/board', compact('sprint', 'project', 'tasksByStatus', 'sprintStats'));
         } catch (InvalidArgumentException $e) {
             $this->redirectWithError('/sprints', $e->getMessage());
-        } catch (\Exception $e) {
-            error_log("Exception in SprintController::board: " . $e->getMessage());
+        } catch (\Throwable $e) {
+            $this->logException($e, 'SprintController::board');
             $this->redirectWithError('/sprints', 'An error occurred while loading the sprint board.');
         }
     }
@@ -324,8 +324,8 @@ class SprintController extends BaseController
             }
 
             $this->render('Sprints/planning', compact('userProjects', 'selectedProject', 'selectedProjectId', 'productBacklog', 'activeSprints', 'sprintCapacity'));
-        } catch (\Exception $e) {
-            error_log("Exception in SprintController::planning: " . $e->getMessage());
+        } catch (\Throwable $e) {
+            $this->logException($e, 'SprintController::planning');
             $this->redirectWithError('/sprints', 'An error occurred while loading sprint planning.');
         }
     }
@@ -366,8 +366,8 @@ class SprintController extends BaseController
             $this->render('Sprints/create', compact('templates', 'companyId', 'sprint_statuses', 'project_tasks'));
         } catch (InvalidArgumentException $e) {
             $this->redirectWithError('/sprints', $e->getMessage());
-        } catch (\Exception $e) {
-            error_log("Exception in SprintController::createForm: " . $e->getMessage());
+        } catch (\Throwable $e) {
+            $this->logException($e, 'SprintController::createForm');
             $this->redirectWithError('/dashboard', 'An error occurred while loading the sprint creation form.');
         }
     }
@@ -451,8 +451,8 @@ class SprintController extends BaseController
                 'sprint_id' => $sprintId,
             ]);
 
-        } catch (\Exception $e) {
-            error_log("Exception in SprintController::createFromPlanning: " . $e->getMessage());
+        } catch (\Throwable $e) {
+            $this->logException($e, 'SprintController::createFromPlanning');
             http_response_code(500);
             echo json_encode(['success' => false, 'message' => 'An error occurred while creating the sprint']);
         }
@@ -527,8 +527,8 @@ class SprintController extends BaseController
             $_SESSION['form_data'] = $data;
             header('Location: /sprints/create/' . $data['project_id']);
             exit;
-        } catch (\Exception $e) {
-            error_log("Exception in SprintController::create: " . $e->getMessage());
+        } catch (\Throwable $e) {
+            $this->logException($e, 'SprintController::create');
             $_SESSION['error'] = 'An error occurred while creating the sprint.';
             header('Location: /sprints/create/' . $data['project_id']);
             exit;
@@ -583,8 +583,8 @@ class SprintController extends BaseController
             $_SESSION['error'] = $e->getMessage();
             header('Location: /sprints/view/' . $id);
             exit;
-        } catch (\Exception $e) {
-            error_log("Exception in SprintController::editForm: " . $e->getMessage());
+        } catch (\Throwable $e) {
+            $this->logException($e, 'SprintController::editForm');
             $this->redirectWithError('/dashboard', 'An error occurred while loading the edit form.');
         }
     }
@@ -655,8 +655,8 @@ class SprintController extends BaseController
             $_SESSION['form_data'] = $data;
             header("Location: /sprints/edit/{$id}");
             exit;
-        } catch (\Exception $e) {
-            error_log("Exception in SprintController::update: " . $e->getMessage());
+        } catch (\Throwable $e) {
+            $this->logException($e, 'SprintController::update');
             $_SESSION['error'] = 'An error occurred while updating the sprint.';
             header("Location: /sprints/edit/{$id}");
             exit;
@@ -713,8 +713,8 @@ class SprintController extends BaseController
             $_SESSION['error'] = $e->getMessage();
             header('Location: /sprints/view/' . ($id ?? ''));
             exit;
-        } catch (\Exception $e) {
-            error_log("Error in SprintController::delete: " . $e->getMessage());
+        } catch (\Throwable $e) {
+            $this->logException($e, 'SprintController::delete');
             $_SESSION['error'] = 'An error occurred while deleting the sprint.';
             header('Location: /sprints/view/' . ($id ?? ''));
             exit;
@@ -755,8 +755,8 @@ class SprintController extends BaseController
             $_SESSION['error'] = $e->getMessage();
             header('Location: /sprints/view/' . ($sprintId ?? ''));
             exit;
-        } catch (\Exception $e) {
-            error_log("Error in SprintController::addTasks: " . $e->getMessage());
+        } catch (\Throwable $e) {
+            $this->logException($e, 'SprintController::addTasks');
             $_SESSION['error'] = 'An error occurred while adding tasks to the sprint.';
             header('Location: /sprints/view/' . ($sprintId ?? ''));
             exit;
@@ -848,8 +848,8 @@ class SprintController extends BaseController
                 echo json_encode(['success' => false, 'message' => 'Failed to assign task to sprint']);
             }
 
-        } catch (\Exception $e) {
-            error_log("Error in SprintController::assignTask: " . $e->getMessage());
+        } catch (\Throwable $e) {
+            $this->logException($e, 'SprintController::assignTask');
             http_response_code(500);
             echo json_encode(['success' => false, 'message' => 'Internal server error']);
         }
@@ -958,8 +958,8 @@ class SprintController extends BaseController
             $stmt = $db->executeQuery($sql, $params);
 
             return $stmt->fetchAll(\PDO::FETCH_OBJ);
-        } catch (\Exception $e) {
-            error_log("Error getting today's focus items: " . $e->getMessage());
+        } catch (\Throwable $e) {
+            $this->logException($e, 'SprintController::getTodaysFocusItems');
 
             return [];
         }
@@ -1115,8 +1115,8 @@ class SprintController extends BaseController
             }
 
             $this->redirectWithError('/sprints/planning', $errorMessage);
-        } catch (\Exception $e) {
-            error_log("Exception in SprintController::createFromMilestones: " . $e->getMessage());
+        } catch (\Throwable $e) {
+            $this->logException($e, 'SprintController::createFromMilestones');
             $errorMessage = 'An error occurred while creating the sprint.';
 
             if (!empty($input)) {
@@ -1158,8 +1158,8 @@ class SprintController extends BaseController
                 'milestones' => $milestones,
             ]);
 
-        } catch (\Exception $e) {
-            error_log("Exception in SprintController::getMilestonesForPlanning: " . $e->getMessage());
+        } catch (\Throwable $e) {
+            $this->logException($e, 'SprintController::getMilestonesForPlanning');
             http_response_code(500);
             echo json_encode(['success' => false, 'message' => 'Error fetching milestones']);
         }
@@ -1192,8 +1192,8 @@ class SprintController extends BaseController
                 'tasks' => $tasks,
             ]);
 
-        } catch (\Exception $e) {
-            error_log("Exception in SprintController::getTasksFromMilestones: " . $e->getMessage());
+        } catch (\Throwable $e) {
+            $this->logException($e, 'SprintController::getTasksFromMilestones');
             http_response_code(500);
             echo json_encode(['success' => false, 'message' => 'Error fetching tasks']);
         }
@@ -1232,8 +1232,8 @@ class SprintController extends BaseController
             $this->redirectWithSuccess('/sprints/view/' . $id, 'Sprint started successfully.');
         } catch (InvalidArgumentException $e) {
             $this->redirectWithError('/sprints/view/' . ($id ?? ''), $e->getMessage());
-        } catch (\Exception $e) {
-            error_log("Error in SprintController::startSprint: " . $e->getMessage());
+        } catch (\Throwable $e) {
+            $this->logException($e, 'SprintController::startSprint');
             $this->redirectWithError('/sprints/view/' . ($id ?? ''), 'An error occurred while starting the sprint.');
         }
     }
@@ -1272,8 +1272,8 @@ class SprintController extends BaseController
             $this->redirectWithSuccess('/sprints/view/' . $id, 'Sprint completed successfully.');
         } catch (InvalidArgumentException $e) {
             $this->redirectWithError('/sprints/view/' . ($id ?? ''), $e->getMessage());
-        } catch (\Exception $e) {
-            error_log("Error in SprintController::completeSprint: " . $e->getMessage());
+        } catch (\Throwable $e) {
+            $this->logException($e, 'SprintController::completeSprint');
             $this->redirectWithError('/sprints/view/' . ($id ?? ''), 'An error occurred while completing the sprint.');
         }
     }
@@ -1311,8 +1311,8 @@ class SprintController extends BaseController
             $this->redirectWithSuccess('/sprints/view/' . $id, 'Sprint marked as delayed.');
         } catch (InvalidArgumentException $e) {
             $this->redirectWithError('/sprints/view/' . ($id ?? ''), $e->getMessage());
-        } catch (\Exception $e) {
-            error_log("Error in SprintController::delaySprint: " . $e->getMessage());
+        } catch (\Throwable $e) {
+            $this->logException($e, 'SprintController::delaySprint');
             $this->redirectWithError('/sprints/view/' . ($id ?? ''), 'An error occurred while delaying the sprint.');
         }
     }
@@ -1351,8 +1351,8 @@ class SprintController extends BaseController
             $this->redirectWithSuccess('/sprints/project/' . $projectId, 'Sprint cancelled successfully.');
         } catch (InvalidArgumentException $e) {
             $this->redirectWithError('/sprints/view/' . ($id ?? ''), $e->getMessage());
-        } catch (\Exception $e) {
-            error_log("Error in SprintController::cancelSprint: " . $e->getMessage());
+        } catch (\Throwable $e) {
+            $this->logException($e, 'SprintController::cancelSprint');
             $this->redirectWithError('/sprints/view/' . ($id ?? ''), 'An error occurred while cancelling the sprint.');
         }
     }
@@ -1380,7 +1380,7 @@ class SprintController extends BaseController
                 'success' => true,
                 'sprints' => $sprints,
             ]);
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             header('Content-Type: application/json');
             http_response_code(400);
             echo json_encode([

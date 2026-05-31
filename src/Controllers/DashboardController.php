@@ -81,7 +81,7 @@ class DashboardController extends BaseController
             // Fetch dashboard data only if user has relevant permissions
             try {
                 $dashboardData = $this->getDashboardData($userId, $userPermissions);
-            } catch (\Exception $e) {
+            } catch (\Throwable $e) {
                 // Log the error but don't redirect to login - show error on dashboard
                 $_SESSION['error'] = Config::getErrorMessage(
                     $e,
@@ -140,7 +140,7 @@ class DashboardController extends BaseController
                 'dashboardData' => $dashboardData,
             ]);
 
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             // Only redirect to login for actual authentication/authorization errors
             $this->redirectWithError('/login', Config::getErrorMessage(
                 $e,
@@ -209,8 +209,8 @@ class DashboardController extends BaseController
                 try {
                     $dashboardData['recent_projects'] = $this->projectModel->getRecentByUser($userId, 5);
                     error_log("Dashboard: Fetched " . count($dashboardData['recent_projects']) . " recent projects for user $userId");
-                } catch (\Exception $e) {
-                    error_log("Error fetching recent projects: " . $e->getMessage());
+                } catch (\Throwable $e) {
+                    $this->logException($e, 'DashboardController::getDashboardData (recent projects)');
                     $dashboardData['recent_projects'] = [];
                 }
             }
@@ -228,8 +228,8 @@ class DashboardController extends BaseController
 
                     $dashboardData['story_points_summary'] = $this->getStoryPointsSummary($userId);
                     error_log("Dashboard: Story points summary - " . json_encode($dashboardData['story_points_summary']));
-                } catch (\Exception $e) {
-                    error_log("Error fetching task data: " . $e->getMessage());
+                } catch (\Throwable $e) {
+                    $this->logException($e, 'DashboardController::getDashboardData (task data)');
                     // Keep default empty values for task data
                 }
             }
@@ -241,8 +241,8 @@ class DashboardController extends BaseController
                         'is_deleted' => 0,
                     ]);
                     error_log("Dashboard: Fetched " . count($dashboardData['upcoming_milestones']) . " upcoming milestones");
-                } catch (\Exception $e) {
-                    error_log("Error fetching milestones: " . $e->getMessage());
+                } catch (\Throwable $e) {
+                    $this->logException($e, 'DashboardController::getDashboardData (milestones)');
                     $dashboardData['upcoming_milestones'] = [];
                 }
             }
@@ -252,8 +252,8 @@ class DashboardController extends BaseController
                 try {
                     $dashboardData['task_summary'] = $this->getTaskSummary($userId);
                     error_log("Dashboard: Task summary - " . json_encode($dashboardData['task_summary']));
-                } catch (\Exception $e) {
-                    error_log("Error fetching task summary: " . $e->getMessage());
+                } catch (\Throwable $e) {
+                    $this->logException($e, 'DashboardController::getDashboardData (task summary)');
                     // Keep default empty values
                 }
             }
@@ -268,8 +268,8 @@ class DashboardController extends BaseController
                         'this_month' => $this->taskModel->getMonthlyTimeSpent($userId),
                     ];
                     error_log("Dashboard: Time tracking summary - " . json_encode($dashboardData['time_tracking_summary']));
-                } catch (\Exception $e) {
-                    error_log("Error fetching time tracking data: " . $e->getMessage());
+                } catch (\Throwable $e) {
+                    $this->logException($e, 'DashboardController::getDashboardData (time tracking)');
                     // Keep default empty values
                 }
             }
@@ -301,8 +301,8 @@ class DashboardController extends BaseController
                         ]),
                     ];
                     error_log("Dashboard: Project summary - " . json_encode($dashboardData['project_summary']));
-                } catch (\Exception $e) {
-                    error_log("Error fetching project summary: " . $e->getMessage());
+                } catch (\Throwable $e) {
+                    $this->logException($e, 'DashboardController::getDashboardData (project summary)');
                     // Keep default empty values
                 }
             }
@@ -312,8 +312,8 @@ class DashboardController extends BaseController
                 try {
                     $dashboardData['active_sprints'] = $this->sprintModel->getProjectSprints($userId, 'active');
                     error_log("Dashboard: Fetched " . count($dashboardData['active_sprints']) . " active sprints for user $userId");
-                } catch (\Exception $e) {
-                    error_log("Error fetching active sprints: " . $e->getMessage());
+                } catch (\Throwable $e) {
+                    $this->logException($e, 'DashboardController::getDashboardData (active sprints)');
                     $dashboardData['active_sprints'] = [];
                 }
             }
@@ -335,8 +335,8 @@ class DashboardController extends BaseController
                         error_log("Dashboard: No active timer for user $userId");
                     }
                     $dashboardData['active_timer'] = $activeTimer;
-                } catch (\Exception $e) {
-                    error_log("Error processing active timer: " . $e->getMessage());
+                } catch (\Throwable $e) {
+                    $this->logException($e, 'DashboardController::getDashboardData (active timer)');
                     $dashboardData['active_timer'] = null;
                 }
             }
@@ -563,8 +563,8 @@ class DashboardController extends BaseController
                     'is_deleted' => 0,
                 ]),
             ];
-        } catch (\Exception $e) {
-            error_log("Error getting task summary: " . $e->getMessage());
+        } catch (\Throwable $e) {
+            $this->logException($e, 'DashboardController::getTaskSummary');
 
             return [
                 'total' => 0,
