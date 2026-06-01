@@ -121,8 +121,13 @@ class CsrfMiddleware
             $this->cleanupExpiredTokens();
         }
 
-        // Generate token if it doesn't exist
-        if (!isset($_SESSION['csrf_token'])) {
+        // Generate a token when the session has none OR when the session token has
+        // no live DB row for this session. Checking only `isset()` let a stale
+        // session token (whose DB row had expired or been cleaned) be rendered into
+        // the form — the next POST then failed validation with "Missing or expired
+        // CSRF token", which surfaced as a bogus "session expired" on first login and
+        // only worked on the retry. Regenerating on DB-divergence closes that window.
+        if (!$this->hasValidSessionToken()) {
             $this->generateToken();
         }
 
@@ -132,12 +137,46 @@ class CsrfMiddleware
     }
 
     /**
+     * Whether $_SESSION['csrf_token'] is present AND backed by a live (unexpired)
+     * row for the current session. Used to decide if a fresh token is needed.
+     */
+    private function hasValidSessionToken(): bool
+    {
+        if (empty($_SESSION['csrf_token']) || !$this->isValidTokenFormat($_SESSION['csrf_token'])) {
+            return false;
+        }
+
+        try {
+            $stmt = $this->db->executeQuery(
+                "SELECT 1 FROM csrf_tokens
+                 WHERE token = :token AND session_id = :session_id AND expires_at > NOW()",
+                [
+                    ':token' => $_SESSION['csrf_token'],
+                    ':session_id' => session_id(),
+                ]
+            );
+
+            return (bool) $stmt->fetchColumn();
+        } catch (Exception $e) {
+            // On a lookup error, force regeneration rather than render a token we
+            // can't confirm — a fresh token is always safe to issue.
+            error_log("CSRF session-token check failed: " . $e->getMessage());
+
+            return false;
+        }
+    }
+
+    /**
      * Remove expired tokens from the database
      */
     public function cleanupExpiredTokens(): void
     {
         try {
-            unset($_SESSION['csrf_token']);
+            // Only delete rows that are actually expired. Previously this also did
+            // unset($_SESSION['csrf_token']) unconditionally, blanking a still-valid
+            // token mid-request (e.g. when the 1% cleanup fired on a form GET) and
+            // breaking the very next POST. The session token is now managed by
+            // hasValidSessionToken()/generateToken(), so leave it untouched here.
             $this->db->executeQuery(
                 "DELETE FROM csrf_tokens WHERE expires_at < NOW()"
             );

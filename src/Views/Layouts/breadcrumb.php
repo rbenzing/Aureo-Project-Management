@@ -16,10 +16,13 @@ $uri = $_SERVER['REQUEST_URI'];
 $route = parse_url($uri, PHP_URL_PATH);
 $route = ltrim($route, '/');
 
-// Get parameters (e.g., ID)
+// Get parameters (e.g., ID). Breadcrumb URL placeholders are scalars like {id};
+// only collect scalar view vars. Passing objects/arrays (e.g. $settingsService,
+// $users) made replaceUrlParams cast them to string and throw
+// "Object ... could not be converted to string" / array-to-string warnings.
 $params = [];
 foreach ($data ?? [] as $key => $value) {
-    if (is_string($key) && !is_numeric($key)) {
+    if (is_string($key) && !is_numeric($key) && (is_scalar($value) || $value === null)) {
         $params[$key] = $value;
     }
 }

@@ -237,9 +237,13 @@ class Breadcrumb
     private static function replaceUrlParams(string $url, array $params): string
     {
         foreach ($params as $key => $value) {
-            // Ensure value is converted to string
-            $value = (string)$value;
-            $url = str_replace("{{$key}}", $value, $url);
+            // Only scalar params can fill a URL placeholder. Skip arrays/objects
+            // instead of casting them — casting an object/array here threw a fatal
+            // "could not be converted to string" and broke the whole page.
+            if (!is_scalar($value) && $value !== null) {
+                continue;
+            }
+            $url = str_replace("{{$key}}", (string)$value, $url);
         }
 
         return $url;
