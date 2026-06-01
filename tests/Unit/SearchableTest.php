@@ -134,4 +134,80 @@ class SearchableTest extends TestCase
         $this->assertSame('Aureo PM app', $mapped[3]);
         $this->assertSame('project', $project->searchEntityType());
     }
+
+    public function testCompanyMapsNameEmailAddressNoProject(): void
+    {
+        $company = $this->getMockBuilder(\App\Models\Company::class)
+            ->onlyMethods(['find'])->getMock();
+        $row = new \stdClass();
+        $row->name = 'Acme Corp';
+        $row->email = 'hi@acme.com';
+        $row->address = '1 Main St';
+        $company->method('find')->with(3)->willReturn($row);
+
+        $mapped = $company->toSearchIndexRow(3);
+
+        $this->assertSame('Acme Corp', $mapped[0]);
+        $this->assertSame('hi@acme.com', $mapped[1]);
+        $this->assertNull($mapped[2]);
+        $this->assertSame('Acme Corp hi@acme.com 1 Main St', $mapped[3]);
+        $this->assertSame('company', $company->searchEntityType());
+    }
+
+    public function testUserMapsFullNameAndEmail(): void
+    {
+        $user = $this->getMockBuilder(\App\Models\User::class)
+            ->onlyMethods(['find'])->getMock();
+        $row = new \stdClass();
+        $row->first_name = 'Ada';
+        $row->last_name = 'Lovelace';
+        $row->email = 'ada@x.com';
+        $user->method('find')->willReturn($row);
+
+        $mapped = $user->toSearchIndexRow(1);
+
+        $this->assertSame('Ada Lovelace', $mapped[0]);
+        $this->assertSame('ada@x.com', $mapped[1]);
+        $this->assertNull($mapped[2]);
+        $this->assertSame('Ada Lovelace ada@x.com', $mapped[3]);
+        $this->assertSame('user', $user->searchEntityType());
+    }
+
+    public function testSprintMapsNameGoalProject(): void
+    {
+        $sprint = $this->getMockBuilder(\App\Models\Sprint::class)
+            ->onlyMethods(['find'])->getMock();
+        $row = new \stdClass();
+        $row->name = 'Sprint 5';
+        $row->sprint_goal = 'Ship search';
+        $row->project_id = 8;
+        $sprint->method('find')->willReturn($row);
+
+        $mapped = $sprint->toSearchIndexRow(1);
+
+        $this->assertSame('Sprint 5', $mapped[0]);
+        $this->assertSame('Ship search', $mapped[1]);
+        $this->assertSame(8, $mapped[2]);
+        $this->assertSame('Sprint 5 Ship search', $mapped[3]);
+        $this->assertSame('sprint', $sprint->searchEntityType());
+    }
+
+    public function testMilestoneMapsTitleDescriptionProject(): void
+    {
+        $ms = $this->getMockBuilder(\App\Models\Milestone::class)
+            ->onlyMethods(['find'])->getMock();
+        $row = new \stdClass();
+        $row->title = 'v1.0';
+        $row->description = 'First release';
+        $row->project_id = 2;
+        $ms->method('find')->willReturn($row);
+
+        $mapped = $ms->toSearchIndexRow(1);
+
+        $this->assertSame('v1.0', $mapped[0]);
+        $this->assertSame('First release', $mapped[1]);
+        $this->assertSame(2, $mapped[2]);
+        $this->assertSame('v1.0 First release', $mapped[3]);
+        $this->assertSame('milestone', $ms->searchEntityType());
+    }
 }

@@ -7,6 +7,7 @@ namespace App\Models;
 
 use App\Core\Database;
 use App\Enums\TaskStatus;
+use App\Models\Concerns\Searchable;
 use App\Services\SecurityService;
 use DateTime;
 use PDO;
@@ -19,6 +20,8 @@ use RuntimeException;
  */
 class User extends BaseModel
 {
+    use Searchable;
+
     protected string $table = 'users';
 
     /**
@@ -674,5 +677,28 @@ class User extends BaseModel
         } catch (\Exception $e) {
             throw new RuntimeException("Failed to remove project assignment: " . $e->getMessage());
         }
+    }
+
+    public function searchEntityType(): string
+    {
+        return 'user';
+    }
+
+    public function toSearchIndexRow(int $id): ?array
+    {
+        $row = $this->find($id);
+        if ($row === false) {
+            return null;
+        }
+
+        $name = trim((string) ($row->first_name ?? '') . ' ' . (string) ($row->last_name ?? ''));
+        $email = (string) ($row->email ?? '');
+
+        return [
+            $name,
+            substr($email, 0, 200),
+            null,
+            trim($name . ' ' . $email),
+        ];
     }
 }

@@ -5,6 +5,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Models\Concerns\Searchable;
 use PDO;
 use RuntimeException;
 
@@ -15,6 +16,8 @@ use RuntimeException;
  */
 class Company extends BaseModel
 {
+    use Searchable;
+
     protected string $table = 'companies';
 
     /**
@@ -404,7 +407,7 @@ class Company extends BaseModel
                 throw new RuntimeException("Company ID is not set");
             }
 
-            $sql = "DELETE FROM company_projects 
+            $sql = "DELETE FROM company_projects
                     WHERE company_id = :company_id AND project_id = :project_id";
 
             return $this->db->executeInsertUpdate($sql, [
@@ -414,5 +417,29 @@ class Company extends BaseModel
         } catch (\Exception $e) {
             throw new RuntimeException("Failed to remove project from company: " . $e->getMessage());
         }
+    }
+
+    public function searchEntityType(): string
+    {
+        return 'company';
+    }
+
+    public function toSearchIndexRow(int $id): ?array
+    {
+        $row = $this->find($id);
+        if ($row === false) {
+            return null;
+        }
+
+        $name = (string) ($row->name ?? '');
+        $email = (string) ($row->email ?? '');
+        $address = (string) ($row->address ?? '');
+
+        return [
+            $name,
+            substr($email, 0, 200),
+            null,
+            trim($name . ' ' . $email . ' ' . $address),
+        ];
     }
 }

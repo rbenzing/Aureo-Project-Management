@@ -7,6 +7,7 @@ namespace App\Models;
 
 use App\Enums\SprintStatus;
 use App\Enums\TaskStatus;
+use App\Models\Concerns\Searchable;
 use PDO;
 use RuntimeException;
 
@@ -17,6 +18,8 @@ use RuntimeException;
  */
 class Sprint extends BaseModel
 {
+    use Searchable;
+
     protected string $table = 'sprints';
 
     /**
@@ -1430,5 +1433,28 @@ class Sprint extends BaseModel
                 'direct_tasks' => [],
             ];
         }
+    }
+
+    public function searchEntityType(): string
+    {
+        return 'sprint';
+    }
+
+    public function toSearchIndexRow(int $id): ?array
+    {
+        $row = $this->find($id);
+        if ($row === false) {
+            return null;
+        }
+
+        $name = (string) ($row->name ?? '');
+        $goal = (string) ($row->sprint_goal ?? '');
+
+        return [
+            $name,
+            substr($goal, 0, 200),
+            isset($row->project_id) ? (int) $row->project_id : null,
+            trim($name . ' ' . $goal),
+        ];
     }
 }

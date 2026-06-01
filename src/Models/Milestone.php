@@ -8,6 +8,7 @@ namespace App\Models;
 use App\Enums\MilestoneType;
 use App\Enums\MilestoneStatus;
 use App\Enums\TaskStatus;
+use App\Models\Concerns\Searchable;
 use InvalidArgumentException;
 use PDO;
 use RuntimeException;
@@ -19,6 +20,8 @@ use RuntimeException;
  */
 class Milestone extends BaseModel
 {
+    use Searchable;
+
     protected string $table = 'milestones';
 
     /**
@@ -669,5 +672,28 @@ class Milestone extends BaseModel
 
             return [];
         }
+    }
+
+    public function searchEntityType(): string
+    {
+        return 'milestone';
+    }
+
+    public function toSearchIndexRow(int $id): ?array
+    {
+        $row = $this->find($id);
+        if ($row === false) {
+            return null;
+        }
+
+        $title = (string) ($row->title ?? '');
+        $desc = (string) ($row->description ?? '');
+
+        return [
+            $title,
+            substr($desc, 0, 200),
+            isset($row->project_id) ? (int) $row->project_id : null,
+            trim($title . ' ' . $desc),
+        ];
     }
 }
