@@ -40,6 +40,11 @@ abstract class BaseModel
     /**
      * Hook called after a successful create/update. Override (e.g. via the
      * Searchable trait) to react to writes. No-op by default.
+     *
+     * $id is the affected record's primary key (the new insert id on create,
+     * the target id on update). Overrides MUST NOT throw: the row is already
+     * committed when this runs, so a throw would surface as a misleading
+     * post-commit failure.
      */
     public function afterSave(int $id): void
     {
@@ -47,6 +52,7 @@ abstract class BaseModel
 
     /**
      * Hook called after a successful delete. No-op by default.
+     * Overrides MUST NOT throw (the delete is already committed when this runs).
      */
     public function afterDelete(int $id): void
     {
