@@ -19,7 +19,7 @@ if (!defined('BASE_PATH')) {
     <!-- Modal Panel -->
     <div class="relative flex items-start justify-center pt-[10vh] px-4">
         <div id="command-palette"
-             class="w-full max-w-2xl bg-white dark:bg-gray-900 rounded-xl shadow-2xl
+             class="w-full max-w-[820px] bg-white dark:bg-gray-900 rounded-xl shadow-2xl
                     ring-1 ring-black/10 dark:ring-white/10 overflow-hidden">
 
             <!-- Search Input -->
@@ -52,6 +52,38 @@ if (!defined('BASE_PATH')) {
                             font-medium text-gray-500 dark:text-gray-400
                             bg-gray-100 dark:bg-gray-800 rounded border
                             border-gray-300 dark:border-gray-600">ESC</kbd>
+            </div>
+
+            <!-- Scope filter chips -->
+            <div id="cmd-scope-chips"
+                 class="flex items-center gap-2 px-4 py-2 overflow-x-auto
+                        border-b border-gray-200 dark:border-gray-700
+                        text-xs"
+                 role="group"
+                 aria-label="Filter by type">
+                <?php
+                $cmdChips = [
+                    ''          => 'All',
+                    'task'      => 'Tasks',
+                    'project'   => 'Projects',
+                    'company'   => 'Companies',
+                    'user'      => 'Users',
+                    'sprint'    => 'Sprints',
+                    'milestone' => 'Milestones',
+                ];
+                foreach ($cmdChips as $type => $label):
+                    $isAll = $type === '';
+                ?>
+                <button type="button"
+                        class="cmd-chip flex-shrink-0 px-3 py-1 rounded-full border transition-colors
+                               <?= $isAll
+                                    ? 'bg-indigo-600 text-white border-indigo-600'
+                                    : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-200 dark:hover:bg-gray-700' ?>"
+                        data-type="<?= htmlspecialchars($type) ?>"
+                        aria-pressed="<?= $isAll ? 'true' : 'false' ?>">
+                    <?= htmlspecialchars($label) ?>
+                </button>
+                <?php endforeach; ?>
             </div>
 
             <!-- Results -->
