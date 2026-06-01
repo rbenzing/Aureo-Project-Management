@@ -7,6 +7,7 @@ namespace App\Models;
 
 use App\Enums\Priority;
 use App\Enums\TaskType;
+use App\Models\Concerns\Searchable;
 use App\Services\SecurityService;
 use App\Utils\Time;
 use PDO;
@@ -19,6 +20,8 @@ use RuntimeException;
  */
 class Task extends BaseModel
 {
+    use Searchable;
+
     protected string $table = 'tasks';
 
     /**
@@ -230,7 +233,7 @@ class Task extends BaseModel
 
         $where = [];
         $whereRaw = [
-            ['sql' => 'p.is_deleted = 0']
+            ['sql' => 'p.is_deleted = 0'],
         ];
 
         // Apply filters
@@ -286,6 +289,7 @@ class Task extends BaseModel
     public function getAllWithDetails(int $limit = 10, int $page = 1, string $sortField = 'due_date', string $sortDirection = 'asc'): ?array
     {
         $tasks = $this->getTasksWithDetails([], $limit, $page, $sortField, $sortDirection);
+
         return empty($tasks) ? null : $tasks;
     }
 
@@ -1322,5 +1326,28 @@ class Task extends BaseModel
             $complexityFactors >= 1 => 'Low',
             default => 'Very Low'
         };
+    }
+
+    public function searchEntityType(): string
+    {
+        return 'task';
+    }
+
+    public function toSearchIndexRow(int $id): ?array
+    {
+        $row = $this->find($id);
+        if ($row === false) {
+            return null;
+        }
+
+        $title = (string) ($row->title ?? '');
+        $desc = (string) ($row->description ?? '');
+
+        return [
+            $title,
+            substr($desc, 0, 200),
+            isset($row->project_id) ? (int) $row->project_id : null,
+            trim($title . ' ' . $desc),
+        ];
     }
 }

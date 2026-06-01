@@ -83,4 +83,55 @@ class SearchableTest extends TestCase
         $this->host->afterSave(1);
         $this->assertTrue(true);
     }
+
+    public function testTaskMapsToIndexRow(): void
+    {
+        $task = $this->getMockBuilder(\App\Models\Task::class)
+            ->onlyMethods(['find'])
+            ->getMock();
+
+        $row = new \stdClass();
+        $row->title = 'Fix login';
+        $row->description = str_repeat('z', 300);
+        $row->project_id = 4;
+        $task->method('find')->with(11)->willReturn($row);
+
+        $mapped = $task->toSearchIndexRow(11);
+
+        $this->assertSame('Fix login', $mapped[0]);
+        $this->assertSame(str_repeat('z', 200), $mapped[1]);
+        $this->assertSame(4, $mapped[2]);
+        $this->assertSame('Fix login ' . str_repeat('z', 300), $mapped[3]);
+        $this->assertSame('task', $task->searchEntityType());
+    }
+
+    public function testTaskMapReturnsNullWhenNotFound(): void
+    {
+        $task = $this->getMockBuilder(\App\Models\Task::class)
+            ->onlyMethods(['find'])
+            ->getMock();
+        $task->method('find')->willReturn(false);
+
+        $this->assertNull($task->toSearchIndexRow(999));
+    }
+
+    public function testProjectMapsToIndexRowUsingOwnIdAsProjectId(): void
+    {
+        $project = $this->getMockBuilder(\App\Models\Project::class)
+            ->onlyMethods(['find'])
+            ->getMock();
+
+        $row = new \stdClass();
+        $row->name = 'Aureo';
+        $row->description = 'PM app';
+        $project->method('find')->with(10)->willReturn($row);
+
+        $mapped = $project->toSearchIndexRow(10);
+
+        $this->assertSame('Aureo', $mapped[0]);
+        $this->assertSame('PM app', $mapped[1]);
+        $this->assertSame(10, $mapped[2]); // own id
+        $this->assertSame('Aureo PM app', $mapped[3]);
+        $this->assertSame('project', $project->searchEntityType());
+    }
 }

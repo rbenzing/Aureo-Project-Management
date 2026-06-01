@@ -6,8 +6,9 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Core\Database;
-use App\Enums\TaskStatus;
 use App\Enums\MilestoneStatus;
+use App\Enums\TaskStatus;
+use App\Models\Concerns\Searchable;
 use PDO;
 use RuntimeException;
 
@@ -18,6 +19,8 @@ use RuntimeException;
  */
 class Project extends BaseModel
 {
+    use Searchable;
+
     protected string $table = 'projects';
 
     /**
@@ -809,5 +812,28 @@ class Project extends BaseModel
         } catch (\Exception $e) {
             throw new RuntimeException("Error fetching recent projects: " . $e->getMessage());
         }
+    }
+
+    public function searchEntityType(): string
+    {
+        return 'project';
+    }
+
+    public function toSearchIndexRow(int $id): ?array
+    {
+        $row = $this->find($id);
+        if ($row === false) {
+            return null;
+        }
+
+        $name = (string) ($row->name ?? '');
+        $desc = (string) ($row->description ?? '');
+
+        return [
+            $name,
+            substr($desc, 0, 200),
+            $id, // a project's project_id is its own id
+            trim($name . ' ' . $desc),
+        ];
     }
 }
