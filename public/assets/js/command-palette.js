@@ -12,6 +12,7 @@
   let results       = [];
   const DEBOUNCE_MS = 200;
   const MIN_CHARS   = 1;
+  let activeType    = ''; // '' = All
 
   // ── Elements ───────────────────────────────────────────────────────────────
   const overlay   = document.getElementById('command-palette-overlay');
@@ -20,6 +21,7 @@
   const loading   = document.getElementById('cmd-loading');
   const empty     = document.getElementById('cmd-empty');
   const openBtn   = document.getElementById('cmd-open-btn');
+  const chips     = Array.from(document.querySelectorAll('.cmd-chip'));
 
   if (!overlay || !input || !resultBox) return; // bail if partial not present
 
@@ -32,7 +34,7 @@
     activeIndex = -1;
     results = [];
     clearResults();
-    loadRecentQueries();
+    setActiveChip('');
     requestAnimationFrame(() => input.focus());
   }
 
@@ -54,6 +56,7 @@
   const ICONS = {
     task:      '✓',
     project:   '📁',
+    company:   '🏢',
     user:      '👤',
     sprint:    '⚡',
     milestone: '🏁',
@@ -62,6 +65,7 @@
   const TYPE_LABELS = {
     task:      'Task',
     project:   'Project',
+    company:   'Company',
     user:      'User',
     sprint:    'Sprint',
     milestone: 'Milestone',
@@ -191,6 +195,32 @@
     }
   }
 
+  // ── Scope chips ────────────────────────────────────────────────────────────
+  function setActiveChip(type) {
+    activeType = type;
+    chips.forEach((chip) => {
+      const on = chip.dataset.type === type;
+      chip.setAttribute('aria-pressed', on ? 'true' : 'false');
+      chip.classList.toggle('bg-indigo-600', on);
+      chip.classList.toggle('text-white', on);
+      chip.classList.toggle('border-indigo-600', on);
+      chip.classList.toggle('bg-gray-100', !on);
+      chip.classList.toggle('dark:bg-gray-800', !on);
+      chip.classList.toggle('text-gray-600', !on);
+      chip.classList.toggle('dark:text-gray-300', !on);
+      chip.classList.toggle('border-gray-300', !on);
+      chip.classList.toggle('dark:border-gray-600', !on);
+    });
+
+    const q = input.value.trim();
+    if (q.length >= MIN_CHARS) {
+      doSearch(q);
+    } else {
+      clearResults();
+      loadRecentQueries();
+    }
+  }
+
   // ── API calls ──────────────────────────────────────────────────────────────
   async function doSearch(query) {
     currentQuery = query;
@@ -198,7 +228,9 @@
     loading.classList.remove('hidden');
 
     try {
-      const res = await fetch(`/api/search?q=${encodeURIComponent(query)}&limit=30`);
+      let url = `/api/search?q=${encodeURIComponent(query)}&limit=30`;
+      if (activeType) url += `&types[]=${encodeURIComponent(activeType)}`;
+      const res = await fetch(url);
       const json = await res.json();
       loading.classList.add('hidden');
       if (json.success && json.data) {
@@ -238,6 +270,11 @@
   if (openBtn) {
     openBtn.addEventListener('click', open);
   }
+
+  // Scope chip clicks
+  chips.forEach((chip) => {
+    chip.addEventListener('click', () => setActiveChip(chip.dataset.type || ''));
+  });
 
   // Ctrl+K / Cmd+K
   document.addEventListener('keydown', function (e) {
