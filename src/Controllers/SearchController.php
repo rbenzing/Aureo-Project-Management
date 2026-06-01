@@ -97,6 +97,7 @@ class SearchController extends BaseController
             'user' => "/users/view/{$entityId}",
             'sprint' => "/sprints/view/{$entityId}",
             'milestone' => "/milestones/view/{$entityId}",
+            'company' => "/companies/view/{$entityId}",
             default => "/{$entityType}s/view/{$entityId}",
         };
     }
