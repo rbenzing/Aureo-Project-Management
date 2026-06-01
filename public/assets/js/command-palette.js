@@ -210,6 +210,9 @@
       chip.classList.toggle('dark:text-gray-300', !on);
       chip.classList.toggle('border-gray-300', !on);
       chip.classList.toggle('dark:border-gray-600', !on);
+      // Only inactive chips get a hover affordance; active (indigo) chips must not.
+      chip.classList.toggle('hover:bg-gray-200', !on);
+      chip.classList.toggle('dark:hover:bg-gray-700', !on);
     });
 
     const q = input.value.trim();
