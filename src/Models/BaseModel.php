@@ -38,6 +38,21 @@ abstract class BaseModel
     }
 
     /**
+     * Hook called after a successful create/update. Override (e.g. via the
+     * Searchable trait) to react to writes. No-op by default.
+     */
+    public function afterSave(int $id): void
+    {
+    }
+
+    /**
+     * Hook called after a successful delete. No-op by default.
+     */
+    public function afterDelete(int $id): void
+    {
+    }
+
+    /**
      * Count with conditions
      */
     public function count(array $conditions = []): int
@@ -160,7 +175,14 @@ abstract class BaseModel
 
             $success = $this->db->executeInsertUpdate($sql, $params);
 
-            return $success ? $this->db->lastInsertId() : false;
+            if (!$success) {
+                return false;
+            }
+
+            $newId = $this->db->lastInsertId();
+            $this->afterSave((int) $newId);
+
+            return $newId;
         } catch (\Exception $e) {
             $safeMessage = "Failed to create {$this->table} record";
             try {
@@ -205,7 +227,13 @@ abstract class BaseModel
             );
             $params[':id'] = $id;
 
-            return $this->db->executeInsertUpdate($sql, $params);
+            $success = $this->db->executeInsertUpdate($sql, $params);
+
+            if ($success) {
+                $this->afterSave($id);
+            }
+
+            return $success;
         } catch (\Exception $e) {
             try {
                 $securityService = SecurityService::getInstance();
@@ -378,7 +406,13 @@ abstract class BaseModel
             $sql = "DELETE FROM {$this->table} WHERE {$this->primaryKey} = :id";
         }
 
-        return $this->db->executeInsertUpdate($sql, [':id' => $id]);
+        $success = $this->db->executeInsertUpdate($sql, [':id' => $id]);
+
+        if ($success) {
+            $this->afterDelete($id);
+        }
+
+        return $success;
     }
 
     /**
