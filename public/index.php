@@ -84,9 +84,6 @@ try {
     $dispatcher = \App\Events\EventDispatcher::getInstance();
     $dispatcher->listen(\App\Events\TaskAssigned::class, \App\Listeners\LogTaskAssignment::class);
     $dispatcher->listen(\App\Events\TaskAssigned::class, \App\Listeners\SendTaskAssignmentEmail::class);
-    $dispatcher->listen(\App\Events\TaskAssigned::class, \App\Listeners\UpdateSearchIndex::class);
-    $dispatcher->listen(\App\Events\TaskCompleted::class, \App\Listeners\UpdateSearchIndex::class);
-    $dispatcher->listen(\App\Events\ProjectCreated::class, \App\Listeners\UpdateSearchIndex::class);
 
     // Create Router Instance with DI container
     $router = new \App\Core\Router($container);

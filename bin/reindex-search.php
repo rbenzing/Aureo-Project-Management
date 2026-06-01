@@ -119,6 +119,20 @@ try {
         }
     );
 
+    $totals['company'] = reindexType(
+        $db,
+        $index,
+        'company',
+        "SELECT id, name, email, address FROM companies WHERE is_deleted = 0",
+        function (\stdClass $row): array {
+            $name    = $row->name ?? '';
+            $email   = $row->email ?? '';
+            $address = $row->address ?? '';
+
+            return [$name, substr((string) $email, 0, 200), null, trim($name . ' ' . $email . ' ' . $address)];
+        }
+    );
+
     $grand = array_sum($totals);
 
     out('');
