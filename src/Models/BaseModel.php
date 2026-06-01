@@ -507,6 +507,7 @@ abstract class BaseModel
             'joins' => [],
             'where' => [],
             'whereRaw' => [],
+            'groupBy' => '',
             'orderBy' => '',
             'limit' => null,
             'offset' => null,
@@ -611,6 +612,11 @@ abstract class BaseModel
 
         if (!empty($whereClauses)) {
             $sql .= "WHERE " . implode(' AND ', $whereClauses) . " ";
+        }
+
+        // Build GROUP BY clause (pass column list WITHOUT the "GROUP BY" prefix)
+        if (!empty($opts['groupBy'])) {
+            $sql .= "GROUP BY {$opts['groupBy']} ";
         }
 
         // Build ORDER BY clause

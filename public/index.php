@@ -295,8 +295,20 @@ try {
     }
 } catch (\Throwable $e) {
     // Other errors (including PHP Errors / fatal type errors)
-    $logger->exception($e, ['type' => 'general_error']);
     $code = (is_int($e->getCode()) && $e->getCode() >= 400 && $e->getCode() < 600) ? $e->getCode() : 500;
+
+    // 4xx are client errors (e.g. 404 Page not found from the router, hit
+    // constantly by bots/devtools probing /.well-known/*). Log them as a terse
+    // warning without a stack trace; reserve full exception logging for 5xx.
+    if ($code >= 400 && $code < 500) {
+        $logger->warning(sprintf('HTTP %d: %s', $code, $e->getMessage()), [
+            'uri' => $_SERVER['REQUEST_URI'] ?? 'unknown',
+            'method' => $_SERVER['REQUEST_METHOD'] ?? 'unknown',
+        ]);
+    } else {
+        $logger->exception($e, ['type' => 'general_error']);
+    }
+
     http_response_code($code);
 
     // Check if we should hide error details

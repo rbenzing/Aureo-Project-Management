@@ -100,14 +100,13 @@ class Sprint extends BaseModel
                  WHERE spt.sprint_id = s.id
                  AND t.status_id = {$completedStatus}
                  AND t.is_deleted = 0) as completed_tasks",
+            'alias' => 's',
             'joins' => [
                 ['type' => 'LEFT', 'table' => 'projects p', 'on' => 's.project_id = p.id'],
                 ['type' => 'LEFT', 'table' => 'statuses_sprint ss', 'on' => 's.status_id = ss.id'],
                 ['type' => 'LEFT', 'table' => 'sprint_tasks st', 'on' => 's.id = st.sprint_id'],
             ],
-            'whereRaw' => [
-                ['sql' => 'GROUP BY s.id'],
-            ],
+            'groupBy' => 's.id',
             'orderBy' => 's.start_date DESC',
             'limit' => $limit,
             'offset' => $offset,
