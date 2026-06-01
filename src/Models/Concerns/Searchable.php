@@ -55,8 +55,8 @@ trait Searchable
         } catch (\Throwable $e) {
             LoggerService::getInstance()->exception($e, [
                 'context' => 'Searchable::afterSave',
-                'entity'  => $this->searchEntityType(),
-                'id'      => $id,
+                'entity' => $this->searchEntityType(),
+                'id' => $id,
             ]);
         }
     }
@@ -68,8 +68,8 @@ trait Searchable
         } catch (\Throwable $e) {
             LoggerService::getInstance()->exception($e, [
                 'context' => 'Searchable::afterDelete',
-                'entity'  => $this->searchEntityType(),
-                'id'      => $id,
+                'entity' => $this->searchEntityType(),
+                'id' => $id,
             ]);
         }
     }

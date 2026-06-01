@@ -63,22 +63,22 @@ if (!defined('BASE_PATH')) {
                  aria-label="Filter by type">
                 <?php
                 $cmdChips = [
-                    ''          => 'All',
-                    'task'      => 'Tasks',
-                    'project'   => 'Projects',
-                    'company'   => 'Companies',
-                    'user'      => 'Users',
-                    'sprint'    => 'Sprints',
+                    '' => 'All',
+                    'task' => 'Tasks',
+                    'project' => 'Projects',
+                    'company' => 'Companies',
+                    'user' => 'Users',
+                    'sprint' => 'Sprints',
                     'milestone' => 'Milestones',
                 ];
-                foreach ($cmdChips as $type => $label):
-                    $isAll = $type === '';
-                ?>
+foreach ($cmdChips as $type => $label):
+    $isAll = $type === '';
+    ?>
                 <button type="button"
                         class="cmd-chip flex-shrink-0 px-3 py-1 rounded-full border transition-colors
                                <?= $isAll
-                                    ? 'bg-indigo-600 text-white border-indigo-600'
-                                    : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-200 dark:hover:bg-gray-700' ?>"
+                        ? 'bg-indigo-600 text-white border-indigo-600'
+                        : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-200 dark:hover:bg-gray-700' ?>"
                         data-type="<?= htmlspecialchars($type) ?>"
                         aria-pressed="<?= $isAll ? 'true' : 'false' ?>">
                     <?= htmlspecialchars($label) ?>
