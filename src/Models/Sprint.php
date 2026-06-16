@@ -672,6 +672,49 @@ class Sprint extends BaseModel
     }
 
     /**
+     * Get "plannable" sprints for a project: those a task can be assigned to on the
+     * sprint-planning board (Planning or Active status). Single source of truth for
+     * which sprints are valid drop targets.
+     *
+     * @param int $projectId
+     * @return array<object> Same shape as getByProjectId(), filtered to plannable statuses.
+     */
+    public function getPlannableByProjectId(int $projectId): array
+    {
+        try {
+            $sql = "SELECT s.*,
+                        ss.name as status_name,
+                        COUNT(st.task_id) as task_count,
+                        (
+                            SELECT COUNT(t.id)
+                            FROM tasks t
+                            JOIN sprint_tasks spt ON t.id = spt.task_id
+                            WHERE spt.sprint_id = s.id
+                            AND t.status_id = " . TaskStatus::COMPLETED->value . "
+                            AND t.is_deleted = 0
+                        ) as completed_tasks
+                    FROM sprints s
+                    LEFT JOIN statuses_sprint ss ON s.status_id = ss.id
+                    LEFT JOIN sprint_tasks st ON s.id = st.sprint_id
+                    WHERE s.project_id = :project_id
+                    AND s.is_deleted = 0
+                    AND s.status_id IN (:status_planning, :status_active)
+                    GROUP BY s.id
+                    ORDER BY s.start_date DESC";
+
+            $stmt = $this->db->executeQuery($sql, [
+                ':project_id' => $projectId,
+                ':status_planning' => SprintStatus::PLANNING->value,
+                ':status_active' => SprintStatus::ACTIVE->value,
+            ]);
+
+            return $stmt->fetchAll(PDO::FETCH_OBJ);
+        } catch (\Exception $e) {
+            throw new RuntimeException("Error fetching plannable sprints for project: " . $e->getMessage());
+        }
+    }
+
+    /**
      * Get active sprints for a user
      *
      * @param int $userId
