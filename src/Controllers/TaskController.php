@@ -106,7 +106,12 @@ class TaskController extends BaseController
     }
 
     /**
-     * Display sprint planning view
+     * Display sprint planning view.
+     *
+     * With no project_id -> render the project picker (viewType = selection).
+     * With a valid, accessible project_id -> render the planning board with the
+     * project's active sprints and product backlog. Inaccessible/missing/deleted
+     * project -> fall back to the picker with an error (never a fatal).
      */
     public function sprintPlanning(string $requestMethod, array $data): void
     {
@@ -117,7 +122,46 @@ class TaskController extends BaseController
             $projects = $userId ? $this->userModel->getUserProjects($userId) : [];
             $statuses = $this->taskModel->getTaskStatuses();
 
-            $this->render('Tasks/sprint-planning', compact('projects', 'statuses'));
+            $projectId = filter_var($_GET['project_id'] ?? null, FILTER_VALIDATE_INT) ?: null;
+
+            // No project selected -> show the project picker.
+            if ($projectId === null) {
+                $viewType = 'sprint_planning_selection';
+                $this->render('Tasks/sprint-planning', compact('projects', 'statuses', 'viewType'));
+
+                return;
+            }
+
+            // Verify the requested project is one the user can access.
+            $accessibleIds = array_map(static fn ($p) => (int) $p->id, $projects);
+            $project = in_array($projectId, $accessibleIds, true)
+                ? $this->projectModel->findWithDetails($projectId)
+                : null;
+
+            if (!$project || $project->is_deleted) {
+                $viewType = 'sprint_planning_selection';
+                $error = 'Project not found or not accessible.';
+                $this->render('Tasks/sprint-planning', compact('projects', 'statuses', 'viewType', 'error'));
+
+                return;
+            }
+
+            // Active sprints (status_id == 2), reindexed for the view.
+            $activeSprints = array_values(array_filter(
+                $this->sprintModel->getByProjectId($projectId),
+                static fn ($sprint) => (int) $sprint->status_id === 2
+            ));
+
+            // Product backlog (unassigned tasks) for this project.
+            $availableTasks = $this->taskModel->getProductBacklog(50, 1, $projectId);
+
+            $this->render('Tasks/sprint-planning', compact(
+                'projects',
+                'statuses',
+                'project',
+                'activeSprints',
+                'availableTasks'
+            ));
         } catch (\Throwable $e) {
             $this->logException($e, 'TaskController::sprintPlanning');
             $this->redirectWithError('/tasks', 'An error occurred while loading sprint planning.');
