@@ -138,6 +138,31 @@ class TaskControllerSprintPlanningTest extends TestCase
         unset($_GET['project_id']);
     }
 
+    public function testValidProjectWithNoActiveSprintsStillRendersBoard(): void
+    {
+        // The no-sprint state drives the gating UI in the view; lock in that the
+        // board renders with an empty activeSprints array (not the selection picker).
+        $_GET['project_id'] = '3';
+        $this->userModel->method('getUserProjects')->willReturn([$this->project(3)]);
+        $this->taskModel->method('getTaskStatuses')->willReturn([]);
+        $this->projectModel->method('findWithDetails')->with(3)->willReturn($this->project(3));
+        // Only a non-active (planning) sprint exists -> filtered out -> empty.
+        $this->sprintModel->method('getByProjectId')->with(3)->willReturn([
+            $this->sprint(11, 1),
+        ]);
+        $this->taskModel->method('getProductBacklog')->willReturn([]);
+
+        $c = $this->controller();
+        $c->sprintPlanning('GET', []);
+
+        $this->assertArrayNotHasKey('viewType', $c->renderedData);
+        $this->assertSame(3, $c->renderedData['project']->id);
+        $this->assertSame([], $c->renderedData['activeSprints']);
+        $this->assertArrayHasKey('availableTasks', $c->renderedData);
+
+        unset($_GET['project_id']);
+    }
+
     public function testProjectNotInUserProjectsFallsBackToSelectionWithError(): void
     {
         $_GET['project_id'] = '999';
