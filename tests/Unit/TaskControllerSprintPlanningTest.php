@@ -110,16 +110,16 @@ class TaskControllerSprintPlanningTest extends TestCase
         $this->assertArrayNotHasKey('project', $c->renderedData);
     }
 
-    public function testValidProjectLoadsBoardWithActiveSprintsOnly(): void
+    public function testValidProjectLoadsBoardWithPlannableSprints(): void
     {
         $_GET['project_id'] = '3';
         $this->userModel->method('getUserProjects')->willReturn([$this->project(3)]);
         $this->taskModel->method('getTaskStatuses')->willReturn([]);
         $this->projectModel->method('findWithDetails')->with(3)->willReturn($this->project(3));
         $this->sprintModel->method('getByProjectId')->with(3)->willReturn([
-            $this->sprint(10, 2), // active
-            $this->sprint(11, 1), // planning -> filtered out
-            $this->sprint(12, 2), // active
+            $this->sprint(10, 2), // active    -> kept
+            $this->sprint(11, 1), // planning  -> kept
+            $this->sprint(13, 3), // completed -> filtered out
         ]);
         $this->taskModel->method('getProductBacklog')->willReturn([(object) ['id' => 99]]);
 
@@ -129,26 +129,26 @@ class TaskControllerSprintPlanningTest extends TestCase
         $this->assertSame('Tasks/sprint-planning', $c->renderedView);
         $this->assertArrayNotHasKey('viewType', $c->renderedData);
         $this->assertSame(3, $c->renderedData['project']->id);
-        $this->assertCount(2, $c->renderedData['activeSprints']);
-        // Only status_id == 2 survive, reindexed via array_values: [10, 12].
-        $this->assertSame(10, $c->renderedData['activeSprints'][0]->id);
-        $this->assertSame(12, $c->renderedData['activeSprints'][1]->id);
+        $this->assertCount(2, $c->renderedData['sprints']);
+        // Planning (1) and Active (2) kept, reindexed via array_values: [10, 11].
+        $this->assertSame(10, $c->renderedData['sprints'][0]->id);
+        $this->assertSame(11, $c->renderedData['sprints'][1]->id);
         $this->assertArrayHasKey('availableTasks', $c->renderedData);
 
         unset($_GET['project_id']);
     }
 
-    public function testValidProjectWithNoActiveSprintsStillRendersBoard(): void
+    public function testValidProjectWithNoPlannableSprintsStillRendersBoard(): void
     {
         // The no-sprint state drives the gating UI in the view; lock in that the
-        // board renders with an empty activeSprints array (not the selection picker).
+        // board renders with an empty sprints array (not the selection picker).
         $_GET['project_id'] = '3';
         $this->userModel->method('getUserProjects')->willReturn([$this->project(3)]);
         $this->taskModel->method('getTaskStatuses')->willReturn([]);
         $this->projectModel->method('findWithDetails')->with(3)->willReturn($this->project(3));
-        // Only a non-active (planning) sprint exists -> filtered out -> empty.
+        // Only a completed sprint exists -> not plannable -> filtered out -> empty.
         $this->sprintModel->method('getByProjectId')->with(3)->willReturn([
-            $this->sprint(11, 1),
+            $this->sprint(13, 3),
         ]);
         $this->taskModel->method('getProductBacklog')->willReturn([]);
 
@@ -157,7 +157,7 @@ class TaskControllerSprintPlanningTest extends TestCase
 
         $this->assertArrayNotHasKey('viewType', $c->renderedData);
         $this->assertSame(3, $c->renderedData['project']->id);
-        $this->assertSame([], $c->renderedData['activeSprints']);
+        $this->assertSame([], $c->renderedData['sprints']);
         $this->assertArrayHasKey('availableTasks', $c->renderedData);
 
         unset($_GET['project_id']);

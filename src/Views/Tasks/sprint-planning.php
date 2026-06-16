@@ -144,7 +144,7 @@ $breadcrumbs = [
                     </div>
 
                 <?php else: ?>
-                    <?php $hasSprints = !empty($activeSprints); ?>
+                    <?php $hasSprints = !empty($sprints); ?>
                     <!-- Page Header with Breadcrumb and Action Buttons -->
                     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
                         <!-- Breadcrumb Section -->
@@ -206,9 +206,9 @@ $breadcrumbs = [
                                 <?php if (!empty($availableTasks)): ?>
                                     <div class="space-y-3 max-h-96 overflow-y-auto">
                                         <?php foreach ($availableTasks as $task): ?>
-                                            <div class="task-card border border-gray-200 dark:border-gray-600 rounded-lg p-4 transition-colors <?= $hasSprints ? 'hover:bg-gray-50 dark:hover:bg-gray-700 cursor-move' : 'opacity-75 cursor-not-allowed' ?>"
+                                            <div class="task-card border border-gray-200 dark:border-gray-600 rounded-lg p-4 transition-colors <?= $hasSprints ? 'hover:bg-gray-50 dark:hover:bg-gray-700 cursor-move' : 'bg-gray-50 dark:bg-gray-800 cursor-not-allowed' ?>"
                                                  data-task-id="<?= $task->id ?>"
-                                                 <?php if ($hasSprints): ?>draggable="true"<?php else: ?>aria-disabled="true"<?php endif; ?>>
+                                                 <?php if ($hasSprints): ?>draggable="true"<?php endif; ?>>
                                                 <div class="flex justify-between items-start">
                                                     <div class="flex-1">
                                                         <h4 class="font-medium text-gray-900 dark:text-white">
@@ -274,13 +274,13 @@ $breadcrumbs = [
                         <!-- Active Sprints -->
                         <div class="bg-white dark:bg-gray-800 shadow rounded-lg">
                             <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-                                <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Active Sprints</h2>
+                                <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Sprints</h2>
                                 <p class="text-sm text-gray-600 dark:text-gray-400">Drop zones for task assignment</p>
                             </div>
                             <div class="p-6">
-                                <?php if (!empty($activeSprints)): ?>
+                                <?php if (!empty($sprints)): ?>
                                     <div class="space-y-4">
-                                        <?php foreach ($activeSprints as $sprint): ?>
+                                        <?php foreach ($sprints as $sprint): ?>
                                             <div class="sprint-drop-zone border-2 border-dashed border-gray-200 dark:border-gray-600 rounded-lg p-4 min-h-[100px] transition-colors"
                                                  data-sprint-id="<?= $sprint->id ?>">
                                                 <div class="flex justify-between items-start mb-3">

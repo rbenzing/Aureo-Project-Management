@@ -146,10 +146,14 @@ class TaskController extends BaseController
                 return;
             }
 
-            // Active sprints (status_id == 2), reindexed for the view.
-            $activeSprints = array_values(array_filter(
+            // Planning (1) and Active (2) sprints are valid drop targets on the
+            // planning board: a newly created sprint is in Planning status, and you
+            // assign tasks to a sprint while planning it. Active-only would dead-end
+            // the "create sprint -> assign tasks" flow.
+            $plannableStatusIds = [1, 2];
+            $sprints = array_values(array_filter(
                 $this->sprintModel->getByProjectId($projectId),
-                static fn ($sprint) => (int) $sprint->status_id === 2
+                static fn ($sprint) => in_array((int) $sprint->status_id, $plannableStatusIds, true)
             ));
 
             // Product backlog (unassigned tasks) for this project.
@@ -159,7 +163,7 @@ class TaskController extends BaseController
                 'projects',
                 'statuses',
                 'project',
-                'activeSprints',
+                'sprints',
                 'availableTasks'
             ));
         } catch (\Throwable $e) {
