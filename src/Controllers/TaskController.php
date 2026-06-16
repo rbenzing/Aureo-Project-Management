@@ -110,7 +110,7 @@ class TaskController extends BaseController
      *
      * With no project_id -> render the project picker (viewType = selection).
      * With a valid, accessible project_id -> render the planning board with the
-     * project's active sprints and product backlog. Inaccessible/missing/deleted
+     * project's plannable sprints and product backlog. Inaccessible/missing/deleted
      * project -> fall back to the picker with an error (never a fatal).
      */
     public function sprintPlanning(string $requestMethod, array $data): void
