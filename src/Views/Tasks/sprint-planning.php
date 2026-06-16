@@ -396,6 +396,14 @@ $breadcrumbs = [
         });
 
         function initializeSprintDragAndDrop() {
+            // Assignment requires at least one sprint drop zone. With no plannable
+            // sprints there are no zones, so we attach nothing and the backlog cards
+            // stay inert.
+            const sprintZones = document.querySelectorAll('.sprint-drop-zone');
+            if (sprintZones.length === 0) {
+                return;
+            }
+
             // Make task cards draggable
             const taskCards = document.querySelectorAll('.task-card');
             taskCards.forEach(card => {
@@ -404,7 +412,6 @@ $breadcrumbs = [
             });
 
             // Make sprint zones droppable
-            const sprintZones = document.querySelectorAll('.sprint-drop-zone');
             sprintZones.forEach(zone => {
                 zone.addEventListener('dragover', handleSprintDragOver);
                 zone.addEventListener('drop', handleSprintDrop);
