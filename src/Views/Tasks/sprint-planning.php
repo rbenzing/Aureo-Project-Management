@@ -144,7 +144,12 @@ $breadcrumbs = [
                     </div>
 
                 <?php else: ?>
-                    <?php $hasSprints = !empty($sprints); ?>
+                    <?php
+                    $hasSprints = !empty($sprints);
+                    $canAssign = $canAssign ?? false;
+                    $canDrag = $hasSprints && $canAssign;
+                    $pid = (int) $project->id;
+                    ?>
                     <!-- Page Header with Breadcrumb and Action Buttons -->
                     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
                         <!-- Breadcrumb Section -->
@@ -154,14 +159,14 @@ $breadcrumbs = [
 
                         <!-- Action Buttons Section -->
                         <div class="flex-shrink-0 flex space-x-3">
-                            <a href="/tasks/backlog?project_id=<?= (int) $project->id ?>"
+                            <a href="/tasks/backlog?project_id=<?= $pid ?>"
                                class="inline-flex items-center px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 transition-colors duration-200">
                                 <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
                                 </svg>
                                 View Backlog
                             </a>
-                            <a href="/sprints/create/<?= (int) $project->id ?>"
+                            <a href="/sprints/create/<?= $pid ?>"
                                class="inline-flex items-center px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-colors duration-200">
                                 <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
@@ -178,7 +183,7 @@ $breadcrumbs = [
                             <button class="favorite-star text-gray-400 hover:text-yellow-400 transition-colors"
                                     data-type="page"
                                     data-title="<?= htmlspecialchars($project->name ?? 'Project') ?> - Sprint Planning"
-                                    data-url="/tasks/sprint-planning?project_id=<?= (int) $project->id ?>"
+                                    data-url="/tasks/sprint-planning?project_id=<?= $pid ?>"
                                     data-icon="📋"
                                     title="Add to favorites">
                                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -196,19 +201,21 @@ $breadcrumbs = [
                         <div class="bg-white dark:bg-gray-800 shadow rounded-lg">
                             <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
                                 <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Available Tasks</h2>
-                                <?php if ($hasSprints): ?>
-                                    <p class="text-sm text-gray-600 dark:text-gray-400">Drag tasks to sprints to assign them</p>
-                                <?php else: ?>
+                                <?php if (!$hasSprints): ?>
                                     <p class="text-sm text-amber-600 dark:text-amber-400">Create a sprint to start assigning tasks</p>
+                                <?php elseif (!$canAssign): ?>
+                                    <p class="text-sm text-amber-600 dark:text-amber-400">You don't have permission to assign tasks</p>
+                                <?php else: ?>
+                                    <p class="text-sm text-gray-600 dark:text-gray-400">Drag tasks to sprints to assign them</p>
                                 <?php endif; ?>
                             </div>
                             <div class="p-6" id="available-tasks-container">
                                 <?php if (!empty($availableTasks)): ?>
                                     <div class="space-y-3 max-h-96 overflow-y-auto">
                                         <?php foreach ($availableTasks as $task): ?>
-                                            <div class="task-card border border-gray-200 dark:border-gray-600 rounded-lg p-4 transition-colors <?= $hasSprints ? 'hover:bg-gray-50 dark:hover:bg-gray-700 cursor-move' : 'bg-gray-50 dark:bg-gray-800 cursor-not-allowed' ?>"
+                                            <div class="task-card border border-gray-200 dark:border-gray-600 rounded-lg p-4 transition-colors <?= $canDrag ? 'hover:bg-gray-50 dark:hover:bg-gray-700 cursor-move' : 'bg-gray-50 dark:bg-gray-800 cursor-not-allowed' ?>"
                                                  data-task-id="<?= $task->id ?>"
-                                                 <?php if ($hasSprints): ?>draggable="true"<?php endif; ?>>
+                                                 <?php if ($canDrag): ?>draggable="true"<?php endif; ?>>
                                                 <div class="flex justify-between items-start">
                                                     <div class="flex-1">
                                                         <h4 class="font-medium text-gray-900 dark:text-white">
@@ -262,7 +269,7 @@ $breadcrumbs = [
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
                                         </svg>
                                         <p class="text-gray-600 dark:text-gray-400">No tasks ready for sprint planning</p>
-                                        <a href="/tasks/create?project_id=<?= (int) $project->id ?>"
+                                        <a href="/tasks/create?project_id=<?= $pid ?>"
                                            class="text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300 text-sm">
                                             Create a task
                                         </a>
@@ -278,7 +285,7 @@ $breadcrumbs = [
                                 <p class="text-sm text-gray-600 dark:text-gray-400">Drop zones for task assignment</p>
                             </div>
                             <div class="p-6">
-                                <?php if (!empty($sprints)): ?>
+                                <?php if ($hasSprints): ?>
                                     <div class="space-y-4">
                                         <?php foreach ($sprints as $sprint): ?>
                                             <div class="sprint-drop-zone border-2 border-dashed border-gray-200 dark:border-gray-600 rounded-lg p-4 min-h-[100px] transition-colors"
@@ -328,7 +335,7 @@ $breadcrumbs = [
                                         </svg>
                                         <h4 class="text-base font-medium text-gray-900 dark:text-white mb-1">No sprints yet</h4>
                                         <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">Create a sprint before you can assign tasks.</p>
-                                        <a href="/sprints/create/<?= (int) $project->id ?>"
+                                        <a href="/sprints/create/<?= $pid ?>"
                                            class="inline-flex items-center px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-colors">
                                             <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
@@ -346,7 +353,7 @@ $breadcrumbs = [
                         <div class="px-6 py-4">
                             <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Quick Actions</h3>
                             <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                <a href="/tasks/create?project_id=<?= (int) $project->id ?>"
+                                <a href="/tasks/create?project_id=<?= $pid ?>"
                                    class="flex items-center p-4 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
                                     <svg class="w-6 h-6 text-indigo-600 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
@@ -356,7 +363,7 @@ $breadcrumbs = [
                                         <p class="text-sm text-gray-600 dark:text-gray-400">Create a new task for this project</p>
                                     </div>
                                 </a>
-                                <a href="/sprints/create/<?= (int) $project->id ?>"
+                                <a href="/sprints/create/<?= $pid ?>"
                                    class="flex items-center p-4 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
                                     <svg class="w-6 h-6 text-green-600 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
@@ -366,7 +373,7 @@ $breadcrumbs = [
                                         <p class="text-sm text-gray-600 dark:text-gray-400">Start a new sprint for this project</p>
                                     </div>
                                 </a>
-                                <a href="/tasks/backlog?project_id=<?= (int) $project->id ?>"
+                                <a href="/tasks/backlog?project_id=<?= $pid ?>"
                                    class="flex items-center p-4 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
                                     <svg class="w-6 h-6 text-blue-600 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
