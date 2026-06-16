@@ -108,10 +108,10 @@ class TaskController extends BaseController
     /**
      * Display sprint planning view.
      *
-     * With no project_id -> render the project picker (viewType = selection).
-     * With a valid, accessible project_id -> render the planning board with the
-     * project's plannable sprints and product backlog. Inaccessible/missing/deleted
-     * project -> fall back to the picker with an error (never a fatal).
+     * No project_id -> project picker. Present-but-invalid/inaccessible id -> picker
+     * with an error. Valid, accessible project -> planning board with the project's
+     * plannable (Planning/Active) sprints and product backlog. $canAssign reflects the
+     * edit_sprints permission and gates the board's drag-to-assign UI.
      */
     public function sprintPlanning(string $requestMethod, array $data): void
     {
@@ -120,51 +120,49 @@ class TaskController extends BaseController
 
             $userId = $_SESSION['user']['profile']['id'] ?? null;
             $projects = $userId ? $this->userModel->getUserProjects($userId) : [];
-            $statuses = $this->taskModel->getTaskStatuses();
 
-            $projectId = filter_var($_GET['project_id'] ?? null, FILTER_VALIDATE_INT) ?: null;
-
-            // No project selected -> show the project picker.
-            if ($projectId === null) {
+            // Absent project_id -> show the picker. A present-but-invalid id falls
+            // through to the access check below and yields the error fallback.
+            $rawProjectId = $_GET['project_id'] ?? null;
+            if ($rawProjectId === null || $rawProjectId === '') {
                 $viewType = 'sprint_planning_selection';
-                $this->render('Tasks/sprint-planning', compact('projects', 'statuses', 'viewType'));
+                $this->render('Tasks/sprint-planning', compact('projects', 'viewType'));
 
                 return;
             }
 
-            // Verify the requested project is one the user can access.
+            $projectId = filter_var($rawProjectId, FILTER_VALIDATE_INT);
+
+            // Load the project only if the id is valid AND one the user can access.
             $accessibleIds = array_map(static fn ($p) => (int) $p->id, $projects);
-            $project = in_array($projectId, $accessibleIds, true)
-                ? $this->projectModel->findWithDetails($projectId)
+            $project = ($projectId !== false && $projectId > 0 && in_array($projectId, $accessibleIds, true))
+                ? $this->projectModel->findBasic($projectId)
                 : null;
 
             if (!$project || $project->is_deleted) {
                 $viewType = 'sprint_planning_selection';
                 $error = 'Project not found or not accessible.';
-                $this->render('Tasks/sprint-planning', compact('projects', 'statuses', 'viewType', 'error'));
+                $this->render('Tasks/sprint-planning', compact('projects', 'viewType', 'error'));
 
                 return;
             }
 
-            // Planning (1) and Active (2) sprints are valid drop targets on the
-            // planning board: a newly created sprint is in Planning status, and you
-            // assign tasks to a sprint while planning it. Active-only would dead-end
-            // the "create sprint -> assign tasks" flow.
-            $plannableStatusIds = [1, 2];
-            $sprints = array_values(array_filter(
-                $this->sprintModel->getByProjectId($projectId),
-                static fn ($sprint) => in_array((int) $sprint->status_id, $plannableStatusIds, true)
-            ));
-
-            // Product backlog (unassigned tasks) for this project.
+            // Board data.
+            $statuses = $this->taskModel->getTaskStatuses();
+            $sprints = $this->sprintModel->getPlannableByProjectId($projectId);
             $availableTasks = $this->taskModel->getProductBacklog(50, 1, $projectId);
+
+            // Assigning a task to a sprint requires edit_sprints; the board gates its
+            // drag-to-assign affordance on this so it never invites a forbidden action.
+            $canAssign = in_array('edit_sprints', $_SESSION['user']['permissions'] ?? [], true);
 
             $this->render('Tasks/sprint-planning', compact(
                 'projects',
                 'statuses',
                 'project',
                 'sprints',
-                'availableTasks'
+                'availableTasks',
+                'canAssign'
             ));
         } catch (\Throwable $e) {
             $this->logException($e, 'TaskController::sprintPlanning');

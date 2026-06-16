@@ -113,13 +113,14 @@ class TaskControllerSprintPlanningTest extends TestCase
     public function testValidProjectLoadsBoardWithPlannableSprints(): void
     {
         $_GET['project_id'] = '3';
+        $_SESSION['user']['permissions'] = ['edit_sprints'];
         $this->userModel->method('getUserProjects')->willReturn([$this->project(3)]);
         $this->taskModel->method('getTaskStatuses')->willReturn([]);
-        $this->projectModel->method('findWithDetails')->with(3)->willReturn($this->project(3));
-        $this->sprintModel->method('getByProjectId')->with(3)->willReturn([
-            $this->sprint(10, 2), // active    -> kept
-            $this->sprint(11, 1), // planning  -> kept
-            $this->sprint(13, 3), // completed -> filtered out
+        $this->projectModel->method('findBasic')->with(3)->willReturn($this->project(3));
+        // getPlannableByProjectId returns ALREADY-filtered Planning+Active sprints.
+        $this->sprintModel->method('getPlannableByProjectId')->with(3)->willReturn([
+            $this->sprint(10, 2),
+            $this->sprint(11, 1),
         ]);
         $this->taskModel->method('getProductBacklog')->willReturn([(object) ['id' => 99]]);
 
@@ -130,12 +131,12 @@ class TaskControllerSprintPlanningTest extends TestCase
         $this->assertArrayNotHasKey('viewType', $c->renderedData);
         $this->assertSame(3, $c->renderedData['project']->id);
         $this->assertCount(2, $c->renderedData['sprints']);
-        // Planning (1) and Active (2) kept, reindexed via array_values: [10, 11].
         $this->assertSame(10, $c->renderedData['sprints'][0]->id);
         $this->assertSame(11, $c->renderedData['sprints'][1]->id);
         $this->assertArrayHasKey('availableTasks', $c->renderedData);
+        $this->assertTrue($c->renderedData['canAssign']);
 
-        unset($_GET['project_id']);
+        unset($_GET['project_id'], $_SESSION['user']['permissions']);
     }
 
     public function testValidProjectWithNoPlannableSprintsStillRendersBoard(): void
@@ -145,11 +146,8 @@ class TaskControllerSprintPlanningTest extends TestCase
         $_GET['project_id'] = '3';
         $this->userModel->method('getUserProjects')->willReturn([$this->project(3)]);
         $this->taskModel->method('getTaskStatuses')->willReturn([]);
-        $this->projectModel->method('findWithDetails')->with(3)->willReturn($this->project(3));
-        // Only a completed sprint exists -> not plannable -> filtered out -> empty.
-        $this->sprintModel->method('getByProjectId')->with(3)->willReturn([
-            $this->sprint(13, 3),
-        ]);
+        $this->projectModel->method('findBasic')->with(3)->willReturn($this->project(3));
+        $this->sprintModel->method('getPlannableByProjectId')->with(3)->willReturn([]);
         $this->taskModel->method('getProductBacklog')->willReturn([]);
 
         $c = $this->controller();
@@ -159,6 +157,41 @@ class TaskControllerSprintPlanningTest extends TestCase
         $this->assertSame(3, $c->renderedData['project']->id);
         $this->assertSame([], $c->renderedData['sprints']);
         $this->assertArrayHasKey('availableTasks', $c->renderedData);
+
+        unset($_GET['project_id']);
+    }
+
+    public function testCanAssignFalseWhenLackingEditSprintsPermission(): void
+    {
+        $_GET['project_id'] = '3';
+        $_SESSION['user']['permissions'] = ['view_tasks']; // no edit_sprints
+        $this->userModel->method('getUserProjects')->willReturn([$this->project(3)]);
+        $this->taskModel->method('getTaskStatuses')->willReturn([]);
+        $this->projectModel->method('findBasic')->with(3)->willReturn($this->project(3));
+        $this->sprintModel->method('getPlannableByProjectId')->with(3)->willReturn([$this->sprint(10, 2)]);
+        $this->taskModel->method('getProductBacklog')->willReturn([]);
+
+        $c = $this->controller();
+        $c->sprintPlanning('GET', []);
+
+        $this->assertArrayNotHasKey('viewType', $c->renderedData);
+        $this->assertFalse($c->renderedData['canAssign']);
+
+        unset($_GET['project_id'], $_SESSION['user']['permissions']);
+    }
+
+    public function testInvalidProjectIdShowsErrorNotPicker(): void
+    {
+        // project_id=0 is present-but-invalid -> error fallback, not the silent picker.
+        $_GET['project_id'] = '0';
+        $this->userModel->method('getUserProjects')->willReturn([$this->project(3)]);
+
+        $c = $this->controller();
+        $c->sprintPlanning('GET', []);
+
+        $this->assertSame('sprint_planning_selection', $c->renderedData['viewType'] ?? null);
+        $this->assertNotEmpty($c->renderedData['error'] ?? null);
+        $this->assertArrayNotHasKey('project', $c->renderedData);
 
         unset($_GET['project_id']);
     }
@@ -184,7 +217,7 @@ class TaskControllerSprintPlanningTest extends TestCase
         $_GET['project_id'] = '3';
         $this->userModel->method('getUserProjects')->willReturn([$this->project(3)]);
         $this->taskModel->method('getTaskStatuses')->willReturn([]);
-        $this->projectModel->method('findWithDetails')->with(3)->willReturn($this->project(3, true));
+        $this->projectModel->method('findBasic')->with(3)->willReturn($this->project(3, true));
 
         $c = $this->controller();
         $c->sprintPlanning('GET', []);
