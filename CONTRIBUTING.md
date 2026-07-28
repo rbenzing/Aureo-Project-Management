@@ -14,7 +14,7 @@ By contributing, you agree that your contributions are licensed under the
   first for anything non-trivial. A short discussion beats a rejected pull request.
 - **Security vulnerabilities:** do **not** open a public issue. Follow the private disclosure
   process in [SECURITY.md](./docs/SECURITY.md).
-- **Architecture:** read [ARCHITECTURE.md](./ARCHITECTURE.md) before changing anything structural.
+- **Architecture:** read [ARCHITECTURE.md](./docs/ARCHITECTURE.md) before changing anything structural.
 - **Agent guidance:** [.claude/CLAUDE.md](./.claude/CLAUDE.md) lists the non-obvious constraints
   that have bitten contributors before. It is short and worth the two minutes.
 

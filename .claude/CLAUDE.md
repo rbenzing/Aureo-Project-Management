@@ -3,9 +3,9 @@ Only facts an agent can't infer from code search. Update when something bites.
 
 ## Architecture
 - Custom PHP 8.1+ MVC. NOT Laravel/Symfony/Eloquent/Blade. No ORM, no annotation routing.
-- Routes registered explicitly in [public/index.php](public/index.php).
-- DI: small custom container at [config/container.php](config/container.php) — `$container->get(Class::class)`.
-- Views: plain PHP in [src/Views/](src/Views/). Escape with `htmlspecialchars()`.
+- Routes registered explicitly in [public/index.php](../public/index.php).
+- DI: small custom container at [config/container.php](../config/container.php) — `$container->get(Class::class)`.
+- Views: plain PHP in [src/Views/](../src/Views/). Escape with `htmlspecialchars()`.
 - DB: raw PDO via `BaseModel::queryBuilder()`. Soft deletes auto-injected via `is_deleted = 0`.
 
 ## Lifecycle
@@ -20,12 +20,12 @@ Only facts an agent can't infer from code search. Update when something bites.
 - **`Task::buildOrderByClause` returns clauses WITHOUT the `ORDER BY` prefix.** Pass directly as queryBuilder `'orderBy'` option. For raw SQL, prepend `"ORDER BY "` at the call site.
 - **Do NOT redefine `tryFrom()` on backed enums** — fatal `Cannot redeclare ::tryfrom()`. Use `fromOrDefault()` / `tryFromInt()` per project convention.
 - **Permission helpers read `$_SESSION['user']['permissions']` directly**, not `$currentUser`. `$currentUser` only exists in view-main scope (via `extract()`), not inside function bodies.
-- **Top-level catch in [public/index.php](public/index.php) is `\Throwable`**, and `LoggerService::exception()` accepts `\Throwable`. Don't narrow these.
+- **Top-level catch in [public/index.php](../public/index.php) is `\Throwable`**, and `LoggerService::exception()` accepts `\Throwable`. Don't narrow these.
 - **Auth gate runs BEFORE routing.** New public route → add first URL segment to `$publicPaths`.
 - **Session shape:** `$_SESSION['user'] = ['id','profile'=>[...],'roles'=>[],'permissions'=>[],'config'=>[]]`. Permissions via `hasUserPermission($name)` or `requirePermission($name)`.
 
 ## Schema & migrations
-- Canonical migration [db/migrations/20251222180705_initial_database_schema.php](db/migrations/20251222180705_initial_database_schema.php) IS the install path AND seeds the admin user with all 55 permissions. Do not rename/rewrite — add NEW Phinx migrations instead. `schema.sql` is informational only.
+- Canonical migration [db/migrations/20251222180705_initial_database_schema.php](../db/migrations/20251222180705_initial_database_schema.php) IS the install path AND seeds the admin user with all 55 permissions. Do not rename/rewrite — add NEW Phinx migrations instead. `schema.sql` is informational only.
 - `phinx.php` declares `production`/`local`/`development`/`testing` envs. New `APP_ENV` value → add a matching block or Phinx fails.
 
 ## SQL gotchas

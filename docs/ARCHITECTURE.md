@@ -1,7 +1,7 @@
 # Architecture
 
 How Aureo is put together, why it is put together that way, and the conventions that keep it
-consistent. Read this before making a non-trivial change; read [.claude/CLAUDE.md](./.claude/CLAUDE.md)
+consistent. Read this before making a non-trivial change; read [.claude/CLAUDE.md](../.claude/CLAUDE.md)
 for the sharp edges that will bite you in the first hour.
 
 ---
@@ -27,7 +27,7 @@ exception.
 
 ## Request lifecycle
 
-A request enters through [public/index.php](./public/index.php) — the single front controller and
+A request enters through [public/index.php](../public/index.php) — the single front controller and
 the only route registry — and moves through these stages in order:
 
 | # | Stage | What happens |

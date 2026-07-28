@@ -172,7 +172,7 @@ bin/                # setup.php, install.php, pma.php, reindex-search.php
 log/                # application log: log/aureo.log
 ```
 
-Full design rationale and request lifecycle: [ARCHITECTURE.md](./ARCHITECTURE.md).
+Full design rationale and request lifecycle: [ARCHITECTURE.md](./docs/ARCHITECTURE.md).
 
 ## 🚢 Deployment
 
@@ -208,7 +208,7 @@ Apache works with the bundled `public/.htaccess`.
 
 ## 📚 Documentation
 
-- **[Architecture](./ARCHITECTURE.md)**: Request lifecycle, layers, and the conventions that hold it together
+- **[Architecture](./docs/ARCHITECTURE.md)**: Request lifecycle, layers, and the conventions that hold it together
 - **[Contributing](./CONTRIBUTING.md)**: Development workflow, coding standards, and PR expectations
 - **[Security](./docs/SECURITY.md)**: Security features, production checklist, and vulnerability reporting
 - **[Agent Guidance](./.claude/CLAUDE.md)**: Project-specific footguns — read before non-trivial work
