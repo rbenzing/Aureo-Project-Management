@@ -179,6 +179,14 @@ $RECYCLE.BIN/
 
 
 # -----------------------------------------------------------------------------
+# Local scratch pages at the repo root
+# -----------------------------------------------------------------------------
+# Standalone marketing/landing pages kept locally. Not part of the application —
+# nothing under src/ or public/ references them, and they are not routed.
+/default.php
+
+
+# -----------------------------------------------------------------------------
 # Claude / agent local state
 # -----------------------------------------------------------------------------
 # .claude/CLAUDE.md IS committed (agentic project guidance). Per-developer
