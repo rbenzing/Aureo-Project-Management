@@ -22,13 +22,13 @@
 auth.json
 secrets/
 .secrets/
-docs/
+docs/superpowers/*
+docs/specs/*
 
 # -----------------------------------------------------------------------------
 # PHP / Composer
 # -----------------------------------------------------------------------------
 /vendor/
-composer.lock
 composer.phar
 .php-cs-fixer.cache
 .phpunit.cache/
@@ -100,7 +100,6 @@ sessions/
 # Node / Tailwind / build artifacts
 # -----------------------------------------------------------------------------
 /node_modules/
-package-lock.json
 yarn.lock
 pnpm-lock.yaml
 .npm/

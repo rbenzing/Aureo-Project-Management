@@ -1,90 +1,156 @@
 # Aureo Project Management
 
-[![PHP](https://img.shields.io/badge/PHP-8.1%2B-blue.svg)](https://php.net)
-[![License](https://img.shields.io/badge/License-AGPLv3-blue.svg)](LICENSE)
-[![TailwindCSS](https://img.shields.io/badge/TailwindCSS-3.4-blue.svg)](https://tailwindcss.com)
+<div align="center">
 
-Project, task, sprint, and time-tracking app for agile teams. PHP 8.1+, MySQL, TailwindCSS. No framework, no ORM — small and inspectable.
+[![PHP](https://img.shields.io/badge/PHP-777BB4?style=for-the-badge&logo=php&logoColor=white)](https://php.net)
+[![MySQL](https://img.shields.io/badge/MySQL-4479A1?style=for-the-badge&logo=mysql&logoColor=white)](https://www.mysql.com/)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind%20CSS-06B6D4?style=for-the-badge&logo=tailwindcss&logoColor=white)](https://tailwindcss.com/)
+[![Composer](https://img.shields.io/badge/Composer-885630?style=for-the-badge&logo=composer&logoColor=white)](https://getcomposer.org/)
+[![License: AGPL v3+](https://img.shields.io/badge/License-AGPL%20v3%2B-blue.svg?style=for-the-badge)](./LICENSE)
+[![Buy Me A Coffee](https://img.shields.io/badge/Buy%20Me%20A%20Coffee-FFDD00?style=for-the-badge&logo=buymeacoffee&logoColor=black)](https://buymeacoffee.com/russellbenzing)
+
+**A self-hosted project, sprint, and time-tracking application for agile teams**
+
+🏠 **Self-Hosted** • 🧩 **No Framework** • 🔍 **Small and Inspectable**
+
+[Features](#-key-features) • [Quick Start](#-quick-start) • [Documentation](#-documentation) • [License](#-license)
+
+</div>
 
 ---
 
-## Get running in under a minute
+## ✨ Key Features
 
-**Prerequisites:** PHP 8.1+, MySQL 8.0+, Composer, Node.js + npm, and a local `mysqld` running.
+### 📋 Delivery Management
+- **📊 Dashboard**: Workload, status, and progress at a glance
+- **📁 Projects**: Table, chart, pivot, and Gantt views over the same project data
+- **✅ Tasks**: Subtasks, hierarchical task tables, backlog, and per-project filtering
+- **🏃 Sprints**: Sprint board, planning with drag-and-drop assignment, and burn-down stats
+- **🎯 Milestones**: Epics and milestones with timeline and card views
+- **📝 Templates**: Reusable project, task, and sprint templates
+- **⏱️ Time Tracking**: Per-task start/stop timers, a floating timer, and time entry management
+
+### 🏢 Organization & Access
+- **🏛️ Companies**: Multi-company records with users and projects scoped underneath
+- **👥 Users & Profiles**: Registration, activation, password reset, and profile management
+- **🔑 Roles & Permissions**: 55 granular permissions composed into roles
+- **🕓 Activity Log**: Filterable audit trail of user activity across the app
+- **⭐ Favorites**: Pin the projects, tasks, and sprints you work in daily
+- **🔎 Global Search**: Indexed full-text search with a keyboard-driven command palette
+
+### 🔒 Security & Privacy
+- **🛡️ CSRF Protection**: Mandatory token validation on every state-changing request
+- **🚦 Rate Limiting**: Database-persisted throttling that survives session resets
+- **🔐 ARGON2ID Hashing**: Modern password storage with a configurable pepper
+- **🧼 Parameterized SQL**: PDO prepared statements everywhere — no string-built queries
+- **🏠 Self-Hosted**: Your database, your server, no third-party data sharing
+
+## 🛠️ Tech Stack
+
+| Component | Technology |
+|-----------|-----------|
+| **Language** | PHP 8.1+ with `declare(strict_types=1)` |
+| **Architecture** | Custom MVC — no Laravel, Symfony, Eloquent, or Blade |
+| **Database** | MySQL 8.0+ over raw PDO, with soft deletes |
+| **Migrations** | Phinx (the canonical migration is the schema of record) |
+| **DI** | PHP-DI container wired in `config/container.php` |
+| **Views** | Plain PHP templates — no templating engine |
+| **UI** | Tailwind CSS 3.4 + PostCSS, vanilla JavaScript |
+| **Email** | PHPMailer over SMTP |
+| **Quality** | PHPUnit 10 + PHP-CS-Fixer (PSR-12) |
+
+## 🚀 Quick Start
+
+**Prerequisites:** PHP 8.1+, MySQL 8.0+, Composer, Node.js + npm, and a running local `mysqld`.
 
 ```bash
+# Clone the repository
 git clone https://github.com/rbenzing/Aureo-Project-Management.git
 cd Aureo-Project-Management
 
-composer install      # installs PHP + npm deps, builds CSS
-php bin/setup.php     # interactive: DB creds, migrations, admin password, sample data
-composer start        # serves http://localhost:8000
+# Install PHP + npm dependencies and build CSS
+composer install
+
+# Interactive installer: DB credentials, migrations, admin password, sample data
+php bin/setup.php
+
+# Serve the app
+composer start
 ```
 
-Open <http://localhost:8000> and log in:
+Access your app at `http://localhost:8000` and log in:
 
 | Email | Password |
 |---|---|
 | `admin@aureo.us` | `password` |
 
-The admin user is seeded with **all 55 permissions** and full access to every feature. Change the password from Settings → Profile after first login.
+The admin user is seeded with **all 55 permissions**. Change the password from Settings → Profile after first login.
 
-> **Why `php bin/setup.php` and not `composer setup`?** Composer pipes STDIN through its process wrapper, which breaks interactive prompts. Run the setup script directly so it can talk to your terminal.
+> **Why `php bin/setup.php` and not `composer setup`?** Composer pipes STDIN through its process
+> wrapper, which breaks interactive prompts. Run the setup script directly so it can talk to your
+> terminal. `composer setup` still works non-interactively — it passes `--yes` and accepts every default.
 
----
-
-## What `php bin/setup.php` does
+### 🔧 What the installer does
 
 1. Copies `.env.example` → `.env` if missing.
-2. Prompts for MySQL host/port/user/password/database (defaults work for stock XAMPP / local MySQL with no root password).
+2. Prompts for MySQL host/port/user/password/database (stock XAMPP defaults work as-is).
 3. Connects, creates the database if needed, writes credentials to `.env`.
-4. Runs Phinx migrations (schema + admin user + 55 permissions).
+4. Runs Phinx migrations — schema, admin user, and the 55 permissions.
 5. Prompts for the admin password (defaults to `password`).
-6. Optionally imports `sample-data.sql` (5 companies, 25 fake users, 50 projects, 5000 tasks, 50 sprints).
+6. Optionally imports `sample-data.sql`: 5 companies, 25 users, 50 projects, 5000 tasks, 50 sprints.
 
-Re-run it any time to reconfigure. Pass `--yes` to accept every default non-interactively.
+Re-run it any time to reconfigure.
 
----
+### ✅ Quality Gates
 
-## Common commands
+```bash
+composer cs:check   # PSR-12 lint (dry run + diff)
+composer cs:fix     # auto-fix code style
+composer test       # PHPUnit suite
+composer audit      # known vulnerabilities in dependencies
+npm run build       # rebuild Tailwind CSS
+```
+
+## ⚙️ Configuration
+
+### Environment Variables
+
+`bin/setup.php` writes a working `.env` for local development. Key values:
+
+```env
+# Database
+DB_HOST=127.0.0.1:3306
+DB_NAME=aureo_db
+DB_USERNAME=root
+DB_PASSWORD=              # REQUIRED (non-empty) when APP_ENV=production
+
+# Application
+APP_ENV=local             # local | development | testing | production
+APP_DEBUG=true            # MUST be false in production
+APP_SCHEME=http           # set to https in production
+
+# Session
+SESSION_SECURE=false      # set to true in production (requires HTTPS)
+```
+
+For SMTP and the remaining options, see [`.env.example`](./.env.example).
+
+> **Local HTTP development:** keep `SESSION_SECURE=false` and `APP_SCHEME=http`, or session
+> cookies and CSRF tokens fail silently.
+
+### Common Commands
 
 ```bash
 composer start              # PHP dev server at http://localhost:8000
 composer pma                # phpMyAdmin at http://localhost:8081
-composer test               # PHPUnit
-composer cs:check           # PSR-12 lint
-composer cs:fix             # auto-fix style
 composer migrate            # apply pending Phinx migrations
 composer migrate:status     # show migration state
 composer migrate:rollback   # undo the last migration
-composer migrate:create Foo # create a new migration in db/migrations/
-npm run build               # rebuild Tailwind CSS to public/assets/css/styles.css
-npm run watch               # rebuild on change
+composer migrate:create Foo # scaffold a new migration in db/migrations/
+npm run watch               # rebuild CSS on change
 ```
 
----
-
-## Configuration (`.env`)
-
-`bin/setup.php` writes a working `.env` for local development. Key values:
-
-```ini
-DB_HOST=127.0.0.1:3306
-DB_NAME=aureo_db
-DB_USERNAME=root
-DB_PASSWORD=
-
-APP_ENV=local        # production requires non-empty DB_PASSWORD
-APP_DEBUG=true
-APP_SCHEME=http      # set to https in production
-SESSION_SECURE=false # set to true in production (requires HTTPS)
-```
-
-For email/SMTP, see `.env.example`.
-
----
-
-## Project layout
+## 🏗️ Project Layout
 
 ```
 public/             # web root — point your server here
@@ -92,30 +158,29 @@ public/             # web root — point your server here
 src/
   Controllers/      # HTTP handlers; extend BaseController
   Models/           # PDO models; extend BaseModel
+  Repositories/     # query objects for the heavier read paths
   Services/         # business logic and infrastructure
+  Events/Listeners/ # in-process domain events
+  Http/Requests/    # form request validation objects
   Middleware/       # Auth, CSRF, Activity, Session
   Views/            # plain PHP templates (no engine)
   Enums/            # backed enums (string and int)
-  Core/             # Router, Config, Database
+  Core/             # Router, Config, Database, Response
 config/             # DI container wiring
-db/
-  migrations/       # Phinx migrations (canonical schema lives here)
-  seeds/            # Phinx seed files
-bin/
-  setup.php         # interactive installer
-  install.php       # composer post-install orchestrator (npm only)
-  pma.php           # downloads + serves phpMyAdmin locally
+db/migrations/      # Phinx migrations (canonical schema lives here)
+bin/                # setup.php, install.php, pma.php, reindex-search.php
 log/                # application log: log/aureo.log
 ```
 
----
+Full design rationale and request lifecycle: [ARCHITECTURE.md](./ARCHITECTURE.md).
 
-## Deploying to a real server
+## 🚢 Deployment
 
 1. Point the web server's document root at `public/`.
 2. Set `APP_ENV=production`, `APP_DEBUG=false`, `APP_SCHEME=https`, `SESSION_SECURE=true`.
-3. Provide non-empty `DB_PASSWORD` (production refuses to boot without it).
-4. Configure HTTPS — `SECURITY.md` covers the headers and cookie posture.
+3. Provide a non-empty `DB_PASSWORD` — production refuses to boot without it.
+4. Run `composer install --no-dev --optimize-autoloader` and `npm run build`.
+5. Configure HTTPS. [SECURITY.md](./docs/SECURITY.md) covers headers and cookie posture.
 
 ### Nginx example
 
@@ -139,40 +204,89 @@ server {
 }
 ```
 
-Apache works with the bundled `.htaccess`.
+Apache works with the bundled `public/.htaccess`.
 
----
+## 📚 Documentation
 
-## Troubleshooting
+- **[Architecture](./ARCHITECTURE.md)**: Request lifecycle, layers, and the conventions that hold it together
+- **[Contributing](./CONTRIBUTING.md)**: Development workflow, coding standards, and PR expectations
+- **[Security](./docs/SECURITY.md)**: Security features, production checklist, and vulnerability reporting
+- **[Agent Guidance](./.claude/CLAUDE.md)**: Project-specific footguns — read before non-trivial work
 
-**White screen after install.** Tail `log/aureo.log` — that's the FIRST place to look on any 500 or blank page.
+## 🩺 Troubleshooting
+
+**White screen after install.** Tail `log/aureo.log` — that is the FIRST place to look on any 500 or blank page.
 
 **`composer setup` hangs or instantly accepts defaults.** Composer pipes STDIN. Use `php bin/setup.php` directly.
 
 **`Cannot redeclare X::tryfrom()`.** PHP opcache is serving a stale enum. Restart `composer start`.
 
-**`Unknown table 'u'` in a query.** The Models's `queryBuilder` call is missing `'alias' => 'u'`. See [.claude/CLAUDE.md](.claude/CLAUDE.md) for the convention.
+**`Unknown table 'u'` in a query.** The model's `queryBuilder` call is missing `'alias' => 'u'`.
 
-**Session/CSRF silently fails on `http://localhost`.** Set `SESSION_SECURE=false` and `APP_SCHEME=http` in `.env`.
+**Session/CSRF silently fails on `http://localhost`.** Set `SESSION_SECURE=false` and `APP_SCHEME=http`.
 
-**XAMPP `mysql.exe` errors with `caching_sha2_password could not be loaded`.** Use PDO from PHP scripts or phpMyAdmin (`composer pma`) instead of the CLI client.
+**XAMPP `mysql.exe` errors with `caching_sha2_password could not be loaded`.** Use PDO from PHP scripts
+or phpMyAdmin (`composer pma`) instead of the CLI client.
+
+## 📄 License
+
+Aureo Project Management is free software: you can redistribute it and/or modify it under the terms of
+the **GNU Affero General Public License** as published by the Free Software Foundation, either
+version 3 of the License, or (at your option) any later version.
+
+It is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even
+the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+[LICENSE](./LICENSE) for details.
+
+> **What AGPL means for a self-hosted app:** if you modify Aureo and let others use it over a
+> network, you must offer those users the source of your modified version. Running it privately
+> for your own team places no obligation on you.
+
+SPDX identifier: `AGPL-3.0-or-later`
+Copyright © 2025 Russell Benzing
 
 ---
 
-## Contributing
+## 👤 About the Author
 
-- PSR-12 style, enforced by `composer cs:check` / `composer cs:fix`.
-- `declare(strict_types=1);` on all non-view PHP files.
-- New routes go in `public/index.php`. New DB changes go in a new Phinx migration — never edit the canonical migration.
-- See [.claude/CLAUDE.md](.claude/CLAUDE.md) for project-specific conventions and footguns (load it before doing any non-trivial work).
-- Run `composer test` and `composer cs:check` before opening a PR.
+Aureo is built by **[Russell Benzing](https://github.com/rbenzing)**.
+
+It's developed with heavy use of AI coding assistants — architecture, implementation, tests and
+this documentation. That's a deliberate choice, and worth stating plainly: it means the project
+moves quickly, and it means every change still gets linted, tested and reviewed before it lands.
+The full history is public; judge the code, not the tooling.
+
+It's deliberately framework-free. A custom MVC core, raw PDO, plain PHP views and vanilla JS mean
+the whole application is small enough to read end to end — no magic to reverse-engineer when
+something breaks at 2am, and no upgrade treadmill imposed by someone else's release cycle.
+
+It's released free and open source under the AGPL so that teams can run their own project tracking
+on their own hardware, and own their data outright rather than rent access to it. There's no hosted
+tier, no telemetry, and nothing held back for a paid version.
+
+Bug reports, feature requests and pull requests are all welcome — see
+[CONTRIBUTING.md](./CONTRIBUTING.md).
 
 ---
 
-## License
+## 💬 Support & Community
 
-[AGPL-3.0](LICENSE). Network use of modified versions requires publishing your source.
+Found a bug? Have a feature request? Please open an
+[issue](https://github.com/rbenzing/Aureo-Project-Management/issues).
 
-## Author
+Found a security vulnerability? **Do not open a public issue** — see
+[SECURITY.md](./docs/SECURITY.md) for private disclosure.
 
-Russell Benzing · [me@russellbenzing.com](mailto:me@russellbenzing.com) · [@rbenzing](https://github.com/rbenzing)
+If Aureo is useful to you, you can support its development:
+
+<a href="https://buymeacoffee.com/russellbenzing" target="_blank"><img src="https://img.shields.io/badge/Buy%20Me%20A%20Coffee-FFDD00?style=for-the-badge&logo=buymeacoffee&logoColor=black" alt="Buy Me A Coffee" /></a>
+
+---
+
+<div align="center">
+
+**🏠 Self-hosted • 🔒 Secure • 🧩 Framework-free**
+
+*Built for teams who want to own their project data, not rent access to it.*
+
+</div>

@@ -10,9 +10,17 @@
     "build": "npx tailwindcss -i ./src/css/input.css -o ./public/assets/css/styles.css",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "keywords": [
+    "project-management",
+    "task-tracking",
+    "sprints",
+    "time-tracking",
+    "agile",
+    "php",
+    "self-hosted"
+  ],
+  "author": "Russell Benzing <me@russellbenzing.com>",
+  "license": "AGPL-3.0-or-later",
   "devDependencies": {
     "@tailwindcss/aspect-ratio": "^0.4.2",
     "@tailwindcss/forms": "^0.5.10",

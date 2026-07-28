@@ -83,7 +83,7 @@ class TimeTrackingController extends BaseController
             ];
 
             // Render the view
-            $this->render('time-tracking/index', compact(
+            $this->render('TimeTracking/index', compact(
                 'timeEntries',
                 'timeData',
                 'projects',

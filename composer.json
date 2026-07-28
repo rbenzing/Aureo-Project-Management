@@ -3,6 +3,11 @@
     "description": "Aureo Project Management - A comprehensive project management application with user authentication, roles, and email functionality.",
     "type": "project",
     "license": "AGPL-3.0-or-later",
+    "homepage": "https://github.com/rbenzing/Aureo-Project-Management",
+    "support": {
+        "issues": "https://github.com/rbenzing/Aureo-Project-Management/issues",
+        "source": "https://github.com/rbenzing/Aureo-Project-Management"
+    },
     "authors": [
         {
             "name": "Russell Benzing",
