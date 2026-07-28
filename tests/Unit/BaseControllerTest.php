@@ -5,9 +5,10 @@ declare(strict_types=1);
 namespace Tests\Unit;
 
 use App\Controllers\BaseController;
-use App\Middleware\AuthMiddleware;
+use PHPUnit\Framework\Attributes\CoversClass;
 use Tests\Support\TestCase;
 
+#[CoversClass(BaseController::class)]
 class BaseControllerTest extends TestCase
 {
     private TestableBaseController $controller;
@@ -20,6 +21,10 @@ class BaseControllerTest extends TestCase
 
     public function testGetPaginationParams(): void
     {
+        // getPaginationParams() reads the page size from SettingsService, which
+        // queries the settings table — so this needs a reachable database.
+        $this->requireDatabase();
+
         $params = $this->controller->testGetPaginationParams(['page' => '3']);
 
         $this->assertArrayHasKey('page', $params);
@@ -29,6 +34,8 @@ class BaseControllerTest extends TestCase
 
     public function testGetPaginationParamsWithInvalidPage(): void
     {
+        $this->requireDatabase();
+
         $params = $this->controller->testGetPaginationParams(['page' => '-1']);
 
         $this->assertEquals(1, $params['page'], 'Page should default to 1 for invalid values');
@@ -105,7 +112,7 @@ class BaseControllerTest extends TestCase
 
         $filters = $this->controller->testBuildFilters([
             'status_id' => 'status_id',
-            'project_id' => 'project_id'
+            'project_id' => 'project_id',
         ]);
 
         $this->assertEquals(1, $filters['status_id']);

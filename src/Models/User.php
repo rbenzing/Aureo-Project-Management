@@ -101,7 +101,7 @@ class User extends BaseModel
     ): array {
         $where = [];
         $whereRaw = [
-            ['sql' => 'u.is_deleted = 0']
+            ['sql' => 'u.is_deleted = 0'],
         ];
 
         // Apply filters
@@ -155,6 +155,7 @@ class User extends BaseModel
     {
         try {
             $users = $this->getUsersWithDetails(['email' => $email], 1);
+
             return $users[0] ?? null;
         } catch (\Exception $e) {
             throw new RuntimeException("Failed to find user by email: " . $e->getMessage());
@@ -602,8 +603,8 @@ class User extends BaseModel
                     ON DUPLICATE KEY UPDATE company_id = :company_id_dup";
 
             return $this->db->executeInsertUpdate($sql, [
-                ':user_id'      => $userId,
-                ':company_id'   => $companyId,
+                ':user_id' => $userId,
+                ':company_id' => $companyId,
                 ':company_id_dup' => $companyId,
             ]);
         } catch (\Exception $e) {
@@ -648,8 +649,8 @@ class User extends BaseModel
                     ON DUPLICATE KEY UPDATE project_id = :project_id_dup";
 
             return $this->db->executeInsertUpdate($sql, [
-                ':user_id'        => $userId,
-                ':project_id'     => $projectId,
+                ':user_id' => $userId,
+                ':project_id' => $projectId,
                 ':project_id_dup' => $projectId,
             ]);
         } catch (\Exception $e) {

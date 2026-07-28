@@ -46,7 +46,7 @@ function reindexType(
 }
 
 try {
-    $db    = \App\Core\Database::getInstance();
+    $db = \App\Core\Database::getInstance();
     $index = new \App\Models\SearchIndex();
 
     out('=== Aureo Search Index — Backfill ===');
@@ -60,8 +60,8 @@ try {
         'task',
         "SELECT id, title, description, project_id FROM tasks WHERE is_deleted = 0",
         function (\stdClass $row): array {
-            $title  = $row->title ?? '';
-            $desc   = $row->description ?? '';
+            $title = $row->title ?? '';
+            $desc = $row->description ?? '';
 
             return [$title, substr($desc, 0, 200), (int) $row->project_id, $title . ' ' . $desc];
         }
@@ -74,7 +74,7 @@ try {
         "SELECT id, name, description FROM projects WHERE is_deleted = 0",
         function (\stdClass $row): array {
             $title = $row->name ?? '';
-            $desc  = $row->description ?? '';
+            $desc = $row->description ?? '';
 
             return [$title, substr($desc, 0, 200), (int) $row->id, $title . ' ' . $desc];
         }
@@ -100,7 +100,7 @@ try {
         "SELECT id, name, sprint_goal, project_id FROM sprints WHERE is_deleted = 0",
         function (\stdClass $row): array {
             $title = $row->name ?? '';
-            $goal  = $row->sprint_goal ?? '';
+            $goal = $row->sprint_goal ?? '';
 
             return [$title, substr($goal, 0, 200), (int) $row->project_id, $title . ' ' . $goal];
         }
@@ -113,7 +113,7 @@ try {
         "SELECT id, title, description, project_id FROM milestones WHERE is_deleted = 0",
         function (\stdClass $row): array {
             $title = $row->title ?? '';
-            $desc  = $row->description ?? '';
+            $desc = $row->description ?? '';
 
             return [$title, substr($desc, 0, 200), (int) $row->project_id, $title . ' ' . $desc];
         }
@@ -125,8 +125,8 @@ try {
         'company',
         "SELECT id, name, email, address FROM companies WHERE is_deleted = 0",
         function (\stdClass $row): array {
-            $name    = $row->name ?? '';
-            $email   = $row->email ?? '';
+            $name = $row->name ?? '';
+            $email = $row->email ?? '';
             $address = $row->address ?? '';
 
             return [$name, substr((string) $email, 0, 200), null, trim($name . ' ' . $email . ' ' . $address)];

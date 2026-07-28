@@ -69,6 +69,7 @@ class CacheService
         // Check expiration
         if (isset($this->expirations[$key]) && $this->expirations[$key] < time()) {
             $this->forget($key);
+
             return false;
         }
 

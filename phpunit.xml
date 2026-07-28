@@ -28,10 +28,15 @@
         </exclude>
     </source>
 
+    <!-- Coverage reports are requested per run (composer test:coverage, or the
+         coverage flags used in CI) rather than configured here, so a local run
+         without PCOV/Xdebug does not emit a "no coverage driver" warning. -->
+
+
     <php>
         <env name="APP_ENV" value="testing"/>
         <env name="APP_DEBUG" value="true"/>
-        <env name="DB_HOST" value="localhost"/>
+        <env name="DB_HOST" value="127.0.0.1:3306"/>
         <env name="DB_NAME" value="pms_test"/>
         <env name="DB_USERNAME" value="root"/>
         <env name="DB_PASSWORD" value=""/>

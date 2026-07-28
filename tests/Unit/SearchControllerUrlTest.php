@@ -6,15 +6,17 @@ namespace Tests\Unit;
 
 use App\Controllers\SearchController;
 use App\Services\SearchService;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 
+#[CoversClass(SearchController::class)]
 class SearchControllerUrlTest extends TestCase
 {
     private function resolve(string $type, int $id): string
     {
         $controller = new SearchController($this->createMock(SearchService::class));
+        // setAccessible() is a no-op since PHP 8.1 and deprecated in 8.5.
         $ref = new \ReflectionMethod(SearchController::class, 'resolveUrl');
-        $ref->setAccessible(true);
 
         return $ref->invoke($controller, $type, $id);
     }

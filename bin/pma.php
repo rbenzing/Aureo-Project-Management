@@ -22,8 +22,14 @@ const PMA_URL = 'https://files.phpmyadmin.net/phpMyAdmin/' . PMA_VERSION . '/php
 
 require_once ROOT . '/vendor/autoload.php';
 
-function out(string $msg): void { fwrite(STDOUT, $msg . PHP_EOL); }
-function err(string $msg): void { fwrite(STDERR, $msg . PHP_EOL); }
+function out(string $msg): void
+{
+    fwrite(STDOUT, $msg . PHP_EOL);
+}
+function err(string $msg): void
+{
+    fwrite(STDERR, $msg . PHP_EOL);
+}
 
 function loadEnv(): array
 {
@@ -31,6 +37,7 @@ function loadEnv(): array
     if (!file_exists($path)) {
         throw new RuntimeException('.env not found. Run `composer setup` first.');
     }
+
     return parse_ini_file($path) ?: [];
 }
 
@@ -82,6 +89,7 @@ function extractZip(string $zipPath, string $destDir): void
         }
         $zip->extractTo($destDir);
         $zip->close();
+
         return;
     }
 
@@ -90,7 +98,9 @@ function extractZip(string $zipPath, string $destDir): void
         // Prefer tar.exe (ships with Windows 10+); fall back to PowerShell Expand-Archive.
         $cmd = sprintf('tar -xf %s -C %s 2>&1', escapeshellarg($zipPath), escapeshellarg($destDir));
         exec($cmd, $output, $code);
-        if ($code === 0) return;
+        if ($code === 0) {
+            return;
+        }
 
         $ps = sprintf(
             'powershell -NoProfile -Command "Expand-Archive -Path %s -DestinationPath %s -Force"',
@@ -98,7 +108,9 @@ function extractZip(string $zipPath, string $destDir): void
             escapeshellarg($destDir)
         );
         exec($ps, $output, $code);
-        if ($code === 0) return;
+        if ($code === 0) {
+            return;
+        }
 
         throw new RuntimeException('Extraction failed via tar and PowerShell. Output: ' . implode("\n", $output));
     }
@@ -112,10 +124,14 @@ function extractZip(string $zipPath, string $destDir): void
 
 function rrmdir(string $dir): void
 {
-    if (!is_dir($dir)) return;
+    if (!is_dir($dir)) {
+        return;
+    }
     $items = scandir($dir);
     foreach ($items as $item) {
-        if ($item === '.' || $item === '..') continue;
+        if ($item === '.' || $item === '..') {
+            continue;
+        }
         $path = $dir . DIRECTORY_SEPARATOR . $item;
         is_dir($path) && !is_link($path) ? rrmdir($path) : unlink($path);
     }
@@ -163,9 +179,18 @@ function parseArgs(array $argv): array
 {
     $opts = ['install_only' => false, 'port' => 8081];
     foreach (array_slice($argv, 1) as $arg) {
-        if ($arg === 'install') { $opts['install_only'] = true; continue; }
-        if (str_starts_with($arg, 'port=')) { $opts['port'] = (int) substr($arg, 5); continue; }
+        if ($arg === 'install') {
+            $opts['install_only'] = true;
+
+            continue;
+        }
+        if (str_starts_with($arg, 'port=')) {
+            $opts['port'] = (int) substr($arg, 5);
+
+            continue;
+        }
     }
+
     return $opts;
 }
 

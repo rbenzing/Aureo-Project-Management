@@ -160,7 +160,7 @@ abstract class BaseController
 
         return [
             'page' => $page,
-            'limit' => $limit
+            'limit' => $limit,
         ];
     }
 
@@ -192,7 +192,7 @@ abstract class BaseController
 
         return [
             'field' => $field,
-            'direction' => $direction
+            'direction' => $direction,
         ];
     }
 

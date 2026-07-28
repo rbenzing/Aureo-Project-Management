@@ -5,7 +5,6 @@ declare(strict_types=1);
 
 namespace App\Controllers;
 
-use App\Middleware\AuthMiddleware;
 use App\Models\Company;
 use App\Models\Template;
 use App\Services\SecurityService;

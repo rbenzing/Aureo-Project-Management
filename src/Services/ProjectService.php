@@ -10,8 +10,8 @@ use App\Exceptions\BusinessRuleException;
 use App\Exceptions\NotFoundException;
 use App\Exceptions\ValidationException;
 use App\Models\Project;
-use App\Models\User;
 use App\Models\Task;
+use App\Models\User;
 use RuntimeException;
 
 /**
@@ -157,7 +157,7 @@ class ProjectService
             // Validate format (2-10 uppercase letters/numbers)
             if (!preg_match('/^[A-Z0-9]{2,10}$/', $newKeyCode)) {
                 throw ValidationException::withErrors([
-                    'key_code' => ['Key code must be 2-10 uppercase letters or numbers']
+                    'key_code' => ['Key code must be 2-10 uppercase letters or numbers'],
                 ]);
             }
 

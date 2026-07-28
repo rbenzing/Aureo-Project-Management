@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit;
 
 use App\Models\User;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -16,6 +17,7 @@ use PHPUnit\Framework\TestCase;
  * - Password hashing validation
  * - User data transformation
  */
+#[CoversClass(User::class)]
 final class UserModelTest extends TestCase
 {
     private User $user;
@@ -59,7 +61,7 @@ final class UserModelTest extends TestCase
             'user@example.com',
             'user.name@example.com',
             'user+tag@example.co.uk',
-            'user_name@sub.example.com'
+            'user_name@sub.example.com',
         ];
 
         foreach ($validEmails as $email) {
@@ -71,7 +73,7 @@ final class UserModelTest extends TestCase
             'invalid-email',
             '@example.com',
             'user@',
-            'user space@example.com'
+            'user space@example.com',
         ];
 
         foreach ($invalidEmails as $email) {

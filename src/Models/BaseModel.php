@@ -191,10 +191,12 @@ abstract class BaseModel
             return $newId;
         } catch (\Exception $e) {
             $safeMessage = "Failed to create {$this->table} record";
+
             try {
                 $safeMessage = SecurityService::getInstance()->getSafeErrorMessage($e->getMessage(), $safeMessage);
             } catch (\Exception $ignored) {
             }
+
             throw new RuntimeException($safeMessage);
         }
     }
@@ -287,6 +289,7 @@ abstract class BaseModel
         if ($result === false) {
             // Get model name without namespace
             $modelName = (new \ReflectionClass($this))->getShortName();
+
             throw NotFoundException::forModel($modelName, $id);
         }
 
@@ -677,6 +680,7 @@ abstract class BaseModel
 
         try {
             $stmt = $this->db->executeQuery($sql, $params);
+
             return $stmt->fetchAll(PDO::FETCH_OBJ);
         } catch (\Exception $e) {
             throw new RuntimeException("Query error: " . $e->getMessage() . " SQL: " . $sql);
@@ -758,6 +762,7 @@ abstract class BaseModel
 
         try {
             $stmt = $this->db->executeQuery($sql, $params);
+
             return (int)$stmt->fetchColumn();
         } catch (\Exception $e) {
             throw new RuntimeException("Count query error: " . $e->getMessage());

@@ -47,6 +47,8 @@
         "pma": "@php bin/pma.php",
         "pma:install": "@php bin/pma.php install",
         "test": "phpunit --testdox",
+        "test:unit": "phpunit --testsuite Unit --testdox",
+        "test:integration": "phpunit --testsuite Integration --testdox",
         "test:coverage": "phpunit --coverage-html coverage",
         "cs:check": "php-cs-fixer fix --dry-run --diff",
         "cs:fix": "php-cs-fixer fix",

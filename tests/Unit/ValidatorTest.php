@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace Tests\Unit;
 
 use App\Utils\Validator;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 
+#[CoversClass(Validator::class)]
 final class ValidatorTest extends TestCase
 {
     public function testRequiredFieldValidation(): void

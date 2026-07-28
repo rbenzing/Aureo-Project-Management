@@ -4,9 +4,10 @@ declare(strict_types=1);
 
 namespace Tests\Unit;
 
+use App\Core\Database;
 use App\Services\SecurityService;
 use App\Services\SettingsService;
-use App\Core\Database;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -20,6 +21,7 @@ use PHPUnit\Framework\TestCase;
  * - Security headers generation
  * - Error message safety
  */
+#[CoversClass(SecurityService::class)]
 final class SecurityServiceTest extends TestCase
 {
     private SecurityService $securityService;
@@ -260,7 +262,7 @@ final class SecurityServiceTest extends TestCase
             ->method('isSecurityFeatureEnabled')
             ->willReturnMap([
                 ['enable_csp', true],
-                ['additional_headers', false]
+                ['additional_headers', false],
             ]);
 
         $this->settingsServiceMock
@@ -284,7 +286,7 @@ final class SecurityServiceTest extends TestCase
             ->method('isSecurityFeatureEnabled')
             ->willReturnMap([
                 ['enable_csp', false],
-                ['additional_headers', true]
+                ['additional_headers', true],
             ]);
 
         $headers = $this->securityService->getSecurityHeaders();

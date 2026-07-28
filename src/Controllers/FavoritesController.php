@@ -6,7 +6,6 @@ declare(strict_types=1);
 namespace App\Controllers;
 
 use App\Core\Response;
-use App\Middleware\AuthMiddleware;
 use App\Models\Favorite;
 
 /**

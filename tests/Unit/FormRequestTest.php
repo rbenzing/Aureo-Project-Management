@@ -7,13 +7,15 @@ namespace Tests\Unit;
 use App\Exceptions\AuthorizationException;
 use App\Exceptions\ValidationException;
 use App\Http\Requests\FormRequest;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 
+#[CoversClass(FormRequest::class)]
 class FormRequestTest extends TestCase
 {
     public function testValidateRequired(): void
     {
-        $request = new class(['name' => 'John']) extends FormRequest {
+        $request = new class (['name' => 'John']) extends FormRequest {
             protected function rules(): array
             {
                 return ['name' => ['required']];
@@ -26,7 +28,7 @@ class FormRequestTest extends TestCase
 
     public function testValidateRequiredFailsForEmpty(): void
     {
-        $request = new class(['name' => '']) extends FormRequest {
+        $request = new class (['name' => '']) extends FormRequest {
             protected function rules(): array
             {
                 return ['name' => ['required']];
@@ -39,7 +41,7 @@ class FormRequestTest extends TestCase
 
     public function testValidateRequiredFailsForNull(): void
     {
-        $request = new class([]) extends FormRequest {
+        $request = new class ([]) extends FormRequest {
             protected function rules(): array
             {
                 return ['name' => ['required']];
@@ -52,7 +54,7 @@ class FormRequestTest extends TestCase
 
     public function testValidateString(): void
     {
-        $request = new class(['name' => 'John']) extends FormRequest {
+        $request = new class (['name' => 'John']) extends FormRequest {
             protected function rules(): array
             {
                 return ['name' => ['string']];
@@ -65,7 +67,7 @@ class FormRequestTest extends TestCase
 
     public function testValidateInteger(): void
     {
-        $request = new class(['age' => '25']) extends FormRequest {
+        $request = new class (['age' => '25']) extends FormRequest {
             protected function rules(): array
             {
                 return ['age' => ['integer']];
@@ -78,7 +80,7 @@ class FormRequestTest extends TestCase
 
     public function testValidateIntegerFailsForString(): void
     {
-        $request = new class(['age' => 'abc']) extends FormRequest {
+        $request = new class (['age' => 'abc']) extends FormRequest {
             protected function rules(): array
             {
                 return ['age' => ['integer']];
@@ -91,7 +93,7 @@ class FormRequestTest extends TestCase
 
     public function testValidateNumeric(): void
     {
-        $request = new class(['price' => '19.99']) extends FormRequest {
+        $request = new class (['price' => '19.99']) extends FormRequest {
             protected function rules(): array
             {
                 return ['price' => ['numeric']];
@@ -104,7 +106,7 @@ class FormRequestTest extends TestCase
 
     public function testValidateEmail(): void
     {
-        $request = new class(['email' => 'test@example.com']) extends FormRequest {
+        $request = new class (['email' => 'test@example.com']) extends FormRequest {
             protected function rules(): array
             {
                 return ['email' => ['email']];
@@ -117,7 +119,7 @@ class FormRequestTest extends TestCase
 
     public function testValidateEmailFailsForInvalid(): void
     {
-        $request = new class(['email' => 'invalid-email']) extends FormRequest {
+        $request = new class (['email' => 'invalid-email']) extends FormRequest {
             protected function rules(): array
             {
                 return ['email' => ['email']];
@@ -130,7 +132,7 @@ class FormRequestTest extends TestCase
 
     public function testValidateUrl(): void
     {
-        $request = new class(['website' => 'https://example.com']) extends FormRequest {
+        $request = new class (['website' => 'https://example.com']) extends FormRequest {
             protected function rules(): array
             {
                 return ['website' => ['url']];
@@ -143,7 +145,7 @@ class FormRequestTest extends TestCase
 
     public function testValidateUrlFailsForInvalid(): void
     {
-        $request = new class(['website' => 'not-a-url']) extends FormRequest {
+        $request = new class (['website' => 'not-a-url']) extends FormRequest {
             protected function rules(): array
             {
                 return ['website' => ['url']];
@@ -156,7 +158,7 @@ class FormRequestTest extends TestCase
 
     public function testValidateMinString(): void
     {
-        $request = new class(['password' => 'abc12345']) extends FormRequest {
+        $request = new class (['password' => 'abc12345']) extends FormRequest {
             protected function rules(): array
             {
                 return ['password' => ['min:8']];
@@ -169,7 +171,7 @@ class FormRequestTest extends TestCase
 
     public function testValidateMinStringFailsTooShort(): void
     {
-        $request = new class(['password' => 'abc']) extends FormRequest {
+        $request = new class (['password' => 'abc']) extends FormRequest {
             protected function rules(): array
             {
                 return ['password' => ['min:8']];
@@ -182,7 +184,7 @@ class FormRequestTest extends TestCase
 
     public function testValidateMaxString(): void
     {
-        $request = new class(['name' => 'John']) extends FormRequest {
+        $request = new class (['name' => 'John']) extends FormRequest {
             protected function rules(): array
             {
                 return ['name' => ['max:10']];
@@ -195,7 +197,7 @@ class FormRequestTest extends TestCase
 
     public function testValidateMaxStringFailsTooLong(): void
     {
-        $request = new class(['name' => 'VeryLongNameThatExceedsTheLimit']) extends FormRequest {
+        $request = new class (['name' => 'VeryLongNameThatExceedsTheLimit']) extends FormRequest {
             protected function rules(): array
             {
                 return ['name' => ['max:10']];
@@ -208,7 +210,7 @@ class FormRequestTest extends TestCase
 
     public function testValidateBetween(): void
     {
-        $request = new class(['age' => 25]) extends FormRequest {
+        $request = new class (['age' => 25]) extends FormRequest {
             protected function rules(): array
             {
                 return ['age' => ['between:18,65']];
@@ -222,7 +224,7 @@ class FormRequestTest extends TestCase
 
     public function testValidateBetweenFailsOutOfRange(): void
     {
-        $request = new class(['age' => '70']) extends FormRequest {
+        $request = new class (['age' => '70']) extends FormRequest {
             protected function rules(): array
             {
                 return ['age' => ['between:18,65']];
@@ -235,7 +237,7 @@ class FormRequestTest extends TestCase
 
     public function testValidateIn(): void
     {
-        $request = new class(['status' => 'active']) extends FormRequest {
+        $request = new class (['status' => 'active']) extends FormRequest {
             protected function rules(): array
             {
                 return ['status' => ['in:active,inactive,pending']];
@@ -248,7 +250,7 @@ class FormRequestTest extends TestCase
 
     public function testValidateInFailsForInvalid(): void
     {
-        $request = new class(['status' => 'deleted']) extends FormRequest {
+        $request = new class (['status' => 'deleted']) extends FormRequest {
             protected function rules(): array
             {
                 return ['status' => ['in:active,inactive,pending']];
@@ -261,7 +263,7 @@ class FormRequestTest extends TestCase
 
     public function testValidateDate(): void
     {
-        $request = new class(['start_date' => '2024-01-15']) extends FormRequest {
+        $request = new class (['start_date' => '2024-01-15']) extends FormRequest {
             protected function rules(): array
             {
                 return ['start_date' => ['date']];
@@ -274,7 +276,7 @@ class FormRequestTest extends TestCase
 
     public function testValidateDateFailsForInvalid(): void
     {
-        $request = new class(['start_date' => 'not-a-date']) extends FormRequest {
+        $request = new class (['start_date' => 'not-a-date']) extends FormRequest {
             protected function rules(): array
             {
                 return ['start_date' => ['date']];
@@ -287,7 +289,7 @@ class FormRequestTest extends TestCase
 
     public function testValidateBoolean(): void
     {
-        $request = new class(['active' => true]) extends FormRequest {
+        $request = new class (['active' => true]) extends FormRequest {
             protected function rules(): array
             {
                 return ['active' => ['boolean']];
@@ -300,7 +302,7 @@ class FormRequestTest extends TestCase
 
     public function testValidateArray(): void
     {
-        $request = new class(['tags' => ['php', 'laravel']]) extends FormRequest {
+        $request = new class (['tags' => ['php', 'laravel']]) extends FormRequest {
             protected function rules(): array
             {
                 return ['tags' => ['array']];
@@ -313,7 +315,7 @@ class FormRequestTest extends TestCase
 
     public function testValidateArrayFailsForNonArray(): void
     {
-        $request = new class(['tags' => 'string']) extends FormRequest {
+        $request = new class (['tags' => 'string']) extends FormRequest {
             protected function rules(): array
             {
                 return ['tags' => ['array']];
@@ -326,7 +328,7 @@ class FormRequestTest extends TestCase
 
     public function testMultipleValidationRules(): void
     {
-        $request = new class(['email' => 'test@example.com']) extends FormRequest {
+        $request = new class (['email' => 'test@example.com']) extends FormRequest {
             protected function rules(): array
             {
                 return ['email' => ['required', 'string', 'email']];
@@ -339,17 +341,17 @@ class FormRequestTest extends TestCase
 
     public function testMultipleFields(): void
     {
-        $request = new class([
+        $request = new class ([
             'name' => 'John Doe',
             'email' => 'john@example.com',
-            'age' => '30'
+            'age' => '30',
         ]) extends FormRequest {
             protected function rules(): array
             {
                 return [
                     'name' => ['required', 'string'],
                     'email' => ['required', 'email'],
-                    'age' => ['required', 'integer']
+                    'age' => ['required', 'integer'],
                 ];
             }
         };
@@ -362,7 +364,7 @@ class FormRequestTest extends TestCase
 
     public function testAuthorizationFailure(): void
     {
-        $request = new class(['name' => 'John']) extends FormRequest {
+        $request = new class (['name' => 'John']) extends FormRequest {
             protected function rules(): array
             {
                 return ['name' => ['required']];
@@ -380,7 +382,7 @@ class FormRequestTest extends TestCase
 
     public function testGetMethod(): void
     {
-        $request = new class(['name' => 'John', 'age' => '30']) extends FormRequest {
+        $request = new class (['name' => 'John', 'age' => '30']) extends FormRequest {
             protected function rules(): array
             {
                 return [];
@@ -395,7 +397,7 @@ class FormRequestTest extends TestCase
 
     public function testHasMethod(): void
     {
-        $request = new class(['name' => 'John']) extends FormRequest {
+        $request = new class (['name' => 'John']) extends FormRequest {
             protected function rules(): array
             {
                 return [];
@@ -408,7 +410,7 @@ class FormRequestTest extends TestCase
 
     public function testValidatedMethod(): void
     {
-        $request = new class(['name' => 'John', 'extra' => 'value']) extends FormRequest {
+        $request = new class (['name' => 'John', 'extra' => 'value']) extends FormRequest {
             protected function rules(): array
             {
                 return ['name' => ['required']];
@@ -422,7 +424,7 @@ class FormRequestTest extends TestCase
 
     public function testCustomErrorMessages(): void
     {
-        $request = new class(['name' => '']) extends FormRequest {
+        $request = new class (['name' => '']) extends FormRequest {
             protected function rules(): array
             {
                 return ['name' => ['required']];
@@ -445,7 +447,7 @@ class FormRequestTest extends TestCase
 
     public function testNullValuesPassOptionalRules(): void
     {
-        $request = new class(['email' => null]) extends FormRequest {
+        $request = new class (['email' => null]) extends FormRequest {
             protected function rules(): array
             {
                 return ['email' => ['email']];
@@ -459,7 +461,7 @@ class FormRequestTest extends TestCase
 
     public function testMinWithNumericValue(): void
     {
-        $request = new class(['quantity' => 10]) extends FormRequest {
+        $request = new class (['quantity' => 10]) extends FormRequest {
             protected function rules(): array
             {
                 return ['quantity' => ['min:5']];
@@ -472,7 +474,7 @@ class FormRequestTest extends TestCase
 
     public function testMaxWithNumericValue(): void
     {
-        $request = new class(['quantity' => 5]) extends FormRequest {
+        $request = new class (['quantity' => 5]) extends FormRequest {
             protected function rules(): array
             {
                 return ['quantity' => ['max:10']];
@@ -485,7 +487,7 @@ class FormRequestTest extends TestCase
 
     public function testMinWithArray(): void
     {
-        $request = new class(['tags' => ['a', 'b', 'c']]) extends FormRequest {
+        $request = new class (['tags' => ['a', 'b', 'c']]) extends FormRequest {
             protected function rules(): array
             {
                 return ['tags' => ['min:2']];
@@ -498,7 +500,7 @@ class FormRequestTest extends TestCase
 
     public function testMaxWithArray(): void
     {
-        $request = new class(['tags' => ['a', 'b']]) extends FormRequest {
+        $request = new class (['tags' => ['a', 'b']]) extends FormRequest {
             protected function rules(): array
             {
                 return ['tags' => ['max:5']];

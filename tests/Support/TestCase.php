@@ -12,33 +12,71 @@ use PHPUnit\Framework\TestCase as BaseTestCase;
  */
 abstract class TestCase extends BaseTestCase
 {
-    protected Database $db;
-    protected static bool $dbInitialized = false;
+    protected ?Database $db = null;
+
+    /** Cached probe result so an unreachable database is not retried per test. */
+    protected static ?bool $dbAvailable = null;
 
     protected function setUp(): void
     {
         parent::setUp();
 
-        // Initialize database connection for integration tests
-        if (!self::$dbInitialized) {
-            $this->initializeTestDatabase();
-            self::$dbInitialized = true;
-        }
+        // Every test gets its own instance, so $this->db must be assigned per
+        // instance — a static "already initialized" guard would leave it null for
+        // every test after the first.
+        $this->initializeTestDatabase();
     }
 
     /**
-     * Initialize test database connection
+     * Initialize test database connection.
+     *
+     * Never throws: tests that genuinely need the database call requireDatabase()
+     * and are skipped when it is unreachable.
      */
     protected function initializeTestDatabase(): void
     {
         // Set test environment variables
         $_ENV['APP_ENV'] = 'testing';
-        $_ENV['DB_HOST'] = getenv('DB_HOST') ?: 'localhost';
+        $_ENV['DB_HOST'] = getenv('DB_HOST') ?: '127.0.0.1:3306';
         $_ENV['DB_NAME'] = getenv('DB_NAME') ?: 'pms_test';
         $_ENV['DB_USERNAME'] = getenv('DB_USERNAME') ?: 'root';
         $_ENV['DB_PASSWORD'] = getenv('DB_PASSWORD') ?: '';
 
-        $this->db = Database::getInstance();
+        if (self::$dbAvailable === false) {
+            return;
+        }
+
+        try {
+            $db = Database::getInstance();
+
+            // getInstance() connects lazily, so it succeeds even with no server
+            // listening. Force the connection to prove the database is reachable.
+            $db->getConnection();
+
+            $this->db = $db;
+            self::$dbAvailable = true;
+        } catch (\Throwable $e) {
+            self::$dbAvailable = false;
+            $this->db = null;
+        }
+    }
+
+    /**
+     * Skip the current test when no test database is reachable.
+     *
+     * Integration tests are meaningless without a database, but a developer
+     * without MySQL running should see "skipped", not a wall of connection errors
+     * that masks real failures.
+     */
+    protected function requireDatabase(): Database
+    {
+        if ($this->db === null) {
+            $this->markTestSkipped(
+                'No test database reachable. Start MySQL and run: vendor/bin/phinx migrate -e testing'
+            );
+        }
+
+        return $this->db;
     }
 
     /**

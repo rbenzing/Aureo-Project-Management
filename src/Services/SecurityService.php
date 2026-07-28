@@ -319,7 +319,7 @@ class SecurityService
      * @param int $windowSeconds Time window in seconds (default: 60)
      * @return bool True if within rate limit, false if exceeded
      */
-    public function checkRateLimit(string $identifier = null, string $action = 'general', int $windowSeconds = 60): bool
+    public function checkRateLimit(?string $identifier = null, string $action = 'general', int $windowSeconds = 60): bool
     {
         $maxAttempts = $this->settingsService->getSecuritySetting('rate_limit_attempts', 60);
 

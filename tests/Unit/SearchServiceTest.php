@@ -6,9 +6,11 @@ namespace Tests\Unit;
 
 use App\Repositories\SearchRepository;
 use App\Services\SearchService;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 
+#[CoversClass(SearchService::class)]
 class SearchServiceTest extends TestCase
 {
     /** @var SearchRepository&MockObject */

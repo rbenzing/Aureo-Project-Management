@@ -5,8 +5,8 @@ declare(strict_types=1);
 
 namespace App\Models;
 
-use App\Enums\MilestoneType;
 use App\Enums\MilestoneStatus;
+use App\Enums\MilestoneType;
 use App\Enums\TaskStatus;
 use App\Models\Concerns\Searchable;
 use InvalidArgumentException;

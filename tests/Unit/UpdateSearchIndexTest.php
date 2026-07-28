@@ -12,9 +12,11 @@ use App\Listeners\UpdateSearchIndex;
 use App\Models\Project;
 use App\Models\SearchIndex;
 use App\Models\Task;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 
+#[CoversClass(UpdateSearchIndex::class)]
 class UpdateSearchIndexTest extends TestCase
 {
     /** @var SearchIndex&MockObject */

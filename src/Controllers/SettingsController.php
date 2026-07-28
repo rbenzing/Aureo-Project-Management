@@ -11,7 +11,6 @@ if (!defined('BASE_PATH')) {
     exit;
 }
 
-use App\Middleware\AuthMiddleware;
 use App\Models\Setting;
 use App\Services\SettingsService;
 
@@ -215,6 +214,7 @@ class SettingsController extends BaseController
         if (!$isDevEnv) {
             http_response_code(404);
             echo json_encode(['error' => 'not available']);
+
             return;
         }
 

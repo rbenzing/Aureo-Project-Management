@@ -5,7 +5,6 @@ declare(strict_types=1);
 
 namespace App\Models;
 
-use App\Enums\FavoriteType;
 use PDO;
 use RuntimeException;
 

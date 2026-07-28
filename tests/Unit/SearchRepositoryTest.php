@@ -8,9 +8,11 @@ use App\Core\Database;
 use App\Models\SearchIndex;
 use App\Repositories\SearchRepository;
 use PDO;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 
+#[CoversClass(SearchRepository::class)]
 class SearchRepositoryTest extends TestCase
 {
     /** @var SearchIndex&MockObject */

@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace Tests\Support;
 
-use PDO;
-
 /**
  * Base test case for tests that require database transactions
  * Automatically rolls back database changes after each test
@@ -18,6 +16,10 @@ abstract class DatabaseTestCase extends TestCase
     {
         parent::setUp();
 
+        // Skips the test when no database is reachable rather than fataling on a
+        // null connection.
+        $this->requireDatabase();
+
         // Start transaction for test isolation
         if (!self::$transactionStarted) {
             $this->db->beginTransaction();
@@ -28,7 +30,7 @@ abstract class DatabaseTestCase extends TestCase
     protected function tearDown(): void
     {
         // Rollback transaction to clean up test data
-        if (self::$transactionStarted) {
+        if (self::$transactionStarted && $this->db !== null) {
             $this->db->rollBack();
             self::$transactionStarted = false;
         }
@@ -42,7 +44,7 @@ abstract class DatabaseTestCase extends TestCase
     protected function insertTestData(string $table, array $data): int
     {
         $fields = array_keys($data);
-        $placeholders = array_map(fn($field) => ":{$field}", $fields);
+        $placeholders = array_map(fn ($field) => ":{$field}", $fields);
 
         $sql = sprintf(
             "INSERT INTO %s (%s) VALUES (%s)",
@@ -57,7 +59,9 @@ abstract class DatabaseTestCase extends TestCase
         }
 
         $this->db->executeInsertUpdate($sql, $params);
-        return (int)$this->db->getPDO()->lastInsertId();
+
+        // Database exposes lastInsertId() directly; there is no getPDO().
+        return $this->db->lastInsertId();
     }
 
     /**

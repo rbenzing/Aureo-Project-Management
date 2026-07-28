@@ -31,6 +31,7 @@ class TaskRepository implements RepositoryInterface
     public function find(int $id): ?object
     {
         $result = $this->model->find($id);
+
         return $result === false ? null : $result;
     }
 

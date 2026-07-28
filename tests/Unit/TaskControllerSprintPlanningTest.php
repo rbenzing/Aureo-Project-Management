@@ -9,12 +9,14 @@ use App\Models\Project;
 use App\Models\Sprint;
 use App\Models\Task;
 use App\Models\User;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 
 /**
  * Testable subclass: capture render() args and neutralize permission/redirect
  * side effects so the branching logic can be unit-tested without a DB or HTTP.
  */
+#[CoversClass(TaskController::class)]
 final class SprintPlanningTestController extends TaskController
 {
     public ?string $renderedView = null;
@@ -35,6 +37,7 @@ final class SprintPlanningTestController extends TaskController
     protected function redirectWithError(string $url, string $message): never
     {
         $this->redirectError = $message;
+
         throw new \RuntimeException('redirect:' . $message);
     }
 }

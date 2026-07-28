@@ -113,8 +113,16 @@ class Database
             PDO::ATTR_PERSISTENT => false,
         ];
 
-        if (defined('PDO::MYSQL_ATTR_INIT_COMMAND')) {
-            $this->options[PDO::MYSQL_ATTR_INIT_COMMAND] = "SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci";
+        // PHP 8.4 relocated the MySQL driver constants to Pdo\Mysql and deprecated
+        // the PDO::MYSQL_* aliases in 8.5. Prefer the new location where it exists
+        // so the project stays warning-free on modern runtimes while still
+        // supporting its declared 8.1 minimum.
+        $initCommand = "SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci";
+
+        if (class_exists('\Pdo\Mysql')) {
+            $this->options[\Pdo\Mysql::ATTR_INIT_COMMAND] = $initCommand;
+        } elseif (defined('PDO::MYSQL_ATTR_INIT_COMMAND')) {
+            $this->options[PDO::MYSQL_ATTR_INIT_COMMAND] = $initCommand;
         }
     }
 

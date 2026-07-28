@@ -58,7 +58,7 @@ abstract class ControllerTestCase extends DatabaseTestCase
     /**
      * Assert response is a redirect
      */
-    protected function assertRedirect(ControllerResponse $response, string $expectedUrl = null): void
+    protected function assertRedirect(ControllerResponse $response, ?string $expectedUrl = null): void
     {
         $this->assertTrue(
             $response->isRedirect(),
@@ -77,7 +77,7 @@ abstract class ControllerTestCase extends DatabaseTestCase
     /**
      * Assert session has success message
      */
-    protected function assertSessionHasSuccess(string $message = null): void
+    protected function assertSessionHasSuccess(?string $message = null): void
     {
         $this->assertArrayHasKey('success', $_SESSION, 'Session does not have success message');
 
@@ -89,7 +89,7 @@ abstract class ControllerTestCase extends DatabaseTestCase
     /**
      * Assert session has error message
      */
-    protected function assertSessionHasError(string $message = null): void
+    protected function assertSessionHasError(?string $message = null): void
     {
         $this->assertArrayHasKey('error', $_SESSION, 'Session does not have error message');
 
@@ -136,6 +136,7 @@ class ControllerResponse
                 return true;
             }
         }
+
         return false;
     }
 
@@ -146,6 +147,7 @@ class ControllerResponse
                 return trim(substr($header, 9));
             }
         }
+
         return null;
     }
 
@@ -156,6 +158,7 @@ class ControllerResponse
                 "Failed asserting that response contains '{$text}'"
             );
         }
+
         return $this;
     }
 
@@ -166,6 +169,7 @@ class ControllerResponse
                 "Failed asserting that response does not contain '{$text}'"
             );
         }
+
         return $this;
     }
 }

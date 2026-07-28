@@ -147,7 +147,7 @@ class LoggerService
     /**
      * Log a database query for debugging
      */
-    public function query(string $sql, array $params = [], float $executionTime = null): void
+    public function query(string $sql, array $params = [], ?float $executionTime = null): void
     {
         $message = "SQL Query: {$sql}";
 
@@ -165,7 +165,7 @@ class LoggerService
     /**
      * Log user activity
      */
-    public function activity(string $action, int $userId = null, array $details = []): void
+    public function activity(string $action, ?int $userId = null, array $details = []): void
     {
         $context = [
             'user_id' => $userId,

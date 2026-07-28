@@ -71,7 +71,7 @@ enum MilestoneStatus: int
      */
     public static function values(): array
     {
-        return array_map(fn($case) => $case->value, self::cases());
+        return array_map(fn ($case) => $case->value, self::cases());
     }
 
     /**
@@ -84,6 +84,7 @@ enum MilestoneStatus: int
         foreach (self::cases() as $case) {
             $options[$case->value] = $case->label();
         }
+
         return $options;
     }
 
@@ -103,6 +104,7 @@ enum MilestoneStatus: int
         if ($value === null) {
             return null;
         }
+
         return self::tryFrom($value);
     }
 }

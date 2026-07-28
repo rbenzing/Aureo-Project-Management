@@ -6,11 +6,16 @@ namespace Tests\Unit;
 
 use App\Events\Event;
 use App\Events\EventDispatcher;
+use App\Events\ProjectCreated;
 use App\Events\TaskAssigned;
 use App\Events\TaskCompleted;
-use App\Events\ProjectCreated;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 
+#[CoversClass(EventDispatcher::class)]
+#[CoversClass(TaskAssigned::class)]
+#[CoversClass(TaskCompleted::class)]
+#[CoversClass(ProjectCreated::class)]
 class EventSystemTest extends TestCase
 {
     private EventDispatcher $dispatcher;
@@ -18,10 +23,10 @@ class EventSystemTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        // Reset singleton for testing
+        // Reset singleton for testing. setAccessible() is a no-op since PHP 8.1
+        // and deprecated in 8.5.
         $reflection = new \ReflectionClass(EventDispatcher::class);
         $instance = $reflection->getProperty('instance');
-        $instance->setAccessible(true);
         $instance->setValue(null, null);
 
         $this->dispatcher = EventDispatcher::getInstance();
@@ -32,7 +37,6 @@ class EventSystemTest extends TestCase
         // Clean up singleton
         $reflection = new \ReflectionClass(EventDispatcher::class);
         $instance = $reflection->getProperty('instance');
-        $instance->setAccessible(true);
         $instance->setValue(null, null);
 
         parent::tearDown();
@@ -267,9 +271,9 @@ class EventSystemTest extends TestCase
 
     public function testListenersAreSortedByPriorityAfterRegistration(): void
     {
-        $this->dispatcher->listen(TaskAssigned::class, fn() => null, 1);
-        $this->dispatcher->listen(TaskAssigned::class, fn() => null, 100);
-        $this->dispatcher->listen(TaskAssigned::class, fn() => null, 50);
+        $this->dispatcher->listen(TaskAssigned::class, fn () => null, 1);
+        $this->dispatcher->listen(TaskAssigned::class, fn () => null, 100);
+        $this->dispatcher->listen(TaskAssigned::class, fn () => null, 50);
 
         $listeners = $this->dispatcher->getListeners(TaskAssigned::class);
 

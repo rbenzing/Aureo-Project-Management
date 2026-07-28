@@ -8,8 +8,13 @@ use App\Exceptions\AuthorizationException;
 use App\Exceptions\BusinessRuleException;
 use App\Exceptions\NotFoundException;
 use App\Exceptions\ValidationException;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 
+#[CoversClass(AuthorizationException::class)]
+#[CoversClass(BusinessRuleException::class)]
+#[CoversClass(NotFoundException::class)]
+#[CoversClass(ValidationException::class)]
 class ExceptionsTest extends TestCase
 {
     public function testNotFoundExceptionForModel(): void
@@ -34,7 +39,7 @@ class ExceptionsTest extends TestCase
     {
         $errors = [
             'email' => 'Email is required',
-            'password' => 'Password must be at least 8 characters'
+            'password' => 'Password must be at least 8 characters',
         ];
 
         $exception = ValidationException::withErrors($errors);
@@ -87,6 +92,7 @@ class ExceptionsTest extends TestCase
     public function testAllExceptionsAreThrowable(): void
     {
         $this->expectException(NotFoundException::class);
+
         throw NotFoundException::forModel('Test', 1);
     }
 }

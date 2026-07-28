@@ -18,16 +18,30 @@ declare(strict_types=1);
 
 const ROOT = __DIR__ . '/..';
 
-function out(string $msg): void { fwrite(STDOUT, $msg . PHP_EOL); }
-function warn(string $msg): void { fwrite(STDOUT, '  ! ' . $msg . PHP_EOL); }
-function err(string $msg): void { fwrite(STDERR, $msg . PHP_EOL); }
-function step(string $msg): void { out(''); out('=== ' . $msg . ' ==='); }
+function out(string $msg): void
+{
+    fwrite(STDOUT, $msg . PHP_EOL);
+}
+function warn(string $msg): void
+{
+    fwrite(STDOUT, '  ! ' . $msg . PHP_EOL);
+}
+function err(string $msg): void
+{
+    fwrite(STDERR, $msg . PHP_EOL);
+}
+function step(string $msg): void
+{
+    out('');
+    out('=== ' . $msg . ' ===');
+}
 
 function which(string $bin): ?string
 {
     $cmd = stripos(PHP_OS, 'WIN') === 0 ? 'where' : 'command -v';
     $out = [];
     exec("{$cmd} {$bin} 2>" . (stripos(PHP_OS, 'WIN') === 0 ? 'NUL' : '/dev/null'), $out, $code);
+
     return ($code === 0 && !empty($out)) ? trim($out[0]) : null;
 }
 
@@ -41,6 +55,7 @@ function run(string $cmd, ?string $cwd = null): int
     if (isset($prev)) {
         chdir($prev);
     }
+
     return $code;
 }
 
@@ -50,10 +65,12 @@ function stepNpmInstall(): void
 
     if (is_dir(ROOT . '/node_modules')) {
         out('  node_modules/ already exists, skipping.');
+
         return;
     }
     if (which('npm') === null) {
         warn('npm not found on PATH. Skipping. Install Node.js, then run `npm install && npm run build`.');
+
         return;
     }
     $cmd = stripos(PHP_OS, 'WIN') === 0 ? 'npm.cmd install' : 'npm install';
@@ -70,14 +87,17 @@ function stepNpmBuild(): void
     $css = ROOT . '/public/assets/css/styles.css';
     if (file_exists($css) && filesize($css) > 0) {
         out('  CSS already built, skipping. (Run `npm run build` to rebuild.)');
+
         return;
     }
     if (!is_dir(ROOT . '/node_modules')) {
         warn('node_modules/ missing, skipping build.');
+
         return;
     }
     if (which('npm') === null) {
         warn('npm not found on PATH. Skipping.');
+
         return;
     }
     $cmd = stripos(PHP_OS, 'WIN') === 0 ? 'npm.cmd run build' : 'npm run build';

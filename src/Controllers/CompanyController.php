@@ -6,7 +6,6 @@ declare(strict_types=1);
 namespace App\Controllers;
 
 use App\Core\Config;
-use App\Middleware\AuthMiddleware;
 use App\Models\Company;
 use App\Models\Project;
 use App\Models\User;
