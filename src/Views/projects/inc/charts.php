@@ -1017,14 +1017,18 @@ function initCharts() {
             datasets: [
                 {
                     label: 'Assigned Tasks',
-                    data: <?= json_encode(array_map(function ($member) { return $member['assigned']; }, $teamMemberWorkload)) ?>,
+                    data: <?= json_encode(array_map(function ($member) {
+                        return $member['assigned'];
+                    }, $teamMemberWorkload)) ?>,
                     backgroundColor: '#3B82F6', // blue
                     borderColor: isDarkMode ? '#1F2937' : 'white',
                     borderWidth: 1
                 },
                 {
                     label: 'Completed Tasks',
-                    data: <?= json_encode(array_map(function ($member) { return $member['completed']; }, $teamMemberWorkload)) ?>,
+                    data: <?= json_encode(array_map(function ($member) {
+                        return $member['completed'];
+                    }, $teamMemberWorkload)) ?>,
                     backgroundColor: '#10B981', // green
                     borderColor: isDarkMode ? '#1F2937' : 'white',
                     borderWidth: 1

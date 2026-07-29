@@ -5,10 +5,25 @@ declare(strict_types=1);
 namespace Tests\Unit;
 
 use App\Controllers\BaseController;
+use App\Core\Config;
+use App\Core\Database;
+use App\Middleware\AuthMiddleware;
+use App\Models\BaseModel;
+use App\Models\Setting;
+use App\Services\LoggerService;
+use App\Services\SettingsService;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\UsesClass;
 use Tests\Support\TestCase;
 
 #[CoversClass(BaseController::class)]
+#[UsesClass(Config::class)]
+#[UsesClass(Database::class)]
+#[UsesClass(AuthMiddleware::class)]
+#[UsesClass(BaseModel::class)]
+#[UsesClass(Setting::class)]
+#[UsesClass(LoggerService::class)]
+#[UsesClass(SettingsService::class)]
 class BaseControllerTest extends TestCase
 {
     private TestableBaseController $controller;

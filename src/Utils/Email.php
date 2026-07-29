@@ -5,12 +5,6 @@ declare(strict_types=1);
 
 namespace App\Utils;
 
-// Ensure this view is not directly accessible via the web
-if (!defined('BASE_PATH')) {
-    header("HTTP/1.0 403 Forbidden");
-    exit;
-}
-
 use App\Core\Config;
 use App\Services\SecurityService;
 use PHPMailer\PHPMailer\Exception;

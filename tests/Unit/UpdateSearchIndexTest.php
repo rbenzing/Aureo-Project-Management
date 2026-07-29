@@ -13,10 +13,15 @@ use App\Models\Project;
 use App\Models\SearchIndex;
 use App\Models\Task;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\UsesClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 
 #[CoversClass(UpdateSearchIndex::class)]
+#[UsesClass(Event::class)]
+#[UsesClass(TaskAssigned::class)]
+#[UsesClass(ProjectCreated::class)]
+#[UsesClass(TaskCompleted::class)]
 class UpdateSearchIndexTest extends TestCase
 {
     /** @var SearchIndex&MockObject */

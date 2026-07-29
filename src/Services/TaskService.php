@@ -70,7 +70,7 @@ class TaskService
         }
 
         // Log the action
-        $this->logger->log('info', "Task #{$taskId} assigned to user #{$userId}");
+        $this->logger->info("Task #{$taskId} assigned to user #{$userId}");
     }
 
     /**
@@ -92,7 +92,7 @@ class TaskService
             throw new RuntimeException("Failed to unassign task");
         }
 
-        $this->logger->log('info', "Task #{$taskId} unassigned");
+        $this->logger->info("Task #{$taskId} unassigned");
     }
 
     /**
@@ -136,7 +136,7 @@ class TaskService
             throw new RuntimeException("Failed to update task status");
         }
 
-        $this->logger->log('info', "Task #{$taskId} transitioned from {$currentStatus->label()} to {$newStatus->label()}");
+        $this->logger->info("Task #{$taskId} transitioned from {$currentStatus->label()} to {$newStatus->label()}");
     }
 
     /**
@@ -229,7 +229,7 @@ class TaskService
             throw new RuntimeException("Failed to start timer");
         }
 
-        $this->logger->log('info', "Timer started for task #{$taskId} by user #{$userId}");
+        $this->logger->info("Timer started for task #{$taskId} by user #{$userId}");
     }
 
     /**
@@ -272,7 +272,7 @@ class TaskService
             throw new RuntimeException("Failed to stop timer");
         }
 
-        $this->logger->log('info', "Timer stopped for task #{$taskId} by user #{$userId}. Elapsed: {$elapsed}s");
+        $this->logger->info("Timer stopped for task #{$taskId} by user #{$userId}. Elapsed: {$elapsed}s");
     }
 
     /**
@@ -300,7 +300,7 @@ class TaskService
             throw new RuntimeException("Failed to update task estimate");
         }
 
-        $this->logger->log('info', "Task #{$taskId} estimate updated to {$estimatedSeconds}s");
+        $this->logger->info("Task #{$taskId} estimate updated to {$estimatedSeconds}s");
     }
 
     /**
@@ -334,7 +334,7 @@ class TaskService
             throw new RuntimeException("Failed to complete task");
         }
 
-        $this->logger->log('info', "Task #{$taskId} marked as completed");
+        $this->logger->info("Task #{$taskId} marked as completed");
     }
 
     /**
@@ -357,7 +357,7 @@ class TaskService
             throw new RuntimeException("Failed to reopen task");
         }
 
-        $this->logger->log('info', "Task #{$taskId} reopened");
+        $this->logger->info("Task #{$taskId} reopened");
     }
 
     /**
@@ -385,6 +385,6 @@ class TaskService
             throw new RuntimeException("Failed to update task priority");
         }
 
-        $this->logger->log('info', "Task #{$taskId} priority updated to {$priority}");
+        $this->logger->info("Task #{$taskId} priority updated to {$priority}");
     }
 }

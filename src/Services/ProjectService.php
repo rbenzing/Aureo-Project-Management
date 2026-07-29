@@ -85,7 +85,7 @@ class ProjectService
             throw new RuntimeException("Failed to create project");
         }
 
-        $this->logger->log('info', "Project #{$projectId} created: {$data['name']}");
+        $this->logger->info("Project #{$projectId} created: {$data['name']}");
 
         return $projectId;
     }
@@ -176,7 +176,7 @@ class ProjectService
             throw new RuntimeException("Failed to update key code");
         }
 
-        $this->logger->log('info', "Project #{$projectId} key code updated to {$newKeyCode}");
+        $this->logger->info("Project #{$projectId} key code updated to {$newKeyCode}");
     }
 
     /**
@@ -210,7 +210,7 @@ class ProjectService
             throw new RuntimeException("Failed to add team member");
         }
 
-        $this->logger->log('info', "User #{$userId} added to project #{$projectId}");
+        $this->logger->info("User #{$userId} added to project #{$projectId}");
     }
 
     /**
@@ -231,7 +231,7 @@ class ProjectService
             throw new RuntimeException("Failed to remove team member");
         }
 
-        $this->logger->log('info', "User #{$userId} removed from project #{$projectId}");
+        $this->logger->info("User #{$userId} removed from project #{$projectId}");
     }
 
     /**
@@ -362,7 +362,7 @@ class ProjectService
             throw new RuntimeException("Failed to update project status");
         }
 
-        $this->logger->log('info', "Project #{$projectId} transitioned from {$currentStatus->label()} to {$newStatus->label()}");
+        $this->logger->info("Project #{$projectId} transitioned from {$currentStatus->label()} to {$newStatus->label()}");
     }
 
     /**
@@ -430,6 +430,6 @@ class ProjectService
             throw new RuntimeException("Failed to archive project");
         }
 
-        $this->logger->log('info', "Project #{$projectId} archived");
+        $this->logger->info("Project #{$projectId} archived");
     }
 }

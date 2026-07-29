@@ -9,13 +9,17 @@ use App\Events\EventDispatcher;
 use App\Events\ProjectCreated;
 use App\Events\TaskAssigned;
 use App\Events\TaskCompleted;
+use App\Services\LoggerService;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\UsesClass;
 use PHPUnit\Framework\TestCase;
 
 #[CoversClass(EventDispatcher::class)]
 #[CoversClass(TaskAssigned::class)]
 #[CoversClass(TaskCompleted::class)]
 #[CoversClass(ProjectCreated::class)]
+#[UsesClass(Event::class)]
+#[UsesClass(LoggerService::class)]
 class EventSystemTest extends TestCase
 {
     private EventDispatcher $dispatcher;

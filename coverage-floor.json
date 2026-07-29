@@ -1,0 +1,9 @@
+{
+    "_comment": "Ratchet floors for tier-2 coverage. Written by bin/coverage-gate.php --update. Values may only increase.",
+    "floors": {
+        "Controllers": 1.73,
+        "Middleware": 0.48,
+        "Models": 6.14,
+        "_tier1": 52.98
+    }
+}

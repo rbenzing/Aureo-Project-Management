@@ -4,8 +4,11 @@ declare(strict_types=1);
 
 namespace Tests\Unit;
 
+use App\Core\Database;
+use App\Models\BaseModel;
 use App\Models\User;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\UsesClass;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -18,6 +21,8 @@ use PHPUnit\Framework\TestCase;
  * - User data transformation
  */
 #[CoversClass(User::class)]
+#[UsesClass(Database::class)]
+#[UsesClass(BaseModel::class)]
 final class UserModelTest extends TestCase
 {
     private User $user;

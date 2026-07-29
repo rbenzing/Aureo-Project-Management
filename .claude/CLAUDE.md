@@ -2,7 +2,7 @@
 Only facts an agent can't infer from code search. Update when something bites.
 
 ## Architecture
-- Custom PHP 8.1+ MVC. NOT Laravel/Symfony/Eloquent/Blade. No ORM, no annotation routing.
+- Custom PHP 8.2+ MVC. NOT Laravel/Symfony/Eloquent/Blade. No ORM, no annotation routing.
 - Routes registered explicitly in [public/index.php](../public/index.php).
 - DI: small custom container at [config/container.php](../config/container.php) — `$container->get(Class::class)`.
 - Views: plain PHP in [src/Views/](../src/Views/). Escape with `htmlspecialchars()`.
@@ -23,6 +23,19 @@ Only facts an agent can't infer from code search. Update when something bites.
 - **Top-level catch in [public/index.php](../public/index.php) is `\Throwable`**, and `LoggerService::exception()` accepts `\Throwable`. Don't narrow these.
 - **Auth gate runs BEFORE routing.** New public route → add first URL segment to `$publicPaths`.
 - **Session shape:** `$_SESSION['user'] = ['id','profile'=>[...],'roles'=>[],'permissions'=>[],'config'=>[]]`. Permissions via `hasUserPermission($name)` or `requirePermission($name)`.
+
+## Testing & coverage
+- **Coverage needs a driver.** Local = Xdebug (`xdebug.mode=coverage` in php.ini); CI = PCOV. Without one, `--coverage-*` silently produces nothing and every strictness check below becomes a no-op — the suite looks green while proving nothing. This bit us: CI was red for 45 risky tests that never appeared locally.
+- **PHPUnit only COLLECTS coverage when a `--coverage-*` flag is passed.** A bare `phpunit` run reports 0 risky tests even with strict metadata on. Always verify with `composer coverage:check`.
+- **`beStrictAboutCoverageMetadata=true` + `failOnRisky=true` means a test annotated `#[CoversClass(X)]` MUST also declare `#[UsesClass(Y)]` for EVERY other `App\` class it executes transitively.** Miss one and the test is marked risky AND its coverage is silently discarded — the class shows 0% while its tests pass.
+- **NEVER put file-level executable code in a PSR-4 class file.** The old `if (!defined('BASE_PATH'))` web guard was copy-pasted from Views into 10 class files; being a top-level statement it counted as "code executed but not covered", voiding coverage for every test that loaded those classes. Views keep the guard (they emit HTML and are include-only). Class files must declare symbols and nothing else (PSR-1 §2.3).
+- Tiered gate: `bin/coverage-gate.php`. Tier 1 (Core, Enums, Events, Exceptions, Http, Listeners, Repositories, Services, Utils) is a hard 90%. Tier 2 (Controllers, Middleware, Models) ratchets against `coverage-floor.json` — floors only rise, via `composer coverage:ratchet`.
+- CI adds `--fail-on-skipped`; it provisions MySQL, so a skip there is a broken harness. Locally skips stay graceful — do NOT add that flag to `phpunit.xml`.
+
+## PHP version floor
+- **`config.platform.php = "8.2.0"` in composer.json is load-bearing.** It forces Composer to resolve as if on 8.2 regardless of the local runtime. Without it, resolving on a newer PHP silently locks packages that the 8.2 floor cannot install — this happened: Symfony 8.1.x (`php >=8.4.1`) got locked while CI ran 8.2.
+- Never run `composer update` with that pin removed. Re-check with `composer check-platform-reqs`.
+- CI matrix covers 8.2/8.3/8.4/8.5; only the 8.2 job runs the coverage gate (a single floor file cannot be ratcheted by parallel jobs).
 
 ## Schema & migrations
 - Canonical migration [db/migrations/20251222180705_initial_database_schema.php](../db/migrations/20251222180705_initial_database_schema.php) IS the install path AND seeds the admin user with all 55 permissions. Do not rename/rewrite — add NEW Phinx migrations instead. `schema.sql` is informational only.

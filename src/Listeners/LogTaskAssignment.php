@@ -28,7 +28,7 @@ class LogTaskAssignment
      */
     public function handle(TaskAssigned $event): void
     {
-        $this->logger->log('info', 'Task assigned', [
+        $this->logger->info('Task assigned', [
             'task_id' => $event->getTaskId(),
             'user_id' => $event->getUserId(),
             'assigned_by' => $event->getAssignedBy(),

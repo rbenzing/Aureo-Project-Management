@@ -13,6 +13,15 @@ jobs:
   test:
     runs-on: ubuntu-latest
 
+    # The project claims support for PHP 8.2 and up, so every supported minor is
+    # exercised. 8.2 is the floor and the only version that runs the coverage
+    # gate: the tier-2 ratchet compares against a single committed floor file,
+    # so letting several matrix jobs evaluate it would race.
+    strategy:
+      fail-fast: false
+      matrix:
+        php-version: ['8.2', '8.3', '8.4', '8.5']
+
     services:
       mysql:
         image: mysql:8.0
@@ -30,10 +39,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up PHP
+      - name: Set up PHP ${{ matrix.php-version }}
         uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.2'
+          php-version: ${{ matrix.php-version }}
           extensions: pdo, pdo_mysql, mbstring
           coverage: pcov
 
@@ -44,14 +53,20 @@ jobs:
         uses: actions/cache@v4
         with:
           path: vendor
-          key: ${{ runner.os }}-php-${{ hashFiles('**/composer.lock') }}
+          key: ${{ runner.os }}-php-${{ matrix.php-version }}-${{ hashFiles('**/composer.lock') }}
           restore-keys: |
-            ${{ runner.os }}-php-
+            ${{ runner.os }}-php-${{ matrix.php-version }}-
 
       # --no-scripts: post-install-cmd runs bin/install.php, which only drives npm.
       # The test job needs no compiled CSS.
       - name: Install dependencies
         run: composer install --prefer-dist --no-progress --no-scripts
+
+      # config.platform.php pins resolution to 8.2.0 so the lock file can never
+      # contain a package that the 8.2 floor cannot install. This asserts the
+      # installed set really does satisfy the running interpreter.
+      - name: Verify platform requirements
+        run: composer check-platform-reqs
 
       # phinx.php's `testing` environment appends "_test" to DB_NAME, so DB_NAME
       # must be "pms" here for migrations to land in the "pms_test" database that
@@ -78,11 +93,20 @@ jobs:
       - name: Run migrations against the test database
         run: vendor/bin/phinx migrate -e testing
 
+      # --fail-on-skipped is deliberate and CI-only. MySQL is provisioned above,
+      # so an integration test that skips here is a broken harness, not a local
+      # convenience. Developers without MySQL still get graceful skips because
+      # the flag is not in phpunit.xml.
       - name: Run test suite with coverage
-        run: vendor/bin/phpunit --testdox --coverage-text --coverage-clover coverage.xml
+        run: vendor/bin/phpunit --testdox --fail-on-skipped --coverage-clover coverage.xml
+
+      # Only the 8.2 job gates. See the matrix comment above.
+      - name: Enforce tiered coverage gate
+        if: matrix.php-version == '8.2'
+        run: php bin/coverage-gate.php
 
       - name: Upload coverage report
-        if: always()
+        if: always() && matrix.php-version == '8.2'
         uses: actions/upload-artifact@v4
         with:
           name: coverage

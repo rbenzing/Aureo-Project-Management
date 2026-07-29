@@ -63,7 +63,7 @@ class SendTaskAssignmentEmail
             $email = new Email();
             $sent = $email->sendHtml($user->email, $subject, $body);
 
-            $this->logger->log('info', 'Task assignment email ' . ($sent ? 'sent' : 'failed'), [
+            $this->logger->info('Task assignment email ' . ($sent ? 'sent' : 'failed'), [
                 'task_id' => $event->getTaskId(),
                 'task_title' => $task->title,
                 'user_email' => $user->email,
@@ -71,7 +71,7 @@ class SendTaskAssignmentEmail
             ]);
 
         } catch (\Exception $e) {
-            $this->logger->log('error', 'Failed to send task assignment email', [
+            $this->logger->error('Failed to send task assignment email', [
                 'error' => $e->getMessage(),
                 'task_id' => $event->getTaskId(),
             ]);

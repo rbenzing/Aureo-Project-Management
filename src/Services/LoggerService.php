@@ -58,8 +58,26 @@ class LoggerService
      */
     private function ensureLogDirectoryExists(): void
     {
+        // is_dir() reads PHP's stat cache, which goes stale once the directory is
+        // created after this path was last stat'ed — by another LoggerService
+        // instance or another process. Left uncleared, is_dir() reports false for a
+        // directory that already exists and mkdir() then emits "File exists".
+        clearstatcache(true, $this->logDirectory);
+
         if (!is_dir($this->logDirectory)) {
-            if (!mkdir($this->logDirectory, 0755, true)) {
+            // A non-directory already occupying the path can never become one, and
+            // calling mkdir() on it only raises "File exists" — which says nothing
+            // about the actual problem. Report the real cause instead.
+            if (file_exists($this->logDirectory)) {
+                $this->enabled = false;
+                error_log("Log path exists but is not a directory: {$this->logDirectory}");
+
+                return;
+            }
+
+            // A concurrent creation between the check and the call is success, not
+            // failure, so re-test before declaring the directory unusable.
+            if (!mkdir($this->logDirectory, 0755, true) && !is_dir($this->logDirectory)) {
                 $this->enabled = false;
                 error_log("Failed to create log directory: {$this->logDirectory}");
 

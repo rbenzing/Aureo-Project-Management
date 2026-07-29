@@ -50,6 +50,13 @@
         "test:unit": "phpunit --testsuite Unit --testdox",
         "test:integration": "phpunit --testsuite Integration --testdox",
         "test:coverage": "phpunit --coverage-html coverage",
+        "test:clover": "phpunit --coverage-clover coverage.xml",
+        "coverage:gate": "@php bin/coverage-gate.php",
+        "coverage:ratchet": "@php bin/coverage-gate.php --update",
+        "coverage:check": [
+            "@test:clover",
+            "@coverage:gate"
+        ],
         "cs:check": "php-cs-fixer fix --dry-run --diff",
         "cs:fix": "php-cs-fixer fix",
         "migrate": "phinx migrate",
@@ -59,7 +66,10 @@
     },
     "config": {
         "optimize-autoloader": true,
-        "sort-packages": true
+        "sort-packages": true,
+        "platform": {
+            "php": "8.2.0"
+        }
     },
     "minimum-stability": "stable",
     "prefer-stable": true

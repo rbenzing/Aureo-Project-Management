@@ -7,12 +7,6 @@ namespace App\Services;
 
 use App\Core\Database;
 
-// Ensure this view is not directly accessible via the web
-if (!defined('BASE_PATH')) {
-    header("HTTP/1.0 403 Forbidden");
-    exit;
-}
-
 /**
  * Security Service
  *

@@ -4,12 +4,25 @@ declare(strict_types=1);
 
 namespace Tests\Unit;
 
+use App\Controllers\BaseController;
 use App\Controllers\SearchController;
+use App\Core\Database;
+use App\Middleware\AuthMiddleware;
+use App\Models\BaseModel;
+use App\Services\LoggerService;
 use App\Services\SearchService;
+use App\Services\SettingsService;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\UsesClass;
 use PHPUnit\Framework\TestCase;
 
 #[CoversClass(SearchController::class)]
+#[UsesClass(BaseController::class)]
+#[UsesClass(Database::class)]
+#[UsesClass(AuthMiddleware::class)]
+#[UsesClass(BaseModel::class)]
+#[UsesClass(LoggerService::class)]
+#[UsesClass(SettingsService::class)]
 class SearchControllerUrlTest extends TestCase
 {
     private function resolve(string $type, int $id): string

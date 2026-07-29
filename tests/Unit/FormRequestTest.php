@@ -8,9 +8,12 @@ use App\Exceptions\AuthorizationException;
 use App\Exceptions\ValidationException;
 use App\Http\Requests\FormRequest;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\UsesClass;
 use PHPUnit\Framework\TestCase;
 
 #[CoversClass(FormRequest::class)]
+#[UsesClass(ValidationException::class)]
+#[UsesClass(AuthorizationException::class)]
 class FormRequestTest extends TestCase
 {
     public function testValidateRequired(): void
