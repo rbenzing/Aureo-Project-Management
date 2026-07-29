@@ -1,9 +1,9 @@
 {
-    "_comment": "Ratchet floors for tier-2 coverage. Written by bin/coverage-gate.php --update. Values may only increase.",
+    "_comment": "Coverage ratchet floors. \"_tier1\" is the tier-1 aggregate; the rest are per-directory tier-2 floors. Written by composer coverage:ratchet. Values may only increase - never hand-edit downward.",
     "floors": {
         "Controllers": 1.73,
         "Middleware": 0.48,
         "Models": 6.14,
-        "_tier1": 52.98
+        "_tier1": 95.18
     }
 }

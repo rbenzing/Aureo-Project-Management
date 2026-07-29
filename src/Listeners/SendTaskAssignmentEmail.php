@@ -21,14 +21,23 @@ class SendTaskAssignmentEmail
     private User $userModel;
     private LoggerService $logger;
 
+    /**
+     * Left null rather than defaulted so Email is still constructed lazily, only
+     * when a message is actually about to be sent. Injecting it is what makes the
+     * send path testable without opening an SMTP connection.
+     */
+    private ?Email $email;
+
     public function __construct(
         ?Task $taskModel = null,
         ?User $userModel = null,
-        ?LoggerService $logger = null
+        ?LoggerService $logger = null,
+        ?Email $email = null
     ) {
         $this->taskModel = $taskModel ?? new Task();
         $this->userModel = $userModel ?? new User();
         $this->logger = $logger ?? new LoggerService();
+        $this->email = $email;
     }
 
     /**
@@ -60,7 +69,7 @@ class SendTaskAssignmentEmail
                 . $dueDate
                 . '<p>Please log in to view the full details.</p>';
 
-            $email = new Email();
+            $email = $this->email ?? new Email();
             $sent = $email->sendHtml($user->email, $subject, $body);
 
             $this->logger->info('Task assignment email ' . ($sent ? 'sent' : 'failed'), [

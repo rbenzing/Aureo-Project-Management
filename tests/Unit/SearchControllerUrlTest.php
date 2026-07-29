@@ -6,9 +6,11 @@ namespace Tests\Unit;
 
 use App\Controllers\BaseController;
 use App\Controllers\SearchController;
+use App\Core\Config;
 use App\Core\Database;
 use App\Middleware\AuthMiddleware;
 use App\Models\BaseModel;
+use App\Models\Setting;
 use App\Services\LoggerService;
 use App\Services\SearchService;
 use App\Services\SettingsService;
@@ -16,11 +18,16 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\UsesClass;
 use PHPUnit\Framework\TestCase;
 
+// See TimeTest for why the singleton chain is declared broadly: which test first
+// initializes Config/Setting/Database depends on execution order, so every test
+// that can reach them declares them.
 #[CoversClass(SearchController::class)]
 #[UsesClass(BaseController::class)]
+#[UsesClass(Config::class)]
 #[UsesClass(Database::class)]
 #[UsesClass(AuthMiddleware::class)]
 #[UsesClass(BaseModel::class)]
+#[UsesClass(Setting::class)]
 #[UsesClass(LoggerService::class)]
 #[UsesClass(SettingsService::class)]
 class SearchControllerUrlTest extends TestCase

@@ -152,7 +152,11 @@ class Validator
         }
 
         try {
-            $methodName = 'validate' . ucfirst($ruleName);
+            // Rule names are snake_case; handler methods are StudlyCase. ucfirst()
+            // alone only capitalises the first character, so 'strong_password'
+            // resolved to 'validateStrong_password' and method_exists() silently
+            // returned false — the rule never ran and every password passed.
+            $methodName = 'validate' . str_replace('_', '', ucwords($ruleName, '_'));
             if (method_exists($this, $methodName)) {
                 $this->$methodName($field, $value, $parameters);
             }
