@@ -207,8 +207,12 @@ class AuthController extends BaseController
                 throw new InvalidArgumentException('Invalid or expired password reset link');
             }
 
+            // findByResetToken() already filters on expires_at > NOW(), so a
+            // returned user is unexpired by definition. The old strtotime() recheck
+            // was redundant AND wrong: it parsed a database-clock string using
+            // PHP's timezone, so the two sides were never in the same frame.
             $user = $this->userModel->findByResetToken($token);
-            if (!$user || strtotime($user->reset_password_token_expires_at) < time()) {
+            if (!$user) {
                 throw new InvalidArgumentException('Invalid or expired password reset link');
             }
 
@@ -252,8 +256,10 @@ class AuthController extends BaseController
                     throw new InvalidArgumentException('Invalid or missing token');
                 }
 
+                // Expiry is enforced in findByActivationToken()'s SQL — see the
+                // matching note in the password-reset flow.
                 $user = $this->userModel->findByActivationToken($token);
-                if (!$user || strtotime($user->activation_token_expires_at) < time()) {
+                if (!$user) {
                     throw new InvalidArgumentException('Invalid or expired activation token');
                 }
 

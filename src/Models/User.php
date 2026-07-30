@@ -9,7 +9,6 @@ use App\Core\Database;
 use App\Enums\TaskStatus;
 use App\Models\Concerns\Searchable;
 use App\Services\SecurityService;
-use DateTime;
 use PDO;
 use RuntimeException;
 
@@ -488,21 +487,20 @@ class User extends BaseModel
         try {
             $token = bin2hex(random_bytes(16));
 
-            // Use timezone-aware date formatting
-            $settingsService = \App\Services\SettingsService::getInstance();
-            $timezone = $settingsService->getDefaultTimezone();
-            $expiresAt = (new DateTime('now', new \DateTimeZone($timezone)))->modify('+1 hour')->format('Y-m-d H:i:s');
-
-            $sql = "UPDATE users 
+            // The expiry is compared against MySQL's NOW() in findByResetToken(),
+            // so it must come from the same clock. Deriving it in PHP from the
+            // DISPLAY timezone (default America/New_York) wrote a naive local
+            // string against a UTC database, putting the expiry hours in the past:
+            // every reset token was born already expired. Do the arithmetic in SQL.
+            $sql = "UPDATE users
                     SET reset_password_token = :token,
-                        reset_password_token_expires_at = :expires_at,
+                        reset_password_token_expires_at = DATE_ADD(NOW(), INTERVAL 1 HOUR),
                         updated_at = NOW()
                     WHERE id = :id";
 
             $this->db->executeInsertUpdate($sql, [
                 ':id' => $userId,
                 ':token' => $token,
-                ':expires_at' => $expiresAt,
             ]);
 
             return $token;
@@ -523,21 +521,19 @@ class User extends BaseModel
         try {
             $token = bin2hex(random_bytes(16));
 
-            // Use timezone-aware date formatting
-            $settingsService = \App\Services\SettingsService::getInstance();
-            $timezone = $settingsService->getDefaultTimezone();
-            $expiresAt = (new DateTime('now', new \DateTimeZone($timezone)))->modify('+24 hours')->format('Y-m-d H:i:s');
-
-            $sql = "UPDATE users 
+            // Same clock as findByActivationToken()'s NOW() comparison — see
+            // generatePasswordResetToken(). The 24-hour window was wide enough to
+            // absorb the timezone skew, which is why only password reset visibly
+            // broke, but the defect was identical.
+            $sql = "UPDATE users
                     SET activation_token = :token,
-                        activation_token_expires_at = :expires_at,
+                        activation_token_expires_at = DATE_ADD(NOW(), INTERVAL 24 HOUR),
                         updated_at = NOW()
                     WHERE id = :id";
 
             $this->db->executeInsertUpdate($sql, [
                 ':id' => $userId,
                 ':token' => $token,
-                ':expires_at' => $expiresAt,
             ]);
 
             return $token;
