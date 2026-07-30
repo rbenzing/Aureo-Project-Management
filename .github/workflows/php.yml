@@ -119,6 +119,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Linux tracks src/Views/Projects and src/Views/projects as two files;
+      # Windows and macOS can only hold one, so the other silently rots and
+      # shows up as a phantom modification. The whole Projects view directory
+      # had drifted this way before anyone noticed.
+      - name: Reject paths that differ only by case
+        run: |
+          collisions=$(git ls-files | tr '[:upper:]' '[:lower:]' | sort | uniq -d)
+          if [ -n "$collisions" ]; then
+            echo "Tracked paths differing only by case (breaks case-insensitive checkouts):"
+            echo "$collisions"
+            exit 1
+          fi
+
       - name: Set up PHP
         uses: shivammathur/setup-php@v2
         with:
