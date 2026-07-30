@@ -58,16 +58,22 @@ final class AuthenticationFlowTest extends TestCase
      */
     private function createTestUser(string $email, string $password, int $isDeleted = 0): int
     {
+        // The column is password_hash, not password. guid and role_id are both
+        // NOT NULL with no default, and role_id carries an FK to roles — role 1
+        // ("admin") is seeded by the initial migration alongside the admin user.
         $sql = 'INSERT INTO users
-                    (first_name, last_name, email, password, is_active, is_deleted, created_at, updated_at)
+                    (guid, role_id, first_name, last_name, email, password_hash,
+                     is_active, is_deleted, created_at, updated_at)
                 VALUES
-                    (:first_name, :last_name, :email, :password, :is_active, :is_deleted, NOW(), NOW())';
+                    (UUID(), :role_id, :first_name, :last_name, :email, :password_hash,
+                     :is_active, :is_deleted, NOW(), NOW())';
 
         $this->db->executeInsertUpdate($sql, [
+            ':role_id' => 1,
             ':first_name' => 'Auth',
             ':last_name' => 'Flow',
             ':email' => $email,
-            ':password' => password_hash($password, PASSWORD_ARGON2ID),
+            ':password_hash' => password_hash($password, PASSWORD_ARGON2ID),
             ':is_active' => 1,
             ':is_deleted' => $isDeleted,
         ]);
@@ -124,9 +130,11 @@ final class AuthenticationFlowTest extends TestCase
     {
         $user = $this->userModel->findByEmail($this->testEmail);
 
-        $this->assertStringStartsWith('$argon2id$', $user->password);
-        $this->assertTrue(password_verify('CorrectHorse9!', $user->password));
-        $this->assertFalse(password_verify('WrongPassword1!', $user->password));
+        // getUsersWithDetails() selects u.*, so the hash arrives under the real
+        // column name, password_hash.
+        $this->assertStringStartsWith('$argon2id$', $user->password_hash);
+        $this->assertTrue(password_verify('CorrectHorse9!', $user->password_hash));
+        $this->assertFalse(password_verify('WrongPassword1!', $user->password_hash));
     }
 
     // -------------------------------------------------------- activation flow
