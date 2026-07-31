@@ -4,9 +4,16 @@ declare(strict_types=1);
 
 namespace Tests\Integration;
 
+use App\Core\Config;
+use App\Core\Database;
+use App\Models\BaseModel;
+use App\Models\Setting;
 use App\Models\User;
+use App\Services\SecurityService;
+use App\Services\SettingsService;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
+use PHPUnit\Framework\Attributes\UsesClass;
 use Tests\Support\TestCase;
 
 /**
@@ -21,7 +28,21 @@ use Tests\Support\TestCase;
  *
  * Requires a migrated test database; skipped cleanly when none is reachable.
  */
+// Under beStrictAboutCoverageMetadata every App\ class these tests execute must
+// be declared, or the test is risky AND its coverage is discarded. The whole
+// reachable chain is listed rather than only what one run reports: User extends
+// BaseModel, which drives Database, which consults Config::isProduction() and
+// falls back to SecurityService (and through it SettingsService/Setting) on a
+// query error. These are process-wide singletons, so which test is credited with
+// executing them moves with execution order. Overdeclaring is safe — UsesClass
+// permits execution without contributing coverage credit.
 #[CoversClass(User::class)]
+#[UsesClass(BaseModel::class)]
+#[UsesClass(Config::class)]
+#[UsesClass(Database::class)]
+#[UsesClass(SecurityService::class)]
+#[UsesClass(Setting::class)]
+#[UsesClass(SettingsService::class)]
 #[Group('integration')]
 final class AuthenticationFlowTest extends TestCase
 {
