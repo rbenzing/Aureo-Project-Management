@@ -237,11 +237,32 @@ abstract class FormRequest
     }
 
     /**
-     * Validate in array
+     * Validate that a value is one of an allowed set.
+     *
+     * Rule parameters always arrive as strings, because they are produced by
+     * splitting "in:1,2,3" on the comma. Comparing them strictly against the raw
+     * value therefore rejected integers that ARE in the list — a caller passing
+     * ProjectStatus::READY->value (int 1) was told "must be one of 1,2,3", which
+     * is self-contradictory and near-impossible to debug. Form posts happened to
+     * work only because $_POST values are already strings.
+     *
+     * Both sides are normalised to strings rather than dropping the strict flag:
+     * loose comparison would silently accept its own surprises, and stating the
+     * intent is better than relying on juggling rules.
      */
     protected function validateIn(mixed $value, array $allowed): bool
     {
-        return is_null($value) || in_array($value, $allowed, true);
+        if (is_null($value)) {
+            return true;
+        }
+
+        if (!is_scalar($value)) {
+            return false;
+        }
+
+        $allowedAsStrings = array_map(static fn (mixed $entry): string => (string) $entry, $allowed);
+
+        return in_array((string) $value, $allowedAsStrings, true);
     }
 
     /**

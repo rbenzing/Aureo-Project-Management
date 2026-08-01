@@ -538,6 +538,52 @@ class FormRequestEdgeCasesTest extends TestCase
         }
     }
 
+    /**
+     * Regression: rule parameters are always strings, because they come from
+     * splitting "in:1,2,3". A strict comparison against the raw value therefore
+     * rejected integers that ARE in the list, reporting "must be one of 1,2,3"
+     * for the input 1. Form posts were unaffected only because $_POST values
+     * arrive as strings; JSON and programmatic callers passing an enum's ->value
+     * hit it every time.
+     */
+    public function testInAcceptsAnIntegerMatchingAStringRuleParameter(): void
+    {
+        $request = new class (['status_id' => 2]) extends FormRequest {
+            protected function rules(): array
+            {
+                return ['status_id' => ['in:1,2,3']];
+            }
+        };
+
+        $this->assertSame(['status_id' => 2], $request->validate());
+    }
+
+    public function testInStillRejectsAnIntegerOutsideTheAllowedSet(): void
+    {
+        $request = new class (['status_id' => 9]) extends FormRequest {
+            protected function rules(): array
+            {
+                return ['status_id' => ['in:1,2,3']];
+            }
+        };
+
+        $this->expectException(ValidationException::class);
+        $request->validate();
+    }
+
+    public function testInRejectsNonScalarValues(): void
+    {
+        $request = new class (['status_id' => ['1']]) extends FormRequest {
+            protected function rules(): array
+            {
+                return ['status_id' => ['in:1,2,3']];
+            }
+        };
+
+        $this->expectException(ValidationException::class);
+        $request->validate();
+    }
+
     // -------------------------------------------------------------------
     // date
     // -------------------------------------------------------------------
