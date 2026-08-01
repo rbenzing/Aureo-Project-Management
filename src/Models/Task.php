@@ -1023,6 +1023,17 @@ class Task extends BaseModel
             // Call parent create method
             $taskId = parent::create($data);
 
+            // BaseModel::create() returns false when the insert fails. Returning
+            // that from an int-typed method raises a TypeError, which extends Error
+            // rather than Exception — so the catch below could never see it and it
+            // escaped uncaught to the top-level handler. Convert it into the
+            // RuntimeException this method already promises for every other failure.
+            // Thrown inside the try, so the catch below re-wraps it with the
+            // "Error creating task: " prefix — hence no prefix here.
+            if ($taskId === false) {
+                throw new RuntimeException('the insert did not return an id');
+            }
+
             // Add creation history entry
             if ($userId && $taskId) {
                 $this->addHistoryEntry(
