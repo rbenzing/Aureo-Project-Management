@@ -105,7 +105,13 @@ class Role extends BaseModel
                 }
             }
 
-            return $role;
+            // find() returns object|false, but this method is typed ?object. Under
+            // strict_types, returning that false raised a TypeError — an Error, not
+            // an Exception — so it slipped past the catch below and propagated
+            // uncaught instead of yielding the null the signature promises. Every
+            // caller looking up a non-existent role hit it, including findBasic()
+            // and findWithPermissions().
+            return $role ?: null;
         } catch (\Exception $e) {
             throw new RuntimeException("Failed to find role with details: " . $e->getMessage());
         }

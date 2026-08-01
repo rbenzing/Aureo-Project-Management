@@ -282,7 +282,15 @@ class Config
      * @param string|null $entityId Optional entity ID for context
      * @return string Debug-aware error message
      */
-    public static function getErrorMessage(\Exception $e, string $context, string $userMessage, ?string $entityId = null): string
+    /**
+     * Accepts \Throwable, not \Exception: several callers invoke this from inside
+     * a catch (\Throwable) block, so narrowing it meant that handing over an Error
+     * — a TypeError from a real defect, say — raised a *second* TypeError here and
+     * escaped the very catch meant to contain it. The error handler failed on
+     * exactly the errors it exists to handle. Every member used below
+     * (getMessage/getTraceAsString/getFile/getLine) is declared on \Throwable.
+     */
+    public static function getErrorMessage(\Throwable $e, string $context, string $userMessage, ?string $entityId = null): string
     {
         // Always log detailed error for developers
         error_log("Exception in {$context}: " . $e->getMessage());

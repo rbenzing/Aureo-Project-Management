@@ -297,19 +297,25 @@ class Company extends BaseModel
                     JOIN companies c ON p.company_id = c.id 
                     JOIN statuses_project ps ON p.status_id = ps.id
                     WHERE (
-                        c.user_id = :user_id 
-                        OR p.owner_id = :user_id
+                        c.user_id = :user_id
+                        OR p.owner_id = :user_id_owner
                         OR EXISTS (
-                            SELECT 1 FROM user_projects up 
-                            WHERE up.project_id = p.id AND up.user_id = :user_id
+                            SELECT 1 FROM user_projects up
+                            WHERE up.project_id = p.id AND up.user_id = :user_id_member
                         )
                     )
-                    AND p.is_deleted = 0 
+                    AND p.is_deleted = 0
                     AND c.is_deleted = 0
-                    ORDER BY p.updated_at DESC 
+                    ORDER BY p.updated_at DESC
                     LIMIT 5";
 
-            $stmt = $this->db->executeQuery($sql, [':user_id' => $userId]);
+            // Three distinct names for the same value: native prepares reject a
+            // repeated placeholder with "Invalid parameter number".
+            $stmt = $this->db->executeQuery($sql, [
+                ':user_id' => $userId,
+                ':user_id_owner' => $userId,
+                ':user_id_member' => $userId,
+            ]);
 
             return $stmt->fetchAll(PDO::FETCH_OBJ);
         } catch (\Exception $e) {
@@ -330,12 +336,16 @@ class Company extends BaseModel
                 throw new RuntimeException("Company ID is not set");
             }
 
-            $sql = "INSERT INTO user_companies (user_id, company_id) 
+            // Native prepares (ATTR_EMULATE_PREPARES = false) need one named
+            // placeholder per binding, so the repeated :user_id gets its own name.
+            // See User::addCompany() for the same _dup convention.
+            $sql = "INSERT INTO user_companies (user_id, company_id)
                     VALUES (:user_id, :company_id)
-                    ON DUPLICATE KEY UPDATE user_id = :user_id";
+                    ON DUPLICATE KEY UPDATE user_id = :user_id_dup";
 
             return $this->db->executeInsertUpdate($sql, [
                 ':user_id' => $userId,
+                ':user_id_dup' => $userId,
                 ':company_id' => $this->id,
             ]);
         } catch (\Exception $e) {
@@ -381,12 +391,14 @@ class Company extends BaseModel
                 throw new RuntimeException("Company ID is not set");
             }
 
-            $sql = "INSERT INTO company_projects (company_id, project_id) 
+            // One named placeholder per binding — see addUser() above.
+            $sql = "INSERT INTO company_projects (company_id, project_id)
                     VALUES (:company_id, :project_id)
-                    ON DUPLICATE KEY UPDATE company_id = :company_id";
+                    ON DUPLICATE KEY UPDATE company_id = :company_id_dup";
 
             return $this->db->executeInsertUpdate($sql, [
                 ':company_id' => $this->id,
+                ':company_id_dup' => $this->id,
                 ':project_id' => $projectId,
             ]);
         } catch (\Exception $e) {

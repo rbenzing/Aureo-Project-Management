@@ -118,7 +118,12 @@ class Template extends BaseModel
                 $params[':template_type'] = $filters['template_type'];
             }
 
-            if (isset($filters['company_id'])) {
+            // array_key_exists, not isset: isset() is false for a present-but-null
+            // value, so ['company_id' => null] never entered this block and the
+            // IS NULL branch below was unreachable. A caller asking for global
+            // templates silently got no company filter at all — every company's
+            // templates came back instead.
+            if (array_key_exists('company_id', $filters)) {
                 if ($filters['company_id'] === null) {
                     $whereConditions[] = 'company_id IS NULL';
                 } else {
