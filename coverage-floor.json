@@ -3,7 +3,7 @@
     "floors": {
         "Controllers": 1.73,
         "Middleware": 0.48,
-        "Models": 6.14,
+        "Models": 20.94,
         "_tier1": 95.18
     }
 }
