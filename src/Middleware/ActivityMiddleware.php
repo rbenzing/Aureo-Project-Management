@@ -286,6 +286,13 @@ class ActivityMiddleware
      */
     private function determineEventType(string $path, string $method): string
     {
+        // collectRequestData() passes REQUEST_URI verbatim, query string included,
+        // so "/projects/view?id=5" produced the action "view?id=5", matched nothing
+        // below, and silently degraded to the generic 'page_view'. Detail views are
+        // precisely the ones carrying "?id=", so effectively all of them were
+        // misclassified. trackRecentView() already strips the query this way.
+        $path = parse_url($path, PHP_URL_PATH) ?: $path;
+
         // Extract the controller and action from the path
         $pathParts = explode('/', trim($path, '/'));
         $controller = $pathParts[0] ?? 'home';
