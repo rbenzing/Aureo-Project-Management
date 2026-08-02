@@ -13,7 +13,7 @@ use App\Models\User;
 use App\Utils\Breadcrumb;
 
 // Include view helpers for time formatting functions
-require_once BASE_PATH . '/../src/views/Layouts/ViewHelpers.php';
+require_once BASE_PATH . '/../src/Views/Layouts/ViewHelpers.php';
 
 // Helper function to check permissions - moved to view_helpers.php
 ?>

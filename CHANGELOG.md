@@ -19,6 +19,17 @@ uncatchable `TypeError`.
 
 ### Fixed
 
+- **Seventeen `require` paths were broken on every case-sensitive filesystem.**
+  They referenced `src/views/…` while the directory is `src/Views/…`. Windows and
+  macOS resolve that silently; Linux does not, so each was a fatal
+  "Failed opening required" the moment its line executed. Affected Dashboard,
+  Projects view, Milestones view/index, Tasks view/edit/create, Sprints
+  edit/view, Settings, the sidebar, FloatingTimer and `Task::getStatusName()`.
+  Note `getStatusName()` wraps the include in `catch (\Exception)`, but a failed
+  `require` raises an `Error`, so the guard never applied. `PathCaseSensitivityTest`
+  now asserts that every `BASE_PATH` include and every `render()` target resolves
+  with exact casing — it fails on Windows too, where the defect is otherwise
+  invisible.
 - **Creating or updating a company always failed.** `CompanyController` used a
   `regex:` validation rule, but `regex` is not in `Validator::AVAILABLE_RULES`,
   and `Validator::fails()` throws for any unregistered rule name — before

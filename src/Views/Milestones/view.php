@@ -12,7 +12,7 @@ use App\Core\Config;
 use App\Services\SettingsService;
 
 // Include view helpers for permission functions and formatting
-require_once BASE_PATH . '/../src/views/Layouts/ViewHelpers.php';
+require_once BASE_PATH . '/../src/Views/Layouts/ViewHelpers.php';
 
 // Sprint status functions are now available through view_helpers.php
 

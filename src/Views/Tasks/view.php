@@ -13,7 +13,7 @@ use App\Services\SettingsService;
 use App\Utils\Time;
 
 // Include view helpers for permission functions and time formatting
-require_once BASE_PATH . '/../src/views/Layouts/ViewHelpers.php';
+require_once BASE_PATH . '/../src/Views/Layouts/ViewHelpers.php';
 
 // Helper functions for formatting and styling
 function formatTimeTracking($seconds)

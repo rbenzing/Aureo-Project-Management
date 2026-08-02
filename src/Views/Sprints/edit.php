@@ -11,10 +11,10 @@ if (!defined('BASE_PATH')) {
 use App\Core\Config;
 
 // Include form components
-require_once BASE_PATH . '/../src/views/Layouts/FormComponents.php';
+require_once BASE_PATH . '/../src/Views/Layouts/FormComponents.php';
 
 // Include view helpers for permission functions
-require_once BASE_PATH . '/../src/views/Layouts/ViewHelpers.php';
+require_once BASE_PATH . '/../src/Views/Layouts/ViewHelpers.php';
 
 // Load form data from session if available (for validation errors)
 $formData = $_SESSION['form_data'] ?? [];
@@ -334,7 +334,7 @@ echo renderStatusPill($statusInfo['label'], $statusInfo['color'], 'sm');
 
     <?php
     // Include view helpers for centralized status functions
-    require_once BASE_PATH . '/../src/views/Layouts/ViewHelpers.php';
+    require_once BASE_PATH . '/../src/Views/Layouts/ViewHelpers.php';
 
 // Include sprint helpers for additional functions
 include_once BASE_PATH . '/../src/Views/Sprints/inc/helpers.php';
