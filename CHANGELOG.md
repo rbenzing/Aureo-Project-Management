@@ -11,6 +11,64 @@ in step.
 
 ## [Unreleased]
 
+## [1.0.2] - 2026-08-02
+
+Six production defects, all found by writing tests against code that had none.
+Three share one root cause: a narrow type that turned a failure into an
+uncatchable `TypeError`.
+
+### Fixed
+
+- **Creating or updating a company always failed.** `CompanyController` used a
+  `regex:` validation rule, but `regex` is not in `Validator::AVAILABLE_RULES`,
+  and `Validator::fails()` throws for any unregistered rule name — before
+  `nullable` can short-circuit. Every POST to create/update died with
+  "Unknown validation rule: regex" instead of validating. Now uses the built-in
+  `phone` rule, which applies the same check the pattern was reaching for.
+- **Three `Company` methods could never run against MySQL.**
+  `getRecentProjectsByUser()`, `addUser()` and `addProject()` reused one named
+  placeholder across several bind positions. With
+  `PDO::ATTR_EMULATE_PREPARES = false` the driver rejects that as
+  "Invalid parameter number", so adding a user to a company was simply broken.
+  `User::addCompany()` already used distinct `_dup` names.
+- **`Task::create()` threw an uncatchable `TypeError`.** It declares `: int`
+  while `BaseModel::create()` returns `int|false`; returning that `false` raised
+  a `TypeError`, which extends `Error` not `Exception`, so it bypassed the
+  method's own `catch` and surfaced as a 500 instead of the handled failure the
+  method promises. A failed insert now raises that `RuntimeException`.
+- **`Role::findWithDetails()`** returned `find()`'s `object|false` from a
+  `?object` method — same defect, hit on every lookup of a non-existent role,
+  including via `findBasic()` and `findWithPermissions()`.
+- **`Config::getErrorMessage()`** type-hinted `\Exception` while `UserController`,
+  `CompanyController` and `DashboardController` all call it from inside
+  `catch (\Throwable)`. Handing it an `Error` raised a second `TypeError` and
+  escaped the catch — the error handler failed on exactly the errors it exists to
+  handle. Widened to `\Throwable`.
+- **Activity events were misclassified for nearly every detail view.**
+  `ActivityMiddleware::determineEventType()` classified off `REQUEST_URI`
+  verbatim, so `/projects/view?id=5` yielded the action `view?id=5`, matched
+  nothing and fell through to a generic `page_view`. Detail views are precisely
+  the URLs carrying `?id=`, so `activity_logs` was wrong for the most common
+  request shape. `trackRecentView()` in the same file already stripped the query.
+- **`FormRequest` rejected integers that were in the allowed set.**
+  `validateIn()` compared strictly against rule parameters that are always
+  strings, so passing `ProjectStatus::READY->value` was told it "must be one of
+  1,2,3". Form posts escaped it only because `$_POST` values are strings.
+
+### Changed
+
+- Every controller redirect now goes through `BaseController`'s
+  `redirect()`/`redirectWithSuccess()`/`redirectWithError()` helpers. 36 raw
+  `header('Location: …') + exit` sites across 11 controllers were removed
+  (net −67 lines). Behaviour is unchanged by construction — the helpers are
+  exactly the code that was inlined — but the raw form could not be overridden,
+  so those branches killed the test runner and were untestable.
+  `SprintController`'s create/update/delete/addTasks POST paths were the bulk of
+  it.
+- Test coverage: tier 2 went from 3.42% to 67.78% — Controllers 1.73% → 44.68%,
+  Models 62.17% → 95.70%, Middleware 0.48% → 86.16%. The suite grew from 989 to
+  1767 tests. Tier 1 holds at 95.12%.
+
 ## [1.0.1] - 2026-07-30
 
 ### Fixed
@@ -75,6 +133,7 @@ in step.
 
 Initial tagged release.
 
-[Unreleased]: https://github.com/rbenzing/Aureo-Project-Management/compare/1.0.1...HEAD
+[Unreleased]: https://github.com/rbenzing/Aureo-Project-Management/compare/1.0.2...HEAD
+[1.0.2]: https://github.com/rbenzing/Aureo-Project-Management/compare/1.0.1...1.0.2
 [1.0.1]: https://github.com/rbenzing/Aureo-Project-Management/compare/1.0.0...1.0.1
 [1.0.0]: https://github.com/rbenzing/Aureo-Project-Management/releases/tag/1.0.0
