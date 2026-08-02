@@ -49,7 +49,7 @@
 
 | Component | Technology |
 |-----------|-----------|
-| **Language** | PHP 8.1+ with `declare(strict_types=1)` |
+| **Language** | PHP 8.2+ with `declare(strict_types=1)` |
 | **Architecture** | Custom MVC — no Laravel, Symfony, Eloquent, or Blade |
 | **Database** | MySQL 8.0+ over raw PDO, with soft deletes |
 | **Migrations** | Phinx (the canonical migration is the schema of record) |
@@ -61,7 +61,7 @@
 
 ## 🚀 Quick Start
 
-**Prerequisites:** PHP 8.1+, MySQL 8.0+, Composer, Node.js + npm, and a running local `mysqld`.
+**Prerequisites:** PHP 8.2+, MySQL 8.0+, Composer, Node.js + npm, and a running local `mysqld`.
 
 ```bash
 # Clone the repository
@@ -196,7 +196,7 @@ server {
     }
 
     location ~ \.php$ {
-        fastcgi_pass unix:/run/php/php8.1-fpm.sock;
+        fastcgi_pass unix:/run/php/php8.2-fpm.sock;
         fastcgi_index index.php;
         fastcgi_param SCRIPT_FILENAME $realpath_root$fastcgi_script_name;
         include fastcgi_params;
