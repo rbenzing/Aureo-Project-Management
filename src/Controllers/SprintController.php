@@ -519,19 +519,16 @@ class SprintController extends BaseController
                 }
             }
 
-            $_SESSION['success'] = 'Sprint created successfully.';
-            header('Location: /sprints/view/' . $sprintId);
-            exit;
+            $this->redirectWithSuccess('/sprints/view/' . $sprintId, 'Sprint created successfully.');
         } catch (InvalidArgumentException $e) {
-            $_SESSION['error'] = $e->getMessage();
             $_SESSION['form_data'] = $data;
-            header('Location: /sprints/create/' . $data['project_id']);
-            exit;
+            $this->redirectWithError('/sprints/create/' . $data['project_id'], $e->getMessage());
         } catch (\Throwable $e) {
             $this->logException($e, 'SprintController::create');
-            $_SESSION['error'] = 'An error occurred while creating the sprint.';
-            header('Location: /sprints/create/' . $data['project_id']);
-            exit;
+            $this->redirectWithError(
+                '/sprints/create/' . $data['project_id'],
+                'An error occurred while creating the sprint.'
+            );
         }
     }
 
@@ -580,9 +577,7 @@ class SprintController extends BaseController
 
             $this->render('Sprints/edit', compact('sprint', 'project', 'templates', 'companyId', 'statuses', 'projectTasks', 'sprintTasks', 'sprintTaskIds'));
         } catch (InvalidArgumentException $e) {
-            $_SESSION['error'] = $e->getMessage();
-            header('Location: /sprints/view/' . $id);
-            exit;
+            $this->redirectWithError('/sprints/view/' . $id, $e->getMessage());
         } catch (\Throwable $e) {
             $this->logException($e, 'SprintController::editForm');
             $this->redirectWithError('/dashboard', 'An error occurred while loading the edit form.');
@@ -647,19 +642,13 @@ class SprintController extends BaseController
                 $this->sprintModel->addTasks($id, $taskIds);
             }
 
-            $_SESSION['success'] = 'Sprint updated successfully.';
-            header('Location: /sprints/view/' . $id);
-            exit;
+            $this->redirectWithSuccess('/sprints/view/' . $id, 'Sprint updated successfully.');
         } catch (InvalidArgumentException $e) {
-            $_SESSION['error'] = $e->getMessage();
             $_SESSION['form_data'] = $data;
-            header("Location: /sprints/edit/{$id}");
-            exit;
+            $this->redirectWithError("/sprints/edit/{$id}", $e->getMessage());
         } catch (\Throwable $e) {
             $this->logException($e, 'SprintController::update');
-            $_SESSION['error'] = 'An error occurred while updating the sprint.';
-            header("Location: /sprints/edit/{$id}");
-            exit;
+            $this->redirectWithError("/sprints/edit/{$id}", 'An error occurred while updating the sprint.');
         }
     }
 
@@ -706,18 +695,12 @@ class SprintController extends BaseController
 
             $this->sprintModel->update($id, ['is_deleted' => true]);
 
-            $_SESSION['success'] = 'Sprint deleted successfully.';
-            header('Location: /sprints/view/' . $projectId);
-            exit;
+            $this->redirectWithSuccess('/sprints/view/' . $projectId, 'Sprint deleted successfully.');
         } catch (InvalidArgumentException $e) {
-            $_SESSION['error'] = $e->getMessage();
-            header('Location: /sprints/view/' . ($id ?? ''));
-            exit;
+            $this->redirectWithError('/sprints/view/' . ($id ?? ''), $e->getMessage());
         } catch (\Throwable $e) {
             $this->logException($e, 'SprintController::delete');
-            $_SESSION['error'] = 'An error occurred while deleting the sprint.';
-            header('Location: /sprints/view/' . ($id ?? ''));
-            exit;
+            $this->redirectWithError('/sprints/view/' . ($id ?? ''), 'An error occurred while deleting the sprint.');
         }
     }
 
@@ -748,18 +731,15 @@ class SprintController extends BaseController
             $taskIds = array_map('intval', $data['task_ids']);
             $this->sprintModel->addTasks($sprintId, $taskIds);
 
-            $_SESSION['success'] = 'Tasks added to sprint successfully.';
-            header('Location: /sprints/view/' . $sprintId);
-            exit;
+            $this->redirectWithSuccess('/sprints/view/' . $sprintId, 'Tasks added to sprint successfully.');
         } catch (InvalidArgumentException $e) {
-            $_SESSION['error'] = $e->getMessage();
-            header('Location: /sprints/view/' . ($sprintId ?? ''));
-            exit;
+            $this->redirectWithError('/sprints/view/' . ($sprintId ?? ''), $e->getMessage());
         } catch (\Throwable $e) {
             $this->logException($e, 'SprintController::addTasks');
-            $_SESSION['error'] = 'An error occurred while adding tasks to the sprint.';
-            header('Location: /sprints/view/' . ($sprintId ?? ''));
-            exit;
+            $this->redirectWithError(
+                '/sprints/view/' . ($sprintId ?? ''),
+                'An error occurred while adding tasks to the sprint.'
+            );
         }
     }
 
@@ -1100,9 +1080,7 @@ class SprintController extends BaseController
                 return;
             }
 
-            $_SESSION['success'] = 'Sprint created successfully from milestones.';
-            header('Location: /sprints/view/' . $sprintId);
-            exit;
+            $this->redirectWithSuccess('/sprints/view/' . $sprintId, 'Sprint created successfully from milestones.');
 
         } catch (\InvalidArgumentException $e) {
             $errorMessage = 'Validation error: ' . $e->getMessage();

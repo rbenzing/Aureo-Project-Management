@@ -218,13 +218,10 @@ class MilestoneController extends BaseController
 
             $milestoneId = $this->milestoneModel->create($milestoneData);
 
-            $_SESSION['success'] = 'Milestone created successfully.';
-            header('Location: /milestones/view/' . $milestoneId);
-            exit;
+            $this->redirectWithSuccess('/milestones/view/' . $milestoneId, 'Milestone created successfully.');
         } catch (InvalidArgumentException $e) {
-            $_SESSION['error'] = $e->getMessage();
             $_SESSION['form_data'] = $data;
-            $this->redirect('/milestones/create');
+            $this->redirectWithError('/milestones/create', $e->getMessage());
         } catch (\Throwable $e) {
             $this->logException($e, 'MilestoneController::create');
             $this->redirectWithError('/milestones/create', 'An error occurred while creating the milestone.');
@@ -338,19 +335,13 @@ class MilestoneController extends BaseController
 
             $this->milestoneModel->update($id, $milestoneData);
 
-            $_SESSION['success'] = 'Milestone updated successfully.';
-            header('Location: /milestones/view/' . $id);
-            exit;
+            $this->redirectWithSuccess('/milestones/view/' . $id, 'Milestone updated successfully.');
         } catch (InvalidArgumentException $e) {
-            $_SESSION['error'] = $e->getMessage();
             $_SESSION['form_data'] = $data;
-            header("Location: /milestones/edit/{$id}");
-            exit;
+            $this->redirectWithError("/milestones/edit/{$id}", $e->getMessage());
         } catch (\Throwable $e) {
             $this->logException($e, 'MilestoneController::update');
-            $_SESSION['error'] = 'An error occurred while updating the milestone.';
-            header("Location: /milestones/edit/{$id}");
-            exit;
+            $this->redirectWithError("/milestones/edit/{$id}", 'An error occurred while updating the milestone.');
         }
     }
 

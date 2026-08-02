@@ -173,9 +173,8 @@ class RoleController extends BaseController
             }
 
         } catch (InvalidArgumentException $e) {
-            $_SESSION['error'] = $e->getMessage();
             $_SESSION['form_data'] = $data;
-            $this->redirect('/roles/create');
+            $this->redirectWithError('/roles/create', $e->getMessage());
         } catch (\Throwable $e) {
             $this->logException($e, 'RoleController::create');
             $this->redirectWithError('/roles/create', 'An error occurred while creating the role.');
@@ -279,15 +278,11 @@ class RoleController extends BaseController
             }
 
         } catch (InvalidArgumentException $e) {
-            $_SESSION['error'] = $e->getMessage();
             $_SESSION['form_data'] = $data;
-            header("Location: /roles/edit/{$id}");
-            exit;
+            $this->redirectWithError("/roles/edit/{$id}", $e->getMessage());
         } catch (\Throwable $e) {
             $this->logException($e, 'RoleController::update');
-            $_SESSION['error'] = 'An error occurred while updating the role.';
-            header("Location: /roles/edit/{$id}");
-            exit;
+            $this->redirectWithError("/roles/edit/{$id}", 'An error occurred while updating the role.');
         }
     }
 

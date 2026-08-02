@@ -150,9 +150,8 @@ class SprintTemplateController extends BaseController
 
             $this->redirectWithSuccess('/sprint-templates', 'Sprint template created successfully.');
         } catch (InvalidArgumentException $e) {
-            $_SESSION['error'] = $e->getMessage();
             $_SESSION['form_data'] = $data;
-            $this->redirect('/sprint-templates/create');
+            $this->redirectWithError('/sprint-templates/create', $e->getMessage());
         } catch (\Throwable $e) {
             $this->logException($e, 'SprintTemplateController::create');
             $this->redirectWithError('/sprint-templates/create', 'An error occurred while creating the sprint template.');
@@ -259,9 +258,8 @@ class SprintTemplateController extends BaseController
 
             $this->redirectWithSuccess('/sprint-templates', 'Sprint template updated successfully.');
         } catch (InvalidArgumentException $e) {
-            $_SESSION['error'] = $e->getMessage();
             $_SESSION['form_data'] = $data;
-            $this->redirect('/sprint-templates/edit/' . ($data['id'] ?? ''));
+            $this->redirectWithError('/sprint-templates/edit/' . ($data['id'] ?? ''), $e->getMessage());
         } catch (\Throwable $e) {
             $this->logException($e, 'SprintTemplateController::update');
             $this->redirectWithError('/sprint-templates/edit/' . ($data['id'] ?? ''), 'An error occurred while updating the sprint template.');
@@ -406,8 +404,7 @@ class SprintTemplateController extends BaseController
                 'capacity' => $config->default_capacity ?? 40,
             ]);
 
-            header("Location: /sprints/create/{$projectId}?{$queryParams}");
-            exit;
+            $this->redirect("/sprints/create/{$projectId}?{$queryParams}");
         } catch (\Throwable $e) {
             $this->redirectWithError('/sprint-templates', $e->getMessage());
         }

@@ -140,7 +140,13 @@ class CompanyController extends BaseController
             $validator = new Validator($data, [
                 'name' => 'required|string|max:255',
                 'address' => 'nullable|string|max:500',
-                'phone' => 'nullable|string|max:25|regex:/^[+]?[0-9()-\s]{10,}$/',
+                // 'regex' is not a registered rule, and Validator::fails() throws
+                // InvalidArgumentException for any rule name outside
+                // AVAILABLE_RULES — before nullable can short-circuit — so every
+                // company create/update POST died with "Unknown validation rule:
+                // regex" instead of validating. The built-in 'phone' rule applies
+                // the same check this pattern was reaching for.
+                'phone' => 'nullable|string|max:25|phone',
                 'email' => 'required|email|unique:companies,email',
                 'website' => 'nullable|url|max:255',
             ]);
@@ -163,17 +169,14 @@ class CompanyController extends BaseController
 
             $companyId = $this->companyModel->create($companyData);
 
-            $_SESSION['success'] = 'Company created successfully.';
-            header('Location: /companies/view/' . $companyId);
-            exit;
+            $this->redirectWithSuccess('/companies/view/' . $companyId, 'Company created successfully.');
         } catch (InvalidArgumentException $e) {
-            $_SESSION['error'] = Config::getErrorMessage(
+            $_SESSION['form_data'] = $data;
+            $this->redirectWithError('/companies/create', Config::getErrorMessage(
                 $e,
                 'CompanyController::create (validation)',
                 $e->getMessage()
-            );
-            $_SESSION['form_data'] = $data;
-            $this->redirect('/companies/create');
+            ));
         } catch (\Throwable $e) {
             $this->redirectWithError('/companies/create', Config::getErrorMessage(
                 $e,
@@ -238,7 +241,13 @@ class CompanyController extends BaseController
             $validator = new Validator($data, [
                 'name' => 'required|string|max:255',
                 'address' => 'nullable|string|max:500',
-                'phone' => 'nullable|string|max:25|regex:/^[+]?[0-9()-\s]{10,}$/',
+                // 'regex' is not a registered rule, and Validator::fails() throws
+                // InvalidArgumentException for any rule name outside
+                // AVAILABLE_RULES — before nullable can short-circuit — so every
+                // company create/update POST died with "Unknown validation rule:
+                // regex" instead of validating. The built-in 'phone' rule applies
+                // the same check this pattern was reaching for.
+                'phone' => 'nullable|string|max:25|phone',
                 'email' => "required|email|unique:companies,email,{$id}",
                 'website' => 'nullable|url|max:255',
             ]);
@@ -260,20 +269,13 @@ class CompanyController extends BaseController
 
             $this->companyModel->update($id, $companyData);
 
-            $_SESSION['success'] = 'Company updated successfully.';
-            header('Location: /companies/view/' . $id);
-            exit;
-
+            $this->redirectWithSuccess('/companies/view/' . $id, 'Company updated successfully.');
         } catch (InvalidArgumentException $e) {
-            $_SESSION['error'] = $e->getMessage();
             $_SESSION['form_data'] = $data;
-            header("Location: /companies/edit/{$id}");
-            exit;
+            $this->redirectWithError("/companies/edit/{$id}", $e->getMessage());
         } catch (\Throwable $e) {
             $this->logException($e, 'CompanyController::update');
-            $_SESSION['error'] = 'An error occurred while updating the company.';
-            header("Location: /companies/edit/{$id}");
-            exit;
+            $this->redirectWithError("/companies/edit/{$id}", 'An error occurred while updating the company.');
         }
     }
 

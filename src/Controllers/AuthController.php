@@ -186,9 +186,8 @@ class AuthController extends BaseController
             $this->redirectWithSuccess('/login', 'Registration successful. Please check your email to activate your account.');
 
         } catch (InvalidArgumentException $e) {
-            $_SESSION['error'] = $e->getMessage();
             $_SESSION['form_data'] = $data;
-            $this->redirect('/register');
+            $this->redirectWithError('/register', $e->getMessage());
         } catch (\Throwable $e) {
             $this->redirectWithError('/register', $this->securityService->handleError($e, 'AuthController::register', 'An error occurred during registration.'));
         }

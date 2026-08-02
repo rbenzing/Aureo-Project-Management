@@ -291,9 +291,8 @@ class TaskController extends BaseController
 
             $this->redirectWithSuccess('/tasks/view/' . $taskId, 'Task created successfully.');
         } catch (InvalidArgumentException $e) {
-            $_SESSION['error'] = $e->getMessage();
             $_SESSION['form_data'] = $data;
-            $this->redirect('/tasks/create');
+            $this->redirectWithError('/tasks/create', $e->getMessage());
         } catch (\Throwable $e) {
             $this->logException($e, 'TaskController::create');
             $this->redirectWithError('/tasks/create', 'An error occurred while creating the task.');
@@ -411,10 +410,8 @@ class TaskController extends BaseController
 
             $this->redirectWithSuccess('/tasks/view/' . $id, 'Task updated successfully.');
         } catch (InvalidArgumentException $e) {
-            $_SESSION['error'] = $e->getMessage();
             $_SESSION['form_data'] = $data;
-            header('Location: /tasks/edit/' . ($data['id'] ?? ''));
-            exit;
+            $this->redirectWithError('/tasks/edit/' . ($data['id'] ?? ''), $e->getMessage());
         } catch (\Throwable $e) {
             $this->logException($e, 'TaskController::update');
             $this->redirectWithError('/tasks/edit/' . ($data['id'] ?? ''), 'An error occurred while updating the task.');

@@ -198,13 +198,12 @@ class UserController extends BaseController
             $this->redirectWithSuccess('/users', 'User created successfully. An activation email has been sent.');
 
         } catch (InvalidArgumentException $e) {
-            $_SESSION['error'] = Config::getErrorMessage(
+            $_SESSION['form_data'] = $data;
+            $this->redirectWithError('/users/create', Config::getErrorMessage(
                 $e,
                 'UserController::create (validation)',
                 $e->getMessage()
-            );
-            $_SESSION['form_data'] = $data;
-            $this->redirect('/users/create');
+            ));
         } catch (\Throwable $e) {
             $this->redirectWithError('/users/create', Config::getErrorMessage(
                 $e,
@@ -297,15 +296,11 @@ class UserController extends BaseController
             $this->redirectWithSuccess('/users', 'User updated successfully.');
 
         } catch (InvalidArgumentException $e) {
-            $_SESSION['error'] = $e->getMessage();
             $_SESSION['form_data'] = $data;
-            header("Location: /users/edit/{$id}");
-            exit;
+            $this->redirectWithError("/users/edit/{$id}", $e->getMessage());
         } catch (\Throwable $e) {
             $this->logException($e, 'UserController::update');
-            $_SESSION['error'] = 'An error occurred while updating the user.';
-            header("Location: /users/edit/{$id}");
-            exit;
+            $this->redirectWithError("/users/edit/{$id}", 'An error occurred while updating the user.');
         }
     }
 

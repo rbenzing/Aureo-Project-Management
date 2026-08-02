@@ -248,13 +248,10 @@ class ProjectController extends BaseController
 
             $projectId = $this->projectModel->create($projectData);
 
-            $_SESSION['success'] = 'Project created successfully.';
-            header('Location: /projects/view/' . $projectId);
-            exit;
+            $this->redirectWithSuccess('/projects/view/' . $projectId, 'Project created successfully.');
         } catch (InvalidArgumentException $e) {
-            $_SESSION['error'] = $e->getMessage();
             $_SESSION['form_data'] = $data;
-            $this->redirect('/projects/create');
+            $this->redirectWithError('/projects/create', $e->getMessage());
         } catch (\Throwable $e) {
             $securityService = SecurityService::getInstance();
             $this->redirectWithError('/projects/create', $securityService->handleError($e, 'ProjectController::create', 'An error occurred while creating the project.'));
@@ -352,19 +349,13 @@ class ProjectController extends BaseController
 
             $this->projectModel->update($id, $projectData);
 
-            $_SESSION['success'] = 'Project updated successfully.';
-            header('Location: /projects/view/' . $id);
-            exit;
+            $this->redirectWithSuccess('/projects/view/' . $id, 'Project updated successfully.');
         } catch (InvalidArgumentException $e) {
-            $_SESSION['error'] = $e->getMessage();
             $_SESSION['form_data'] = $data;
-            header("Location: /projects/edit/{$id}");
-            exit;
+            $this->redirectWithError("/projects/edit/{$id}", $e->getMessage());
         } catch (\Throwable $e) {
             $this->logException($e, 'ProjectController::update');
-            $_SESSION['error'] = 'An error occurred while updating the project.';
-            header("Location: /projects/edit/{$id}");
-            exit;
+            $this->redirectWithError("/projects/edit/{$id}", 'An error occurred while updating the project.');
         }
     }
 

@@ -362,10 +362,7 @@ class TimeTrackingController extends BaseController
             // Add timer start history entry
             $this->taskModel->addTimerStartHistory($taskId, $userId);
 
-            $_SESSION['success'] = 'Timer started successfully.';
-            header("Location: /tasks/view/{$taskId}");
-            exit;
-
+            $this->redirectWithSuccess("/tasks/view/{$taskId}", 'Timer started successfully.');
         } catch (InvalidArgumentException $e) {
             $this->redirectWithError('/tasks', $e->getMessage());
         } catch (\Throwable $e) {
@@ -431,10 +428,7 @@ class TimeTrackingController extends BaseController
             // Clear the active timer
             unset($_SESSION['active_timer']);
 
-            $_SESSION['success'] = 'Timer stopped successfully.';
-            header("Location: /tasks/view/{$taskId}");
-            exit;
-
+            $this->redirectWithSuccess("/tasks/view/{$taskId}", 'Timer stopped successfully.');
         } catch (InvalidArgumentException $e) {
             $this->redirectWithError('/tasks', $e->getMessage());
         } catch (\Throwable $e) {

@@ -188,14 +188,12 @@ class TemplateController extends BaseController
                 throw $e;
             }
         } catch (InvalidArgumentException $e) {
-            $_SESSION['error'] = $e->getMessage();
             $_SESSION['form_data'] = $data;
-            $this->redirect('/templates/create');
+            $this->redirectWithError('/templates/create', $e->getMessage());
         } catch (\Throwable $e) {
             $this->logException($e, 'TemplateController::create');
-            $_SESSION['error'] = 'An error occurred while creating the template.';
             $_SESSION['form_data'] = $data;
-            $this->redirect('/templates/create');
+            $this->redirectWithError('/templates/create', 'An error occurred while creating the template.');
         }
     }
 
@@ -294,14 +292,10 @@ class TemplateController extends BaseController
                 throw $e;
             }
         } catch (InvalidArgumentException $e) {
-            $_SESSION['error'] = $e->getMessage();
-            header("Location: /templates/edit/{$id}");
-            exit;
+            $this->redirectWithError("/templates/edit/{$id}", $e->getMessage());
         } catch (\Throwable $e) {
             $this->logException($e, 'TemplateController::update');
-            $_SESSION['error'] = 'An error occurred while updating the template.';
-            header("Location: /templates/edit/{$id}");
-            exit;
+            $this->redirectWithError("/templates/edit/{$id}", 'An error occurred while updating the template.');
         }
     }
 
