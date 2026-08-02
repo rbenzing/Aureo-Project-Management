@@ -358,11 +358,17 @@ final class AuthControllerTest extends TestCase
             $c->register('POST', $data);
             $this->fail('Expected halt exception');
         } catch (RuntimeException $e) {
-            $this->assertSame('halt:redirect', $e->getMessage());
+            $this->assertSame('halt:error', $e->getMessage());
         }
 
+        // The validation flash now goes through redirectWithError() instead of
+        // assigning $_SESSION['error'] before a bare redirect(). Production
+        // behaviour is unchanged — the helper sets that same key — but the
+        // testable subclass captures the call, so the message is asserted there.
+        // form_data is still set directly by the controller and remains checkable.
         $this->assertSame('/register', $c->redirectUrl);
-        $this->assertNotEmpty($_SESSION['error']);
+        $this->assertSame('error', $c->redirectType);
+        $this->assertNotEmpty($c->redirectMessage);
         $this->assertSame($data, $_SESSION['form_data']);
     }
 

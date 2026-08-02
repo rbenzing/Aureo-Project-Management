@@ -458,10 +458,16 @@ final class TaskControllerTest extends TestCase
     public function testCreatePostInvalidDataRedirectsBackWithSessionError(): void
     {
         $c = $this->controller();
-        $this->expectRedirect($c, fn () => $c->create('POST', []));
+        $e = $this->expectRedirect($c, fn () => $c->create('POST', []));
 
+        // The flash now travels through redirectWithError() rather than being
+        // assigned to $_SESSION['error'] before a bare redirect(). Production
+        // behaviour is identical — the helper sets that exact key — but the
+        // testable subclass captures the call instead, so assert on the captured
+        // message and confirm the error-carrying helper was the one used.
         $this->assertSame('/tasks/create', $c->redirectUrl);
-        $this->assertArrayHasKey('error', $_SESSION);
+        $this->assertStringStartsWith('redirectError:', $e->getMessage());
+        $this->assertNotSame('', (string) $c->redirectMessage);
         $this->assertSame([], $_SESSION['form_data']);
     }
 
