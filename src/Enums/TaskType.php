@@ -10,7 +10,7 @@ namespace App\Enums;
  * Represents Scrum/Agile task types.
  * Matches database ENUM: tasks.task_type enum('story','bug','task','epic')
  *
- * @see schema.sql:695
+ * @see db/migrations/20251222180705_initial_database_schema.php (tasks table)
  */
 enum TaskType: string
 {

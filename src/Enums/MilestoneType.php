@@ -10,7 +10,7 @@ namespace App\Enums;
  * Represents milestone types in the system.
  * Matches database ENUM: milestones.milestone_type enum('epic','milestone')
  *
- * @see schema.sql:125
+ * @see db/migrations/20251222180705_initial_database_schema.php (milestones table)
  */
 enum MilestoneType: string
 {

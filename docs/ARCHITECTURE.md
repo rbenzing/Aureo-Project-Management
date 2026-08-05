@@ -167,7 +167,7 @@ The project convention is `fromOrDefault()` / `tryFromInt()`.
 **Schema of record** is the canonical Phinx migration,
 `db/migrations/20251222180705_initial_database_schema.php`. It is both the install path and the
 seed for the admin user and all 55 permissions. Never edit it in place and never rename it — add a
-new migration instead. `schema.sql` is informational only and may lag.
+new migration instead. It is the only schema representation; there is no separate SQL dump.
 
 **Environments** are declared in `phinx.php`: `production`, `local`, `development`, `testing`. A new
 `APP_ENV` value without a matching block makes Phinx fail.

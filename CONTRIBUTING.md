@@ -130,7 +130,7 @@ Linux deployments return a broken page.
 3. Apply and verify: `composer migrate` then `composer migrate:status`
 4. Never modify an already-committed migration. Correct it with a new one.
 
-`schema.sql` is informational and may lag; the migrations are the schema of record.
+The canonical Phinx migration is the only schema representation; there is no separate SQL dump.
 
 ---
 

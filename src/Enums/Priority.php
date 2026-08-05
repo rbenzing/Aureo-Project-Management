@@ -10,7 +10,7 @@ namespace App\Enums;
  * Represents task priority levels.
  * Matches database ENUM: tasks.priority enum('none','low','medium','high')
  *
- * @see schema.sql:683
+ * @see db/migrations/20251222180705_initial_database_schema.php (tasks table)
  */
 enum Priority: string
 {

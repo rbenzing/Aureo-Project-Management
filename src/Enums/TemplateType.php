@@ -11,7 +11,7 @@ namespace App\Enums;
  * Matches database ENUM: templates.template_type enum('project','task','milestone','sprint')
  *
  * Replaces: Template::TEMPLATE_TYPES constant
- * @see schema.sql:768
+ * @see db/migrations/20251222180705_initial_database_schema.php (templates table)
  */
 enum TemplateType: string
 {

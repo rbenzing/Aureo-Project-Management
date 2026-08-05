@@ -270,8 +270,8 @@ detail lives in [SECURITY.md](./SECURITY.md).
 - **No framework.** No Laravel/Symfony/Eloquent/Blade, no ORM, no JavaScript framework. Vanilla
   PHP plus Tailwind CSS. This is a hard architectural constraint, not a preference.
 - **Style:** PSR-12, enforced in CI across `src/`, `public/`, `tests/`, `bin/` and `config/`.
-- **Schema of record** is the canonical Phinx migration. `schema.sql` is informational and may
-  lag.
+- **Schema of record** is the canonical Phinx migration. It is the only schema representation;
+  there is no separate SQL dump.
 - **Logging:** application errors land in `log/aureo.log`. 4xx are logged as terse warnings;
   full exception logging is reserved for 5xx.
 - **Progressive enhancement:** pages render server-side; JavaScript adds the command palette,

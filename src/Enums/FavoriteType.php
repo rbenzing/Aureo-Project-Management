@@ -10,7 +10,7 @@ namespace App\Enums;
  * Represents types of items that can be favorited in the system.
  * Matches database ENUM: favorites.favorite_type enum('project','task','milestone','sprint','page')
  *
- * @see schema.sql:882
+ * @see db/migrations/20251222180705_initial_database_schema.php (user_favorites table)
  */
 enum FavoriteType: string
 {
