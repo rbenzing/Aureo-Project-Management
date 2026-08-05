@@ -185,6 +185,39 @@ final class ConfigLoaderTest extends TestCase
     }
 
     /**
+     * loadPhpFile()'s "isset($_ENV[$key]) -> continue" branch (the
+     * Dotenv-immutable semantics the class docblock promises) only fires when
+     * the environment is PARTIALLY populated: some but not all REQUIRED keys
+     * present, with a file rung supplying the rest. A fully-set environment
+     * short-circuits at rung 1 before any file is read (see
+     * testRealEnvironmentWinsAndReadsNoFile); a fully-cleared one (every
+     * other test here, via setUp()) never collides with the file at all. This
+     * is the only test shape that actually exercises the merge.
+     */
+    public function testPartialEnvironmentMergesWithFileAndHostValueWinsOnOverlap(): void
+    {
+        // Only DB_NAME comes from the real environment; setUp() left the
+        // other four REQUIRED keys cleared from $_ENV, $_SERVER and getenv().
+        $_ENV['DB_NAME'] = 'from_environment';
+
+        $this->writePhpConfig(
+            $this->root . '/config/config.php',
+            ['DB_NAME' => 'from_file'] + $this->completeValues()
+        );
+
+        ConfigLoader::load($this->root);
+
+        // The host-supplied value must survive the merge untouched...
+        $this->assertSame('from_environment', $_ENV['DB_NAME']);
+        // ...while every key the environment did NOT supply must be pulled
+        // from the file - proving this is a real merge, not a no-op.
+        $this->assertSame('false', $_ENV['APP_DEBUG']);
+        $this->assertSame('localhost', $_ENV['DB_HOST']);
+        $this->assertSame('aureo', $_ENV['DB_USERNAME']);
+        $this->assertSame('secret', $_ENV['DB_PASSWORD']);
+    }
+
+    /**
      * The old failure was 'file not found at <one path>'. With five possible
      * sources, a message naming only one of them sends people to the wrong
      * place.
