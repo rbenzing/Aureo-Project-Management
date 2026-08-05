@@ -88,6 +88,13 @@ final class ConfigTest extends TestCase
 
         $initProp = $ref->getProperty('isInitialized');
         $initProp->setValue(null, false);
+
+        // Reset unconditionally via reflection rather than relying on tests
+        // to call setBasePath('') as their last line: if an assertion above
+        // that call fails, PHP throws and the reset never runs, leaking
+        // '/aureo' onto this process-wide singleton for every later test.
+        $basePathProp = $ref->getProperty('basePath');
+        $basePathProp->setValue(null, '');
     }
 
     private function seedSettingsService(?SettingsService $service): void
@@ -399,10 +406,12 @@ final class ConfigTest extends TestCase
 
     // --- basePath()/setBasePath() ---
 
+    /**
+     * Asserts the untouched default (reset by resetConfigState() in setUp())
+     * rather than a round-trip through setBasePath('').
+     */
     public function testBasePathDefaultsToEmptyString(): void
     {
-        Config::setBasePath('');
-
         $this->assertSame('', Config::basePath());
     }
 

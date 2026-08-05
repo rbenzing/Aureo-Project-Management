@@ -20,6 +20,12 @@ final class RequestPath
 
     public function __construct(string $requestUri, string $scriptName)
     {
+        // parse_url() returns null/false (not '/') for malformed paths like
+        // '//projects' or '///projects' - under strict_types, the old inline
+        // ltrim($uri, '/') let that reach a TypeError and 500 the request.
+        // Degrading to the site root instead is deliberate: the auth gate
+        // still fails closed, since the resulting '' segment is not in
+        // $publicPaths and AuthMiddleware still runs.
         $requestPath = parse_url($requestUri, PHP_URL_PATH);
         $requestPath = is_string($requestPath) && $requestPath !== '' ? $requestPath : '/';
 

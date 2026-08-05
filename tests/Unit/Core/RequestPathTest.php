@@ -99,4 +99,31 @@ final class RequestPathTest extends TestCase
         $this->assertSame('', $resolved->basePath());
         $this->assertSame('', $resolved->path());
     }
+
+    /**
+     * parse_url(PHP_URL_PATH) returns null/false (not '/') for these
+     * malformed URIs - verified empirically on this PHP build. Under
+     * strict_types, the old inline ltrim($uri, '/') let that reach a
+     * TypeError and 500 the request; degrading to the site root is
+     * deliberate (see the constructor's guard comment). This guards against
+     * that fallback being "tidied" away later: the auth gate still fails
+     * closed on the resulting [''] segment, since '' is not in
+     * $publicPaths, so this is not an auth bypass.
+     */
+    public static function malformedUriProvider(): array
+    {
+        return [
+            'double leading slash' => ['//projects'],
+            'triple leading slash' => ['///projects'],
+        ];
+    }
+
+    #[DataProvider('malformedUriProvider')]
+    public function testMalformedRequestUriDegradesToSiteRootRatherThanFatalling(string $requestUri): void
+    {
+        $resolved = new RequestPath($requestUri, '/index.php');
+
+        $this->assertSame('', $resolved->basePath());
+        $this->assertSame([''], $resolved->segments());
+    }
 }

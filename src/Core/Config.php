@@ -392,11 +392,22 @@ class Config
         return self::get('EMAIL_FROM_NAME', 'Application');
     }
 
+    /**
+     * Set the URL prefix the application is mounted at, normally called once
+     * during boot with RequestPath::basePath().
+     * @param string $basePath '' or '/aureo'; a trailing slash is stripped
+     *                         and a bare '/' collapses to ''.
+     */
     public static function setBasePath(string $basePath): void
     {
         self::$basePath = $basePath === '/' ? '' : rtrim($basePath, '/');
     }
 
+    /**
+     * Get the URL prefix the application is mounted at.
+     * @return string '' for a domain-root install, '/aureo' for a
+     *                subdirectory one. Never has a trailing slash.
+     */
     public static function basePath(): string
     {
         return self::$basePath;
