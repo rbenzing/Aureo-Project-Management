@@ -9,6 +9,10 @@ session_start();
 // Define base path
 define('BASE_PATH', __DIR__);
 
+// Where asset URLs point. The root delegate defines this before including us;
+// when public/ is the document root, /assets is served directly.
+defined('AUREO_ASSET_PREFIX') || define('AUREO_ASSET_PREFIX', '/assets');
+
 // CSP Headers
 $cspHeader = "Content-Security-Policy: ".
     "default-src 'self'; ".

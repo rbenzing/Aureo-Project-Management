@@ -74,6 +74,12 @@ abstract class BaseController
         // Extract data into local scope for view
         extract($data);
 
+        // asset() and the other view helpers must exist before the view's
+        // <head> runs; most views only required ViewHelpers.php further down
+        // (or not at all), which broke as soon as <head> itself started
+        // calling asset(). require_once here makes it available unconditionally.
+        require_once BASE_PATH . '/../src/Views/Layouts/ViewHelpers.php';
+
         // Include the view file
         include BASE_PATH . "/../src/Views/{$view}.php";
     }

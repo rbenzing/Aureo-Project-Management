@@ -34,8 +34,8 @@ try {
 <!-- Include Command Palette -->
 <?php include BASE_PATH . '/../src/Views/Layouts/CommandPalette.php'; ?>
 
-<script type="text/javascript" src="/assets/js/scripts.js"></script>
-<script src="/assets/js/command-palette.js" defer></script>
+<script type="text/javascript" src="<?= asset('js/scripts.js') ?>"></script>
+<script src="<?= asset('js/command-palette.js') ?>" defer></script>
 
 <!-- Ensure hamburger menu works on all pages - robust fallback initialization -->
 <script>

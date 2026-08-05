@@ -24,7 +24,7 @@ include_once BASE_PATH . '/../src/Views/Sprints/inc/helpers.php';
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sprint Details - <?= htmlspecialchars(Config::get('company_name', 'Aureo')) ?></title>
-    <link href="/assets/css/styles.css" rel="stylesheet">
+    <link href="<?= asset('css/styles.css') ?>" rel="stylesheet">
 </head>
 
 <body class="bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-gray-100 min-h-screen flex flex-col">

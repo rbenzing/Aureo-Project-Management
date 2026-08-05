@@ -21,7 +21,7 @@ $canDeleteUsers = isset($currentUser['permissions']) && in_array('delete_users',
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Users Management - <?= htmlspecialchars(Config::get('company_name', 'Aureo')) ?></title>
-    <link href="/assets/css/styles.css" rel="stylesheet">
+    <link href="<?= asset('css/styles.css') ?>" rel="stylesheet">
 </head>
 <body class="bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-gray-100 min-h-screen flex flex-col">
 

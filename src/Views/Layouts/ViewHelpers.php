@@ -9,12 +9,26 @@ if (!defined('BASE_PATH')) {
     exit;
 }
 
+use App\Core\Config;
 use App\Services\SettingsService;
 use App\Utils\Time;
 
 /**
  * Common view helper functions for consistent UI across all views
  */
+
+/**
+ * Build a URL for a bundled asset.
+ *
+ * The mount point comes from Config (empty for a domain-root install,
+ * '/aureo' for a subdirectory one) and the prefix from AUREO_ASSET_PREFIX,
+ * which the root delegate points at /public/assets when the document root is
+ * the application root.
+ */
+function asset(string $relative): string
+{
+    return Config::basePath() . AUREO_ASSET_PREFIX . '/' . ltrim($relative, '/');
+}
 
 /**
  * Format time duration for display using settings

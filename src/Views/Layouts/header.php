@@ -153,7 +153,7 @@ if (!isset($GLOBALS['favorites_script_added'])) {
         // Add CSRF token to window for favorites.js
         window.csrfToken = "' . htmlspecialchars($csrfToken ?? '') . '";
     </script>';
-    echo '<script src="/assets/js/favorites.js" defer></script>';
-    echo '<script src="/assets/js/favorites-utils.js" defer></script>';
+    echo '<script src="' . asset('js/favorites.js') . '" defer></script>';
+    echo '<script src="' . asset('js/favorites-utils.js') . '" defer></script>';
 }
 ?>
