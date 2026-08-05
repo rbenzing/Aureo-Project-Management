@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Utils;
 
 use App\Core\Config;
+use App\Core\ConfigLoader;
 use App\Core\Database;
 use App\Models\Setting;
 use App\Services\SettingsService;
@@ -33,6 +34,7 @@ use ReflectionClass;
 // Declaring them here keeps the strict-metadata check stable across orderings.
 #[CoversClass(Time::class)]
 #[UsesClass(Config::class)]
+#[UsesClass(ConfigLoader::class)]
 #[UsesClass(Database::class)]
 #[UsesClass(Setting::class)]
 #[UsesClass(SettingsService::class)]

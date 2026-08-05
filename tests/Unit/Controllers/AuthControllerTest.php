@@ -7,6 +7,7 @@ namespace Tests\Unit\Controllers;
 use App\Controllers\AuthController;
 use App\Controllers\BaseController;
 use App\Core\Config;
+use App\Core\ConfigLoader;
 use App\Core\Database;
 use App\Middleware\AuthMiddleware;
 use App\Models\Setting;
@@ -132,6 +133,7 @@ final class AuthControllerTestable extends AuthController
 #[CoversClass(AuthController::class)]
 #[UsesClass(BaseController::class)]
 #[UsesClass(Config::class)]
+#[UsesClass(ConfigLoader::class)]
 #[UsesClass(Database::class)]
 #[UsesClass(Setting::class)]
 #[UsesClass(SettingsService::class)]

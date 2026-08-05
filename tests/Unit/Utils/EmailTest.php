@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Utils;
 
 use App\Core\Config;
+use App\Core\ConfigLoader;
 use App\Core\Database;
 use App\Services\SecurityService;
 use App\Services\SettingsService;
@@ -36,6 +37,7 @@ use ReflectionClass;
  */
 #[CoversClass(Email::class)]
 #[UsesClass(Config::class)]
+#[UsesClass(ConfigLoader::class)]
 #[UsesClass(Database::class)]
 #[UsesClass(SecurityService::class)]
 final class EmailTest extends TestCase

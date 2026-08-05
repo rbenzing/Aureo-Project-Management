@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Models;
 
 use App\Core\Config;
+use App\Core\ConfigLoader;
 use App\Core\Database;
 use App\Models\BaseModel;
 use App\Models\Milestone;
@@ -35,6 +36,7 @@ use RuntimeException;
 #[CoversClass(Milestone::class)]
 #[UsesClass(BaseModel::class)]
 #[UsesClass(Config::class)]
+#[UsesClass(ConfigLoader::class)]
 #[UsesClass(Database::class)]
 #[UsesClass(SecurityService::class)]
 final class MilestoneTest extends TestCase

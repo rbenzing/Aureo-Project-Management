@@ -7,6 +7,7 @@ namespace Tests\Unit\Controllers;
 use App\Controllers\BaseController;
 use App\Controllers\TaskController;
 use App\Core\Config;
+use App\Core\ConfigLoader;
 use App\Core\Database;
 use App\Enums\Priority;
 use App\Enums\TaskStatus;
@@ -135,6 +136,7 @@ final class TaskControllerTestable extends TaskController
 #[UsesClass(LoggerService::class)]
 #[UsesClass(Database::class)]
 #[UsesClass(Config::class)]
+#[UsesClass(ConfigLoader::class)]
 #[UsesClass(BaseModel::class)]
 #[UsesClass(SecurityService::class)]
 #[UsesClass(Validator::class)]

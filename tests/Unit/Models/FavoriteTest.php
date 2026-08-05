@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Models;
 
 use App\Core\Config;
+use App\Core\ConfigLoader;
 use App\Core\Database;
 use App\Models\BaseModel;
 use App\Models\Favorite;
@@ -33,6 +34,7 @@ use RuntimeException;
 #[CoversClass(Favorite::class)]
 #[UsesClass(BaseModel::class)]
 #[UsesClass(Config::class)]
+#[UsesClass(ConfigLoader::class)]
 #[UsesClass(Database::class)]
 final class FavoriteTest extends TestCase
 {

@@ -5,7 +5,6 @@ declare(strict_types=1);
 
 namespace App\Core;
 
-use Dotenv\Dotenv;
 use RuntimeException;
 
 class Config
@@ -125,13 +124,8 @@ class Config
      */
     private static function loadEnvironment(): void
     {
-        $envPath = dirname(BASE_PATH);
-        if (!file_exists($envPath . '/.env')) {
-            throw new RuntimeException('.env file not found at ' . $envPath . '/.env');
-        }
-
-        $dotenv = Dotenv::createImmutable($envPath);
-        $dotenv->load();
+        // BASE_PATH is <app>/public, so the application root is one level up.
+        ConfigLoader::load(dirname(BASE_PATH));
     }
 
     /**

@@ -7,6 +7,7 @@ namespace Tests\Unit\Controllers;
 use App\Controllers\BaseController;
 use App\Controllers\DashboardController;
 use App\Core\Config;
+use App\Core\ConfigLoader;
 use App\Core\Database;
 use App\Enums\TaskStatus;
 use App\Middleware\AuthMiddleware;
@@ -70,6 +71,7 @@ final class DashboardControllerTestable extends DashboardController
 #[UsesClass(LoggerService::class)]
 #[UsesClass(Database::class)]
 #[UsesClass(Config::class)]
+#[UsesClass(ConfigLoader::class)]
 #[UsesClass(TaskStatus::class)]
 #[UsesClass(User::class)]
 #[UsesClass(Project::class)]

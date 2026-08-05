@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Integration;
 
 use App\Core\Config;
+use App\Core\ConfigLoader;
 use App\Core\Database;
 use App\Models\BaseModel;
 use App\Models\Setting;
@@ -39,6 +40,7 @@ use Tests\Support\TestCase;
 #[CoversClass(User::class)]
 #[UsesClass(BaseModel::class)]
 #[UsesClass(Config::class)]
+#[UsesClass(ConfigLoader::class)]
 #[UsesClass(Database::class)]
 #[UsesClass(SecurityService::class)]
 #[UsesClass(Setting::class)]

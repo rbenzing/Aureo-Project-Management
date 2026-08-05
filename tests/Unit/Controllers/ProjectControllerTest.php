@@ -7,6 +7,7 @@ namespace Tests\Unit\Controllers;
 use App\Controllers\BaseController;
 use App\Controllers\ProjectController;
 use App\Core\Config;
+use App\Core\ConfigLoader;
 use App\Core\Database;
 use App\Middleware\AuthMiddleware;
 use App\Models\BaseModel;
@@ -113,6 +114,7 @@ final class ProjectControllerTestable extends ProjectController
 #[UsesClass(BaseModel::class)]
 #[UsesClass(Company::class)]
 #[UsesClass(Config::class)]
+#[UsesClass(ConfigLoader::class)]
 #[UsesClass(Database::class)]
 #[UsesClass(LoggerService::class)]
 #[UsesClass(Project::class)]

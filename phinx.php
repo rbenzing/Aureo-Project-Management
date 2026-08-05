@@ -2,13 +2,11 @@
 
 declare(strict_types=1);
 
-use Dotenv\Dotenv;
-
 require_once __DIR__ . '/vendor/autoload.php';
 
-// Load environment variables
-$dotenv = Dotenv::createImmutable(__DIR__);
-$dotenv->load();
+// Same resolution chain as the application, so migrations work for every
+// install layout rather than only .env-based ones.
+App\Core\ConfigLoader::load(__DIR__);
 
 // Parse DB_HOST to extract host and port
 $dbHost = $_ENV['DB_HOST'] ?? 'localhost';

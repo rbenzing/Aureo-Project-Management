@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Services;
 
 use App\Core\Config;
+use App\Core\ConfigLoader;
 use App\Core\Database;
 use App\Models\Setting;
 use App\Services\SettingsService;
@@ -30,6 +31,7 @@ use ReflectionClass;
 #[UsesClass(Setting::class)]
 #[UsesClass(Database::class)]
 #[UsesClass(Config::class)]
+#[UsesClass(ConfigLoader::class)]
 final class SettingsServiceTest extends TestCase
 {
     private Setting $settingModelMock;

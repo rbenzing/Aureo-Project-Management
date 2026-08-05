@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Core;
 
 use App\Core\Config;
+use App\Core\ConfigLoader;
 use App\Core\Database;
 use App\Services\SecurityService;
 use Error;
@@ -34,6 +35,7 @@ require_once __DIR__ . '/Support/ConfigBuiltinOverrides.php';
  */
 #[CoversClass(Database::class)]
 #[UsesClass(Config::class)]
+#[UsesClass(ConfigLoader::class)]
 #[UsesClass(SecurityService::class)]
 final class DatabaseTest extends TestCase
 {

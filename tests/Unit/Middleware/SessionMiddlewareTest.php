@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Middleware;
 
 use App\Core\Config;
+use App\Core\ConfigLoader;
 use App\Core\Database;
 use App\Middleware\SessionMiddleware;
 use App\Models\Setting;
@@ -51,6 +52,7 @@ use ReflectionClass;
  */
 #[CoversClass(SessionMiddleware::class)]
 #[UsesClass(Config::class)]
+#[UsesClass(ConfigLoader::class)]
 #[UsesClass(Database::class)]
 #[UsesClass(Setting::class)]
 #[UsesClass(SettingsService::class)]

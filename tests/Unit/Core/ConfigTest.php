@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Core;
 
 use App\Core\Config;
+use App\Core\ConfigLoader;
 use App\Services\SettingsService;
 use Exception;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -25,6 +26,7 @@ require_once __DIR__ . '/Support/ConfigBuiltinOverrides.php';
  * reachable on the machine running the suite.
  */
 #[CoversClass(Config::class)]
+#[UsesClass(ConfigLoader::class)]
 #[UsesClass(SettingsService::class)]
 final class ConfigTest extends TestCase
 {
@@ -200,14 +202,34 @@ final class ConfigTest extends TestCase
         $this->assertSame(10, Config::all()['max_pages']);
     }
 
-    public function testInitThrowsWhenEnvFileMissing(): void
+    public function testInitThrowsWhenNoConfigurationSourceIsAvailable(): void
     {
+        // setUp() pre-seeds the five required keys directly into $_ENV (needed
+        // by every other test in this class), and phpunit.xml's <php><env>
+        // block additionally putenv()'s them once at process start. Both have
+        // to be cleared here or ConfigLoader's environment rung stays
+        // "complete" and the file-based rungs below it - the ones
+        // forceEnvFileMissing is meant to exercise - never run.
+        $keys = ['APP_DEBUG', 'DB_HOST', 'DB_NAME', 'DB_USERNAME', 'DB_PASSWORD'];
+        $originalGetenv = [];
+        foreach ($keys as $key) {
+            $originalGetenv[$key] = getenv($key);
+            unset($_ENV[$key], $_SERVER[$key]);
+            putenv($key);
+        }
+
         ConfigBuiltinToggles::$forceEnvFileMissing = true;
 
-        $this->expectException(RuntimeException::class);
-        $this->expectExceptionMessageMatches('/\.env file not found at/');
+        try {
+            $this->expectException(RuntimeException::class);
+            $this->expectExceptionMessageMatches('/No configuration found/');
 
-        Config::init();
+            Config::init();
+        } finally {
+            foreach ($originalGetenv as $key => $value) {
+                putenv($value === false ? $key : "{$key}={$value}");
+            }
+        }
     }
 
     public function testValidateEnvironmentThrowsWhenRequiredVariableMissing(): void

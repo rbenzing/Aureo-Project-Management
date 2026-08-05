@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Models;
 
 use App\Core\Config;
+use App\Core\ConfigLoader;
 use App\Core\Database;
 use App\Enums\TemplateType;
 use App\Models\BaseModel;
@@ -39,6 +40,7 @@ use RuntimeException;
 #[CoversClass(Template::class)]
 #[UsesClass(BaseModel::class)]
 #[UsesClass(Config::class)]
+#[UsesClass(ConfigLoader::class)]
 #[UsesClass(Database::class)]
 #[UsesClass(SecurityService::class)]
 #[UsesClass(Setting::class)]

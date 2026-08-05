@@ -7,6 +7,7 @@ namespace Tests\Unit\Controllers;
 use App\Controllers\BaseController;
 use App\Controllers\SearchController;
 use App\Core\Config;
+use App\Core\ConfigLoader;
 use App\Core\Database;
 use App\Middleware\AuthMiddleware;
 use App\Models\BaseModel;
@@ -43,6 +44,7 @@ use ReflectionMethod;
 #[CoversClass(SearchController::class)]
 #[UsesClass(BaseController::class)]
 #[UsesClass(Config::class)]
+#[UsesClass(ConfigLoader::class)]
 #[UsesClass(Database::class)]
 #[UsesClass(AuthMiddleware::class)]
 #[UsesClass(BaseModel::class)]

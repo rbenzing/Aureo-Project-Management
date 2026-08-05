@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Utils;
 
 use App\Core\Config;
+use App\Core\ConfigLoader;
 use App\Core\Database;
 use App\Enums\Priority;
 use App\Utils\Validator;
@@ -33,6 +34,7 @@ use ReflectionMethod;
  */
 #[CoversClass(Validator::class)]
 #[UsesClass(Config::class)]
+#[UsesClass(ConfigLoader::class)]
 #[UsesClass(Database::class)]
 final class ValidatorEdgeCaseTest extends TestCase
 {

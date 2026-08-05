@@ -7,6 +7,7 @@ namespace Tests\Unit\Controllers;
 use App\Controllers\BaseController;
 use App\Controllers\SprintController;
 use App\Core\Config;
+use App\Core\ConfigLoader;
 use App\Core\Database;
 use App\Enums\SprintStatus;
 use App\Enums\TaskStatus;
@@ -131,6 +132,7 @@ final class SprintControllerTestable extends SprintController
 #[UsesClass(LoggerService::class)]
 #[UsesClass(Database::class)]
 #[UsesClass(Config::class)]
+#[UsesClass(ConfigLoader::class)]
 #[UsesClass(BaseModel::class)]
 #[UsesClass(Validator::class)]
 #[UsesClass(SprintStatus::class)]

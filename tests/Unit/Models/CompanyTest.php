@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Models;
 
 use App\Core\Config;
+use App\Core\ConfigLoader;
 use App\Core\Database;
 use App\Models\BaseModel;
 use App\Models\Company;
@@ -44,6 +45,7 @@ use RuntimeException;
 #[CoversClass(Company::class)]
 #[UsesClass(BaseModel::class)]
 #[UsesClass(Config::class)]
+#[UsesClass(ConfigLoader::class)]
 #[UsesClass(Database::class)]
 #[UsesClass(Searchable::class)]
 final class CompanyTest extends TestCase
