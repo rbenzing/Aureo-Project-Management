@@ -29,6 +29,12 @@ require_once BASE_PATH . '/../vendor/autoload.php';
 // since container factories (e.g. SettingsService → Database) read $_ENV.
 \App\Core\Config::init();
 
+// Resolve where the app is mounted before anything reads the request path.
+// Both the auth gate and the dispatcher below need the same answer, and it
+// differs by deployment layout.
+$requestPath = \App\Core\RequestPath::fromGlobals();
+\App\Core\Config::setBasePath($requestPath->basePath());
+
 // Load the dependency injection container
 $container = require_once BASE_PATH . '/../config/container.php';
 
@@ -74,8 +80,7 @@ try {
     // Global authentication gate — runs before routing.
     // Public paths (login, register, activation, password reset) are exempted.
     $publicPaths = ['login', 'register', 'activate', 'reset-password', 'forgot-password'];
-    $uri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
-    $firstSegment = trim(explode('/', ltrim($uri, '/'))[0]);
+    $firstSegment = trim($requestPath->segments()[0]);
     if (!in_array($firstSegment, $publicPaths, true)) {
         $container->get(\App\Middleware\AuthMiddleware::class)->isAuthenticated();
     }
@@ -265,8 +270,7 @@ try {
     $router->post('time-tracking/stop', ['controller' => 'TimeTracking', 'action' => 'stopTimer']);
 
     // Get request URI and method
-    $uri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
-    $segments = explode('/', ltrim($uri, '/'));
+    $segments = $requestPath->segments();
 
     // Dispatch Request with proper error handling
     $router->dispatch(

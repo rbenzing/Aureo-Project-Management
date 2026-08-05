@@ -396,4 +396,34 @@ final class ConfigTest extends TestCase
             $this->assertArrayHasKey($key, $array);
         }
     }
+
+    // --- basePath()/setBasePath() ---
+
+    public function testBasePathDefaultsToEmptyString(): void
+    {
+        Config::setBasePath('');
+
+        $this->assertSame('', Config::basePath());
+    }
+
+    public function testBasePathRoundTripsSubdirectoryMount(): void
+    {
+        Config::setBasePath('/aureo');
+
+        $this->assertSame('/aureo', Config::basePath());
+
+        Config::setBasePath('');
+    }
+
+    /**
+     * A trailing slash would produce '//assets/...' once asset() concatenates.
+     */
+    public function testBasePathStripsTrailingSlash(): void
+    {
+        Config::setBasePath('/aureo/');
+
+        $this->assertSame('/aureo', Config::basePath());
+
+        Config::setBasePath('');
+    }
 }

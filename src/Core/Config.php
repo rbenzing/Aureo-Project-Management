@@ -96,6 +96,13 @@ class Config
     private static bool $isInitialized = false;
 
     /**
+     * URL prefix the application is mounted at, set during boot from
+     * RequestPath. Empty for a domain-root install, '/aureo' for a
+     * subdirectory one.
+     */
+    private static string $basePath = '';
+
+    /**
      * Initialize configuration with environment-specific settings
      * @throws RuntimeException
      */
@@ -383,5 +390,15 @@ class Config
     public static function getEmailFromName(): string
     {
         return self::get('EMAIL_FROM_NAME', 'Application');
+    }
+
+    public static function setBasePath(string $basePath): void
+    {
+        self::$basePath = $basePath === '/' ? '' : rtrim($basePath, '/');
+    }
+
+    public static function basePath(): string
+    {
+        return self::$basePath;
     }
 }
