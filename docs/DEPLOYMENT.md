@@ -9,8 +9,10 @@ Installing, configuring, upgrading and operating Aureo on a real server. For day
 ## Contents
 
 - [Requirements](#requirements)
+- [Deployment layouts](#deployment-layouts)
 - [Installation](#installation)
 - [Configuration reference](#configuration-reference)
+- [Configuration sources](#configuration-sources)
 - [Web server](#web-server)
 - [Database and migrations](#database-and-migrations)
 - [Go-live checklist](#go-live-checklist)
@@ -25,15 +27,89 @@ Installing, configuring, upgrading and operating Aureo on a real server. For day
 
 | Component | Requirement |
 |---|---|
-| PHP | 8.1 or newer, with `pdo`, `pdo_mysql`, `mbstring` |
+| PHP | 8.2 or newer, with `pdo`, `pdo_mysql`, `mbstring` |
 | MySQL | 8.0 or newer |
 | Composer | 2.x |
-| Node.js + npm | Required at build time only, to compile Tailwind CSS |
+| Node.js + npm | Required only to *change* the stylesheet — the compiled CSS ships in the repository |
 | Web server | Nginx + PHP-FPM, or Apache with the bundled `.htaccess` |
 | TLS | Required in production |
 
-MySQL 8.0 specifically: the codebase relies on `ROW(...)` table constructors (8.0.19+) and window
-functions (8.0.20+).
+`composer.json` requires `^8.2` and pins `config.platform.php` to `8.2.0`, so Composer will not
+resolve dependencies for an older PHP even if one happens to be on the host. Nothing in the
+codebase depends on a specific MySQL 8.0.x point release — no `ROW(...)` table constructor and no
+window function appears anywhere in `src/`, `db/` or `tests/`. "8.0 or newer" is a floor chosen for
+`utf8mb4_unicode_ci` and JSON column support, not a version-specific SQL feature.
+
+---
+
+## Deployment layouts
+
+Aureo supports three layouts. All three are handled by one request-path resolver
+(`App\Core\RequestPath`, see
+[ARCHITECTURE.md](./ARCHITECTURE.md#requestpath-and-configloader)), so the application code does
+not change between them — only where the document root points and how configuration is supplied.
+
+| Layout | Document root | Configuration | Notes |
+|---|---|---|---|
+| **Recommended** | `<app>/public` | `.env` above the document root | Nothing web-reachable but the front controller and assets |
+| Drop-in | `<app>` (the application root) | PHP config file written above the document root by the installer | Requires the release archive, never a `git clone` |
+| Subdirectory | `<parent>`, with the app in `<parent>/aureo` | As above | Asset and route URLs carry the `/aureo` prefix automatically |
+
+**Document root at `public/` remains recommended.** It is the only layout where the web server can
+serve *only* the front controller and static assets — everything else (`.env`, `vendor/`, `db/`,
+`tests/`, and the rest of `src/`) sits outside the document root entirely and is unreachable by
+URL, full stop, regardless of `.htaccess`/`web.config` rules or a misconfiguration in either. The
+other two layouts are supported for hosts that give you no choice of document root (common on
+shared hosting), and they rely on the hardening rules in the shipped `.htaccess` / `web.config` to
+deny the files that would otherwise be exposed.
+
+**A `git clone` must never be extracted at a document root.** A `.git/` directory under a served
+root discloses the full source history via `GET /.git/config`, `GET /.git/HEAD`, and the object
+store underneath — no application-level fix prevents this once `.git/` itself is web-reachable. The
+release archive (built for the drop-in and subdirectory layouts) omits `.git/` and most
+non-runtime files entirely; a `git clone` does not. Use the recommended `public/`-as-document-root
+layout for a clone, or the release archive for the other two.
+
+### Drop-in layout: nginx
+
+Apache picks up the bundled root `.htaccess` automatically. nginx has no per-directory
+configuration, so the equivalent rules have to live in the server block:
+
+```nginx
+server {
+    listen 443 ssl http2;
+    server_name your-domain.com;
+    root /var/www/aureo;              # application root, NOT public/
+    index index.php;
+
+    # Deny directories that must never be served. .htaccess enforces the same
+    # list; nginx has no per-directory config, so it has to be here instead.
+    location ~ ^/(\.git|db|tests|bin|node_modules|var|log|vendor|config)(/|$) {
+        deny all;
+    }
+
+    location ~ \.(env|log|sql|md|lock|json|xml|dist|yml|yaml|gz)$ {
+        deny all;
+    }
+
+    location / {
+        try_files $uri $uri/ /index.php?$query_string;
+    }
+
+    location ~ \.php$ {
+        fastcgi_pass unix:/run/php/php8.2-fpm.sock;
+        fastcgi_index index.php;
+        fastcgi_param SCRIPT_FILENAME $realpath_root$fastcgi_script_name;
+        include fastcgi_params;
+    }
+}
+```
+
+The root `index.php` delegate sets `AUREO_ASSET_PREFIX` to `/public/assets` before including
+`public/index.php`, so assets are served straight out of the real `public/assets` directory without
+copying or symlinking anything. `BASE_PATH` still resolves to `public/` internally, which is what
+keeps every `require`/`include` in the codebase working unchanged in this layout — see
+[ARCHITECTURE.md](./ARCHITECTURE.md#why-base_path-stays-at-public).
 
 ---
 
@@ -46,7 +122,8 @@ cd Aureo-Project-Management
 # Production dependencies, optimized autoloader
 composer install --no-dev --optimize-autoloader
 
-# Build the stylesheet (compiled CSS is not committed)
+# Rebuild the stylesheet only if you are changing it — public/assets/css/styles.css
+# ships in the repository, so this step is optional for a stock install.
 npm install
 npm run build
 ```
@@ -119,10 +196,53 @@ Note that the `testing` environment appends `_test` to `DB_NAME`.
 
 ---
 
+## Configuration sources
+
+`App\Core\ConfigLoader` resolves configuration from the first available source, in this order:
+
+1. **Real environment variables.** If all five required keys (`APP_DEBUG`, `DB_HOST`, `DB_NAME`,
+   `DB_USERNAME`, `DB_PASSWORD`) are already set in the process environment — via `$_ENV`,
+   `$_SERVER`, or `getenv()` — nothing else is read. This is what makes a container or PaaS
+   deployment work with no config file at all: set the environment and boot. Every other key the
+   app reads (`PASSWORD_PEPPER`, `SMTP_*`, `APP_SCHEME`, ...) is copied in from `getenv()` at this
+   point too, not only the five required ones.
+2. **`AUREO_CONFIG` override.** An environment variable (or `$_SERVER` entry) naming an absolute
+   path to a config file — `.env` format or a PHP file returning an array — checked before any
+   fixed location.
+3. **`config/config-path.php`**, one level above the document root. A pointer file the installer
+   writes when it places the real secrets somewhere else on the filesystem; it `require`s to a
+   string path, which is then loaded the same way as rung 4 or 5.
+4. **`config/config.php`**, one level above the document root — a PHP file `require`d and expected
+   to `return` an array of key/value pairs. This exists for the drop-in and subdirectory layouts:
+   a plain-text `.env` is unreadable-by-default only while it sits *above* the document root, and
+   an install that places the application *at* the document root cannot rely on that — nginx has no
+   per-directory rule to deny it with, either. A PHP file served directly executes and emits
+   nothing, so it is safe even inside a served directory.
+5. **`.env`**, one level above the document root, loaded via `vlucas/phpdotenv`. This remains the
+   developer default and the recommended-layout convention; nothing about an existing `.env`-based
+   setup changes.
+
+If none of the five sources yields all five required keys, boot fails with a `RuntimeException`
+naming every path that was tried — deliberately, since a silent partial boot against the wrong
+database is worse than refusing to start. `phinx.php` resolves configuration through the same
+`ConfigLoader` chain, so migrations work identically regardless of which source a given install
+uses.
+
+**Before this existed:** the application could not boot from environment variables at all —
+`Config::loadEnvironment()` required a `.env` file one level above the document root and threw a
+`RuntimeException` otherwise. That broke every containerized or PaaS deployment (Docker, Heroku,
+Fly.io, ...) where configuration is supplied purely as environment variables. Rung 1 above is the
+fix; rungs 2-5 are the rest of the chain that also makes the drop-in and subdirectory layouts
+possible.
+
+---
+
 ## Web server
 
-**Point the document root at `public/`.** Serving the repository root exposes `.env`, `vendor/`
-and `log/` — this is the single most important deployment detail.
+**Point the document root at `public/` when you can.** Serving the repository root exposes `.env`,
+`vendor/` and `log/` unless the hardening rules below are in place — pointing at `public/` makes
+the question moot, which is why it is the single most important deployment detail. See
+[Deployment layouts](#deployment-layouts) for the drop-in and subdirectory alternatives.
 
 ### Nginx
 
@@ -138,7 +258,7 @@ server {
     }
 
     location ~ \.php$ {
-        fastcgi_pass unix:/run/php/php8.1-fpm.sock;
+        fastcgi_pass unix:/run/php/php8.2-fpm.sock;
         fastcgi_index index.php;
         fastcgi_param SCRIPT_FILENAME $realpath_root$fastcgi_script_name;
         include fastcgi_params;
@@ -148,6 +268,10 @@ server {
     location ~ /\. { deny all; }
 }
 ```
+
+This is the recommended (`public/`-as-document-root) layout. See
+[Deployment layouts](#deployment-layouts) above for the drop-in layout's server block, which needs
+more than this — nginx has no per-directory configuration to fall back on.
 
 Redirect port 80 to 443.
 
@@ -199,8 +323,10 @@ user and all 55 permissions.
 
 Before exposing the instance:
 
-- [ ] Document root is `public/`, not the repository root
-- [ ] `.env` is `chmod 600` and not in version control
+- [ ] Document root is `public/` (recommended layout) — or, if using the drop-in or subdirectory
+      layout instead, the hardening rules in `.htaccess`/`web.config` are in place and verified
+- [ ] `.env` (or the equivalent config source — see [Configuration sources](#configuration-sources))
+      is `chmod 600` and not in version control
 - [ ] `APP_ENV=production`, `APP_DEBUG=false`, `APP_SCHEME=https`
 - [ ] `SESSION_SECURE=true`, `SESSION_HTTP_ONLY=true`
 - [ ] `DB_PASSWORD` non-empty; the database user is not root
@@ -208,7 +334,8 @@ Before exposing the instance:
 - [ ] Seeded admin password changed
 - [ ] HTTPS working; HTTP redirects to HTTPS
 - [ ] `composer install --no-dev --optimize-autoloader` used
-- [ ] `npm run build` run so `public/assets/css/styles.css` exists
+- [ ] `public/assets/css/styles.css` present (it ships in the repository; rebuild with
+      `npm run build` only if you changed `src/css/input.css`)
 - [ ] `log/` and `var/cache/` writable
 - [ ] SMTP verified by triggering a real password reset
 - [ ] `composer audit` shows no unaddressed advisories
@@ -237,7 +364,7 @@ vendor/bin/phinx migrate -e production
 rm -rf var/cache/*
 
 # 6. Reload PHP-FPM so opcache picks up new code
-sudo systemctl reload php8.1-fpm
+sudo systemctl reload php8.2-fpm
 ```
 
 Step 5 matters: with `APP_ENV=production` the DI container is compiled, and stale compiled
@@ -335,7 +462,12 @@ state-changing request fails. For an HTTP-only internal instance, set `SESSION_S
 `APP_SCHEME=http` — and understand you are transmitting sessions in the clear.
 
 **Unstyled pages.**
-`public/assets/css/styles.css` is a build artifact and is not committed. Run `npm run build`.
+`public/assets/css/styles.css` **is tracked in the repository** — a stock checkout is already
+styled and `npm`/`npm run build` are not required to see it. If pages are unstyled, check instead
+that the document root or `AUREO_ASSET_PREFIX`/`Config::basePath()` combination is producing the
+right URL for a subdirectory or drop-in install (see
+[Deployment layouts](#deployment-layouts)), or that `npm run build` was run *after* a local edit to
+`src/css/input.css` and produced a stylesheet that didn't get deployed.
 
 **Changes not taking effect after deploy.**
 PHP opcache is serving old bytecode, and/or `var/cache` holds a stale compiled container. Reload

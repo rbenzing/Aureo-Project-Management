@@ -176,11 +176,21 @@ Full design rationale and request lifecycle: [ARCHITECTURE.md](./docs/ARCHITECTU
 
 ## 🚢 Deployment
 
-1. Point the web server's document root at `public/`.
+1. Point the web server's document root at `public/` — recommended, and the only layout where
+   nothing but the front controller and static assets is web-reachable.
 2. Set `APP_ENV=production`, `APP_DEBUG=false`, `APP_SCHEME=https`, `SESSION_SECURE=true`.
 3. Provide a non-empty `DB_PASSWORD` — production refuses to boot without it.
-4. Run `composer install --no-dev --optimize-autoloader` and `npm run build`.
+4. Run `composer install --no-dev --optimize-autoloader`. `public/assets/css/styles.css` ships in
+   the repository, so `npm run build` is only needed if you're changing the stylesheet.
 5. Configure HTTPS. [SECURITY.md](./docs/SECURITY.md) covers headers and cookie posture.
+
+Hosts that don't allow a `public/`-only document root are also supported — document root at the
+application root, or a subdirectory install — via a five-rung configuration chain and a shared
+mount-point resolver. See
+[Deployment layouts](./docs/DEPLOYMENT.md#deployment-layouts) and
+[Configuration sources](./docs/DEPLOYMENT.md#configuration-sources) in DEPLOYMENT.md. Whichever
+layout you use, **never extract a `git clone` at a document root** — a web-reachable `.git/`
+directory discloses the full source history.
 
 ### Nginx example
 
@@ -209,6 +219,7 @@ Apache works with the bundled `public/.htaccess`.
 ## 📚 Documentation
 
 - **[Architecture](./docs/ARCHITECTURE.md)**: Request lifecycle, layers, and the conventions that hold it together
+- **[Deployment](./docs/DEPLOYMENT.md)**: Deployment layouts, configuration sources, web server setup, and operations
 - **[Contributing](./CONTRIBUTING.md)**: Development workflow, coding standards, and PR expectations
 - **[Security](./docs/SECURITY.md)**: Security features, production checklist, and vulnerability reporting
 - **[Agent Guidance](./.claude/CLAUDE.md)**: Project-specific footguns — read before non-trivial work

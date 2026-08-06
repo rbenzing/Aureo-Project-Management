@@ -7,6 +7,7 @@ Only facts an agent can't infer from code search. Update when something bites.
 - DI: small custom container at [config/container.php](../config/container.php) — `$container->get(Class::class)`.
 - Views: plain PHP in [src/Views/](../src/Views/). Escape with `htmlspecialchars()`.
 - DB: raw PDO via `BaseModel::queryBuilder()`. Soft deletes auto-injected via `is_deleted = 0`.
+- Three supported deployment layouts (docroot at `public/`, docroot at app root, subdirectory install) resolved by `App\Core\RequestPath`/`Config::basePath()`. `BASE_PATH` always stays `public/` regardless of layout — see [docs/ARCHITECTURE.md](../docs/ARCHITECTURE.md#why-base_path-stays-at-public).
 
 ## Lifecycle
 - `composer install` runs npm install + npm run build only.
@@ -25,6 +26,10 @@ Only facts an agent can't infer from code search. Update when something bites.
 - **Top-level catch in [public/index.php](../public/index.php) is `\Throwable`**, and `LoggerService::exception()` accepts `\Throwable`. Don't narrow these.
 - **Auth gate runs BEFORE routing.** New public route → add first URL segment to `$publicPaths`.
 - **Session shape:** `$_SESSION['user'] = ['id','profile'=>[...],'roles'=>[],'permissions'=>[],'config'=>[]]`. Permissions via `hasUserPermission($name)` or `requirePermission($name)`.
+- **`requirePermission()` is `void` and halts on failure** (403 + exit path), it does not return a boolean. `!$this->requirePermission(...)` is always `!null` — always `true` — and reads as "check failed" when it never can. `TimeTrackingController::startTimer()` has exactly this bug: `!$this->requirePermission('manage_tasks')` rejects users who DO have the permission. Check permissions with `hasUserPermission()` when you need a boolean; use `requirePermission()` only for its side effect.
+- **`asset()` is the only way to reference bundled CSS/JS.** Asset URLs were hardcoded root-absolute in 53 places across 51 views (every view has its own `<head>`), which broke subdirectory installs entirely. `AssetUrlTest` fails on any new hardcoded `/assets/` URL. A miss is invisible on a dev machine, where the base path is empty.
+- **Do NOT locate the config file with `dirname(BASE_PATH, 2)`.** Correct for the docroot-is-`public/` and docroot-is-app-root layouts, but for a subdirectory install it resolves *inside* the web root. Derive from `DOCUMENT_ROOT`. (Separately, `dirname(BASE_PATH, 2)` is also wrong for the log path — same footgun, different concern.)
+- **`renderCSRFToken()` reading `$csrfToken` from its own function body always returns an empty token.** `BaseController::render()` only `extract()`s `$csrfToken` into *view* scope, and a function body cannot see a caller's local variables — this is the same defect class as the `render()` rule above, just inside a helper instead of a view. Fixed in `FormComponents.php` by reading `$_SESSION['csrf_token']` directly (the value `CsrfMiddleware` itself writes and validates against). `ViewHelpers.php::renderTimerControls()` has the identical bug and is currently unfixed — it is dead code (nothing calls it), so it has not manifested, but copying its pattern into live code will silently ship a broken CSRF field.
 
 ## Testing & coverage
 - **Coverage needs a driver.** Local = Xdebug (`xdebug.mode=coverage` in php.ini); CI = PCOV. Without one, `--coverage-*` silently produces nothing and every strictness check below becomes a no-op — the suite looks green while proving nothing. This bit us: CI was red for 45 risky tests that never appeared locally.
@@ -43,13 +48,11 @@ Only facts an agent can't infer from code search. Update when something bites.
 - CI matrix covers 8.2/8.3/8.4/8.5; only the 8.2 job runs the coverage gate (a single floor file cannot be ratcheted by parallel jobs).
 
 ## Schema & migrations
-- Canonical migration [db/migrations/20251222180705_initial_database_schema.php](../db/migrations/20251222180705_initial_database_schema.php) IS the install path AND seeds the admin user with all 55 permissions. Do not rename/rewrite — add NEW Phinx migrations instead. `schema.sql` is informational only.
-- `phinx.php` declares `production`/`local`/`development`/`testing` envs. New `APP_ENV` value → add a matching block or Phinx fails.
+- Canonical migration [db/migrations/20251222180705_initial_database_schema.php](../db/migrations/20251222180705_initial_database_schema.php) IS the install path AND seeds the admin user with all 55 permissions. Do not rename/rewrite — add NEW Phinx migrations instead. There is no separate `schema.sql` — it was deleted (dead, drifted from the migration) and the canonical migration is the only schema representation.
+- `phinx.php` declares `production`/`local`/`development`/`testing` envs. New `APP_ENV` value → add a matching block or Phinx fails. It resolves config via the same `App\Core\ConfigLoader` five-rung chain as the app (env vars → `AUREO_CONFIG` override → `config/config-path.php` → `config/config.php` → `.env` — see [docs/DEPLOYMENT.md#configuration-sources](../docs/DEPLOYMENT.md#configuration-sources)), so migrations work under every deployment layout.
 
 ## SQL gotchas
 - **Native MySQL prepares** (with `PDO::ATTR_EMULATE_PREPARES=false`) require one named placeholder per binding. Reusing `:foo` twice in one statement throws `Invalid parameter number` — use distinct names (`:foo_a`, `:foo_b`).
-- **`VALUES (...)` table constructors require `ROW(...)` keyword** on MySQL 8.0.19+. Bare `(a,b,c)` doesn't parse as a derived table.
-- **Window functions** (8.0.20+) reject non-deterministic `ORDER BY` (e.g. `RAND()`).
 - **`INSERT ... ON DUPLICATE KEY UPDATE`** is the project's pattern for upserts — see `SecurityService::checkRateLimit` for an example.
 
 ## Env quirks

@@ -8,7 +8,7 @@ for the sharp edges that will bite you in the first hour.
 
 ## Design principles
 
-**No framework.** Aureo is a custom MVC application on plain PHP 8.1+. There is no Laravel, no
+**No framework.** Aureo is a custom MVC application on plain PHP 8.2+. There is no Laravel, no
 Symfony HttpKernel, no Eloquent, no Blade, no annotation routing, and no JavaScript framework. The
 tradeoff is deliberate: the entire request path is readable in an afternoon, upgrades are ours to
 schedule, and nothing behaves by magic. The cost is that conventions are enforced by review and by
@@ -35,16 +35,17 @@ the only route registry — and moves through these stages in order:
 | 1 | **Session** | `session_start()` before anything else. |
 | 2 | **CSP header** | Content-Security-Policy emitted immediately, before any code can output. |
 | 3 | **Autoload** | Composer autoloader; `App\` → `src/`, PSR-4. |
-| 4 | **Config** | `Config::init()` loads `.env` **before** the container, because container factories read `$_ENV`. |
-| 5 | **Container** | `config/container.php` returns a built PHP-DI container. |
-| 6 | **Security headers** | `SecurityService::applySecurityHeaders()`, with a hardcoded fallback set if settings are unavailable. |
-| 7 | **Rate limit** | Database-persisted check; 429 and exit on breach. |
-| 8 | **Input size** | POST bodies over the configured limit get 413 and exit. |
-| 9 | **Middleware** | `CsrfMiddleware::handleToken()`, then `ActivityMiddleware::handle()`. |
-| 10 | **Auth gate** | Runs **before routing**. Any first URL segment not in `$publicPaths` requires an authenticated session. |
-| 11 | **Event wiring** | Listeners registered on the `EventDispatcher` singleton. |
-| 12 | **Routing** | `Router::dispatch($method, $segments)` resolves the controller from the container and invokes the action. |
-| 13 | **Error handling** | `\PDOException` and `\Throwable` catches log and render a response whose detail level depends on `shouldHideErrorDetails()`. |
+| 4 | **Config** | `Config::init()` resolves configuration via `ConfigLoader` **before** the container, because container factories read `$_ENV`. |
+| 5 | **Base path** | `RequestPath::fromGlobals()` resolves the mount point; `Config::setBasePath()` stores it for `asset()` and any generated URL. |
+| 6 | **Container** | `config/container.php` returns a built PHP-DI container. |
+| 7 | **Security headers** | `SecurityService::applySecurityHeaders()`, with a hardcoded fallback set if settings are unavailable. |
+| 8 | **Rate limit** | Database-persisted check; 429 and exit on breach. |
+| 9 | **Input size** | POST bodies over the configured limit get 413 and exit. |
+| 10 | **Middleware** | `CsrfMiddleware::handleToken()`, then `ActivityMiddleware::handle()`. |
+| 11 | **Auth gate** | Runs **before routing**, using `RequestPath`'s segments. Any first URL segment not in `$publicPaths` requires an authenticated session. |
+| 12 | **Event wiring** | Listeners registered on the `EventDispatcher` singleton. |
+| 13 | **Routing** | `Router::dispatch($method, $segments)` resolves the controller from the container and invokes the action, using the same `RequestPath` segments as the auth gate. |
+| 14 | **Error handling** | `\PDOException` and `\Throwable` catches log and render a response whose detail level depends on `shouldHideErrorDetails()`. |
 
 Two consequences worth internalizing:
 
@@ -84,8 +85,51 @@ public/index.php          front controller + route registry
 
 ### `Core/`
 
-`Router`, `Config`, `Database`, `Response`, `ApiResponse`. Small, boring, and stable — changes here
-affect everything, so they get the most scrutiny in review.
+`Router`, `Config`, `Database`, `Response`, `ApiResponse`, `RequestPath`, `ConfigLoader`. Small,
+boring, and stable — changes here affect everything, so they get the most scrutiny in review.
+
+#### `RequestPath` and `ConfigLoader`
+
+Aureo supports three deployment layouts (document root at `public/`, document root at the
+application root, and a subdirectory install) plus a fourth fallback where no rewrite rule is
+available at all and URLs run through `/index.php/...`. Two small, pure classes make that possible
+without branching the rest of the codebase:
+
+- **`RequestPath`** (`src/Core/RequestPath.php`) takes `REQUEST_URI` and `SCRIPT_NAME` and derives
+  the application's mount point (`basePath()`, e.g. `''` or `'/aureo'`), the route path with the
+  mount point stripped (`path()`), and the router segments (`segments()`). It is a pure value
+  object — no globals read internally, no I/O — constructed once in `public/index.php` via
+  `RequestPath::fromGlobals()` and shared by both the auth gate and the router dispatch call, which
+  previously each computed URL segments with their own duplicated, domain-root-only logic. Prefix
+  matching is segment-boundary aware (`hasPrefix()`): a naive `str_starts_with()` would treat `/a`
+  as a prefix of `/abc/projects` and mis-route the request.
+- **`ConfigLoader`** (`src/Core/ConfigLoader.php`) resolves application configuration from the
+  first available source in a five-rung chain — real environment variables, an `AUREO_CONFIG`
+  override, an installer-written `config/config-path.php` pointer, `config/config.php`, then
+  `.env` — so the application can boot from a container's environment alone, from a PHP config file
+  in layouts where a plain-text `.env` would be web-reachable, or from the traditional `.env` above
+  the document root. See [DEPLOYMENT.md](./DEPLOYMENT.md#configuration-sources) for the full
+  resolution order and the reasoning behind each rung. `phinx.php` uses the same chain, so
+  migrations work identically regardless of which source a given install uses.
+
+`Config::setBasePath()` / `Config::basePath()` store the mount point `RequestPath` resolved, set
+once during boot in `public/index.php`. The `asset()` view helper
+(`src/Views/Layouts/ViewHelpers.php`) composes `Config::basePath()` with `AUREO_ASSET_PREFIX` to
+build every bundled CSS/JS URL, which is what makes the same view markup correct under all three
+layouts.
+
+#### Why `BASE_PATH` stays at `public/`
+
+`BASE_PATH` is defined once, in `public/index.php`, as `__DIR__` — i.e. `public/` — regardless of
+deployment layout. The root `index.php` delegate (used by the drop-in and subdirectory layouts)
+does not redefine it; it only sets `AUREO_ASSET_PREFIX` before `require`-ing `public/index.php`,
+so `BASE_PATH` still resolves to `public/` even when the document root is the application root or
+a parent directory. Every one of the roughly 320 `require`/`include`/`render()` calls in the
+codebase is written relative to `BASE_PATH` (`BASE_PATH . '/../src/Views/...'`, `BASE_PATH .
+'/../vendor/autoload.php'`, and so on). Keeping `BASE_PATH` fixed at `public/` in every layout is
+what lets those 320 call sites stay unmodified — the alternative (deriving `BASE_PATH` from the
+actual document root) would have meant auditing and branching every include in the codebase by
+layout instead of resolving the mount point in one place.
 
 ### `Controllers/`
 
@@ -177,8 +221,6 @@ new migration instead. It is the only schema representation; there is no separat
 - Native prepares are on (`PDO::ATTR_EMULATE_PREPARES = false`), so **each binding needs its own
   named placeholder**. Reusing `:foo` twice in one statement throws `Invalid parameter number` —
   use `:foo_a` / `:foo_b`.
-- `VALUES (...)` table constructors need the `ROW(...)` keyword on MySQL 8.0.19+.
-- Window functions (8.0.20+) reject non-deterministic `ORDER BY` such as `RAND()`.
 - `INSERT ... ON DUPLICATE KEY UPDATE` is the project's upsert idiom — see
   `SecurityService::checkRateLimit()`.
 
@@ -207,8 +249,10 @@ are 55 permissions seeded by the canonical migration.
 ## Frontend
 
 Tailwind CSS 3.4 compiled from `src/css/input.css` to `public/assets/css/styles.css` via
-`npm run build`. The compiled stylesheet is a **build artifact and is not committed** — `composer
-install` builds it, and `npm run watch` rebuilds on change.
+`npm run build`. Unlike most build artifacts, **the compiled stylesheet is tracked in the
+repository** — a stock checkout is already styled with no Node.js step required. `composer install`
+still runs `npm install` + `npm run build`, and `npm run watch` rebuilds on change, but both exist
+only to let you *change* the stylesheet, not to produce it for the first time.
 
 JavaScript is vanilla and lives in `public/assets/js/`: `scripts.js` (shared behavior),
 `command-palette.js` (global keyboard search), `favorites.js` / `favorites-utils.js`. Feature-local

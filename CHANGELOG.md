@@ -11,6 +11,117 @@ in step.
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-08-06
+
+Host-layout independence: the application no longer assumes it owns the document root or that
+configuration arrives as a `.env` file above it. Three deployment layouts are now supported end to
+end (document root at `public/`, document root at the application root, and a subdirectory
+install), configuration can come from real environment variables alone, and a long-broken
+time-tracking feature was completed and wired up. No breaking change — minor bump.
+
+### Added
+
+- **Three supported deployment layouts** — document root at `public/` (recommended, unchanged),
+  document root at the application root ("drop-in", for hosts that allow no other document root),
+  and a subdirectory install — all served by one `App\Core\RequestPath` resolver rather than
+  per-layout branches. See [docs/DEPLOYMENT.md](./docs/DEPLOYMENT.md#deployment-layouts).
+- **`App\Core\RequestPath`** derives the application's mount point and route path from
+  `SCRIPT_NAME`/`REQUEST_URI`, replacing two duplicated, domain-root-only URL-segmentation blocks
+  in the front controller (the auth gate and the router dispatch each had their own copy). A pure
+  value object with segment-boundary-aware prefix matching, so `/a` is never mistaken for a prefix
+  of `/abc/projects`.
+- **`App\Core\ConfigLoader`** resolves configuration from a five-rung chain — real environment
+  variables, an `AUREO_CONFIG` override, an installer-written `config/config-path.php` pointer,
+  `config/config.php`, then `.env` — instead of a single hardcoded `.env` lookup. See
+  [docs/DEPLOYMENT.md](./docs/DEPLOYMENT.md#configuration-sources). `phinx.php` uses the same
+  chain, so migrations work identically under every layout.
+- Root `index.php` delegate, `AUREO_ASSET_PREFIX`, and the `asset()` view helper
+  (`src/Views/Layouts/ViewHelpers.php`), which compose `Config::basePath()` with the asset prefix
+  so bundled CSS/JS resolves correctly under all three layouts. 53 hardcoded asset URLs across 51
+  views were rewritten to use it.
+- Root `.htaccess` and `web.config` hardening for the drop-in layout: denies `.git`, `db`, `tests`,
+  `bin`, `node_modules`, `var`, `log`, `vendor`, `config`, and non-PHP files that would otherwise be
+  disclosed (dotfiles, logs, SQL dumps, lockfiles) if a full tree is extracted at a document root.
+- **Time-tracking edit, update and delete endpoints**, plus an `App\Models\TimeEntry` model. The
+  time-tracking list has always rendered an edit link and a delete button that pointed at routes
+  which did not exist. Delete uses **POST, not DELETE** — `CsrfMiddleware` validates only POST
+  requests, so a DELETE route would have shipped a destructive, CSRF-unprotected endpoint.
+  `TimeEntry` is the project's **first hard-deleting model**: `time_entries` has no `is_deleted`
+  column, so `usesSoftDeletes = false`.
+- Guard tests: `DeadViewTest` (every view under `src/Views` must be a `render()` target or included
+  by another view), `AssetUrlTest` (fails on any new hardcoded `/assets/` URL),
+  `ViewHelperLoadingTest` (forbids a view from loading `ViewHelpers.php` itself), and
+  `FormComponentsTest`.
+
+### Fixed
+
+- **The application could not boot from environment variables at all.**
+  `Config::loadEnvironment()` required a `.env` file one level above the document root and threw a
+  `RuntimeException` when it was absent — breaking every containerized or PaaS deployment that
+  supplies configuration purely as environment variables. `ConfigLoader`'s first rung fixes this.
+- **`ConfigLoader`'s environment rung did not actually populate `$_ENV`.** PHP's default
+  `variables_order` is `GPCS` (no `E`), so real environment variables never reach `$_ENV` even
+  though `getenv()` sees them; `environmentIsComplete()` checks all three sources and reported
+  success, but every one of the 104 `$_ENV[...]` reads across the app then found nothing. This
+  mattered beyond a cosmetic gap: `PASSWORD_PEPPER` silently falling back to its default would have
+  invalidated every stored password. Rung 1 now copies the full real environment into `$_ENV`
+  before returning.
+- **`renderCSRFToken()` emitted an empty CSRF token for every caller.** It read `$csrfToken` from
+  its own function body, but `BaseController::render()` only `extract()`s it into *view* scope —
+  functions don't see caller-local variables. Five forms were unusable as a result: Projects
+  create, Roles create and edit, Templates create and edit. Now reads `$_SESSION['csrf_token']`
+  directly, the value `CsrfMiddleware` itself writes and validates against.
+- **Subdirectory installs could not work.** Asset URLs were hardcoded root-absolute in 53 places
+  across 51 views (every view carries its own `<head>`), and `Config` had no notion of a mount
+  point to prepend. Fixed by `RequestPath` + `Config::basePath()` + `asset()` together.
+- **`ViewHelpers.php` was not loaded before a view's `<head>` ran.** Only about 19 of 54 views
+  loaded it themselves, and always below their own `<head>` — so `asset()` was undefined at runtime
+  for most pages the moment their `<head>` called it. `BaseController::render()` now
+  `require_once`s it unconditionally before any view content runs.
+
+### Removed
+
+- `schema.sql` — drifted from the canonical Phinx migration and was informational-only for some
+  time; the migration is now the sole schema representation. Five enum `@see` anchors that pointed
+  at its line numbers now point at the migration by table name instead.
+- Three unreferenced `TimeTracking` views (`create.php`, `edit.php`, `view.php`) — rendered by no
+  controller action.
+- Sixteen views' redundant per-view `ViewHelpers.php` loads, now that `render()` guarantees the
+  file is loaded once. Five of them used a plain `include` rather than `include_once`, which
+  re-executed the file and fataled on function redeclaration once `render()` started loading it too
+  (`/activity`, `/tasks`, `/tasks/backlog`, `/tasks/sprint-planning`, `/time-tracking`).
+
+### Known issues
+
+Found during this work and deliberately left unfixed — recorded here so they are not lost.
+
+- **`ProjectController::create()` is broken.** It inserts a `key_code` column that does not exist
+  on the `projects` table (`SQLSTATE[42S22]`). Project creation currently fails for every caller.
+- **`RoleController::create()` is broken.** Fails with `PDO->rollBack(): There is no active
+  transaction`.
+- **`TimeTrackingController::startTimer()` rejects users who should be allowed.** Line ~357:
+  `!$this->requirePermission('manage_tasks')`. `requirePermission()` is `void` and halts on
+  failure, so `!null` is always `true` — a user *with* `manage_tasks` is still rejected.
+- **`Tasks/backlog.php` reads `$selectedProjectId`, but `TaskController::backlog()` passes
+  `$projectId`.** The project filter dropdown never shows a pre-selected project.
+- **`ViewHelpers.php::renderTimerControls()` has the same function-scope `$csrfToken` bug fixed in
+  `FormComponents.php::renderCSRFToken()`.** It is currently dead code (nothing calls it), so the
+  bug has not shipped — but copying its pattern elsewhere will silently reproduce it.
+- **`src/Http/Requests/*`** (the `FormRequest` base class and its four subclasses) is referenced by
+  no controller. Deleting it would drop Tier 1 coverage to within 0.08 points of the coverage
+  gate's fail threshold — inside the gate's own documented run-to-run drift — so it was flagged
+  rather than removed.
+- **Local integration tests cannot run as configured, and the skip message's instructions do not
+  work.** `phpunit.xml` hardcodes `DB_NAME=pms_test` with an empty password, while `phinx.php`'s
+  `testing` environment derives its database name as `$_ENV['DB_NAME'] . '_test'` from whatever
+  `.env` contains — the two can never agree on a stock local `.env`. CI only works because the
+  workflow rewrites `.env` (`sed -i 's/^DB_NAME=.*/DB_NAME=pms/' .env`) immediately before running
+  migrations. **The real local procedure:** set `DB_NAME=pms` in your local `.env` (so the
+  `testing` environment computes `pms_test`, matching `phpunit.xml`), point `DB_USERNAME`/
+  `DB_PASSWORD` at a MySQL user matching `phpunit.xml`'s hardcoded `root` / empty password (or edit
+  `phpunit.xml` to match your local credentials instead), then run
+  `vendor/bin/phinx migrate -e testing` before `composer test`.
+
 ## [1.0.2] - 2026-08-02
 
 Six production defects, all found by writing tests against code that had none.
@@ -144,7 +255,8 @@ uncatchable `TypeError`.
 
 Initial tagged release.
 
-[Unreleased]: https://github.com/rbenzing/Aureo-Project-Management/compare/1.0.2...HEAD
+[Unreleased]: https://github.com/rbenzing/Aureo-Project-Management/compare/1.1.0...HEAD
+[1.1.0]: https://github.com/rbenzing/Aureo-Project-Management/compare/1.0.2...1.1.0
 [1.0.2]: https://github.com/rbenzing/Aureo-Project-Management/compare/1.0.1...1.0.2
 [1.0.1]: https://github.com/rbenzing/Aureo-Project-Management/compare/1.0.0...1.0.1
 [1.0.0]: https://github.com/rbenzing/Aureo-Project-Management/releases/tag/1.0.0

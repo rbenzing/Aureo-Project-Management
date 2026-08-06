@@ -266,7 +266,7 @@ detail lives in [SECURITY.md](./SECURITY.md).
 
 ## 7. Non-functional requirements
 
-- **Platform:** PHP 8.1+, MySQL 8.0+. `declare(strict_types=1)` on all non-view PHP.
+- **Platform:** PHP 8.2+, MySQL 8.0+. `declare(strict_types=1)` on all non-view PHP.
 - **No framework.** No Laravel/Symfony/Eloquent/Blade, no ORM, no JavaScript framework. Vanilla
   PHP plus Tailwind CSS. This is a hard architectural constraint, not a preference.
 - **Style:** PSR-12, enforced in CI across `src/`, `public/`, `tests/`, `bin/` and `config/`.

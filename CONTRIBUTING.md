@@ -22,7 +22,7 @@ By contributing, you agree that your contributions are licensed under the
 
 ## Development setup
 
-**Prerequisites:** PHP 8.1+, MySQL 8.0+, Composer, Node.js + npm.
+**Prerequisites:** PHP 8.2+, MySQL 8.0+, Composer, Node.js + npm.
 
 ```bash
 git clone https://github.com/rbenzing/Aureo-Project-Management.git
