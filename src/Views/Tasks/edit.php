@@ -15,9 +15,6 @@ use App\Utils\Time;
 // Include form components
 require_once BASE_PATH . '/../src/Views/Layouts/FormComponents.php';
 
-// Include view helpers for permission functions
-require_once BASE_PATH . '/../src/Views/Layouts/ViewHelpers.php';
-
 // Load form data from session if available (for validation errors)
 $formData = $_SESSION['form_data'] ?? [];
 unset($_SESSION['form_data']);

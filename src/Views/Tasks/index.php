@@ -10,9 +10,6 @@ if (!defined('BASE_PATH')) {
 
 use App\Core\Config;
 
-// Include helper functions
-include BASE_PATH . '/../src/Views/Layouts/ViewHelpers.php';
-
 // Determine the context based on URL and viewType
 $isMyTasksView = isset($userId); // This would be set in the controller when /:user_id is present
 $currentUserId = $currentUser['profile']['id'] ?? null;

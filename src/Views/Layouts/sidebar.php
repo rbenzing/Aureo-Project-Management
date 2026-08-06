@@ -8,9 +8,6 @@ if (!defined('BASE_PATH')) {
     exit;
 }
 
-// Include view helpers for permission functions
-require_once BASE_PATH . '/../src/Views/Layouts/ViewHelpers.php';
-
 // Define menu items with required permissions
 $mainItems = [
     [

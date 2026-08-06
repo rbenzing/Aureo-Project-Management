@@ -10,9 +10,6 @@ if (!defined('BASE_PATH')) {
 
 use App\Core\Config;
 
-// Include view helpers for centralized status functions
-require_once BASE_PATH . '/../src/Views/Layouts/ViewHelpers.php';
-
 // Include helper functions
 include_once BASE_PATH . '/../src/Views/Sprints/inc/helpers.php';
 ?>

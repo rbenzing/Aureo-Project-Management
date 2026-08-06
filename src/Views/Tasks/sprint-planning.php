@@ -10,9 +10,6 @@ if (!defined('BASE_PATH')) {
 
 use App\Core\Config;
 
-// Include helper functions
-include BASE_PATH . '/../src/Views/Layouts/ViewHelpers.php';
-
 $currentPath = $_SERVER['REQUEST_URI'] ?? '';
 $breadcrumbs = [
     ['name' => 'Dashboard', 'url' => '/dashboard'],

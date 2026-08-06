@@ -8,9 +8,6 @@ if (!defined('BASE_PATH')) {
     exit;
 }
 
-// Include view helpers for permission functions
-require_once BASE_PATH . '/../src/Views/Layouts/ViewHelpers.php';
-
 // Only show if there's an active timer AND user has time tracking permissions
 if (empty($_SESSION['active_timer']) ||
     (!hasUserPermission('view_time_tracking') && !hasUserPermission('create_time_tracking'))) {

@@ -10,9 +10,6 @@ if (!defined('BASE_PATH')) {
 
 use App\Core\Config;
 
-// Include helper functions
-include BASE_PATH . '/../src/Views/Layouts/ViewHelpers.php';
-
 // Include task helper functions for consistent styling
 include_once BASE_PATH . '/../src/Views/Tasks/inc/helper_functions.php';
 

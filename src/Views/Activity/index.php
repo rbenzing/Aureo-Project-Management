@@ -10,9 +10,6 @@ if (!defined('BASE_PATH')) {
 
 use App\Core\Config;
 
-// Include helper functions
-include BASE_PATH . '/../src/Views/Layouts/ViewHelpers.php';
-
 // Set up activity-specific helper functions
 function getActivityIcon(string $eventType): string
 {
