@@ -5,9 +5,11 @@ declare(strict_types=1);
 
 namespace App\Controllers;
 
+use App\Core\ApiResponse;
 use App\Core\Database;
 use App\Models\Project;
 use App\Models\Task;
+use App\Models\TimeEntry;
 use App\Models\User;
 use App\Utils\Time;
 use InvalidArgumentException;
@@ -19,12 +21,14 @@ class TimeTrackingController extends BaseController
     private Task $taskModel;
     private Project $projectModel;
     private User $userModel;
+    private TimeEntry $timeEntryModel;
     private Database $db;
 
     public function __construct(
         ?Task $taskModel = null,
         ?Project $projectModel = null,
-        ?User $userModel = null
+        ?User $userModel = null,
+        ?TimeEntry $timeEntryModel = null
     ) {
         parent::__construct();
         $this->requirePermission('view_time_tracking');
@@ -32,6 +36,7 @@ class TimeTrackingController extends BaseController
         $this->taskModel = $taskModel ?? new Task();
         $this->projectModel = $projectModel ?? new Project();
         $this->userModel = $userModel ?? new User();
+        $this->timeEntryModel = $timeEntryModel ?? new TimeEntry();
         $this->db = Database::getInstance();
     }
 
@@ -469,5 +474,150 @@ class TimeTrackingController extends BaseController
         ];
 
         return $this->taskModel->createTimeEntry($entryData);
+    }
+
+    /**
+     * Show the edit form for a single time entry.
+     */
+    public function editForm(string $requestMethod, array $data): void
+    {
+        try {
+            $this->requirePermission('edit_time_tracking');
+
+            $id = filter_var($data['id'] ?? null, FILTER_VALIDATE_INT);
+            if (!$id) {
+                throw new InvalidArgumentException('Invalid time entry ID');
+            }
+
+            $timeEntry = $this->timeEntryModel->findWithDetails($id);
+            if ($timeEntry === null) {
+                throw new InvalidArgumentException('Time entry not found');
+            }
+
+            $this->assertMayModify($timeEntry);
+
+            $tasksResult = $this->taskModel->getAll(['is_deleted' => 0], 1, 1000);
+
+            $this->render('TimeTracking/edit', [
+                'timeEntry' => $timeEntry,
+                'tasks' => $tasksResult['records'],
+            ]);
+        } catch (InvalidArgumentException $e) {
+            $this->redirectWithError('/time-tracking', $e->getMessage());
+        } catch (\Throwable $e) {
+            $this->logException($e, 'TimeTrackingController::editForm');
+            $this->redirectWithError('/time-tracking', 'An error occurred loading the time entry.');
+        }
+    }
+
+    /**
+     * Persist edits to a time entry.
+     */
+    public function update(string $requestMethod, array $data): void
+    {
+        if ($requestMethod !== 'POST') {
+            $this->redirectWithError('/time-tracking', 'Invalid request method.');
+        }
+
+        try {
+            $this->requirePermission('edit_time_tracking');
+
+            $id = filter_var($data['id'] ?? null, FILTER_VALIDATE_INT);
+            if (!$id) {
+                throw new InvalidArgumentException('Invalid time entry ID');
+            }
+
+            $timeEntry = $this->timeEntryModel->find($id);
+            if (!$timeEntry) {
+                throw new InvalidArgumentException('Time entry not found');
+            }
+
+            $this->assertMayModify($timeEntry);
+
+            // The form submits date and time as four separate fields (edit.php
+            // renders them as distinct <input type="date"> / <input type="time">
+            // controls). strtotime() on the bare time alone defaults the date to
+            // today, which would silently move the entry to today's date on any
+            // edit that only touches notes or the billable flag.
+            $startDateTime = trim(($_POST['start_date'] ?? '') . ' ' . ($_POST['start_time'] ?? ''));
+            $endDateTime = trim(($_POST['end_date'] ?? '') . ' ' . ($_POST['end_time'] ?? ''));
+
+            $start = strtotime($startDateTime);
+            $end = strtotime($endDateTime);
+
+            if ($start === false || $end === false) {
+                throw new InvalidArgumentException('Start and end time must both be valid dates.');
+            }
+
+            if ($end <= $start) {
+                throw new InvalidArgumentException('End time must be after start time.');
+            }
+
+            $this->timeEntryModel->update($id, [
+                'task_id' => (int)($_POST['task_id'] ?? $timeEntry->task_id),
+                'start_time' => date('Y-m-d H:i:s', $start),
+                'end_time' => date('Y-m-d H:i:s', $end),
+                // Duration is derived, never taken from the form - a client-supplied
+                // value could disagree with the timestamps it is meant to summarise.
+                'duration' => $end - $start,
+                'notes' => trim((string)($_POST['notes'] ?? '')),
+                'is_billable' => empty($_POST['is_billable']) ? 0 : 1,
+            ]);
+
+            $this->redirectWithSuccess('/time-tracking', 'Time entry updated successfully.');
+        } catch (InvalidArgumentException $e) {
+            $this->redirectWithError('/time-tracking', $e->getMessage());
+        } catch (\Throwable $e) {
+            $this->logException($e, 'TimeTrackingController::update');
+            $this->redirectWithError('/time-tracking', 'An error occurred updating the time entry.');
+        }
+    }
+
+    /**
+     * Delete a time entry. Answers JSON - the index page calls this with fetch().
+     */
+    public function delete(string $requestMethod, array $data): void
+    {
+        if ($requestMethod !== 'POST') {
+            ApiResponse::error('Invalid request method.', 405);
+        }
+
+        try {
+            $this->requirePermission('delete_time_tracking');
+
+            $id = filter_var($data['id'] ?? null, FILTER_VALIDATE_INT);
+            if (!$id) {
+                throw new InvalidArgumentException('Invalid time entry ID');
+            }
+
+            $timeEntry = $this->timeEntryModel->find($id);
+            if (!$timeEntry) {
+                throw new InvalidArgumentException('Time entry not found');
+            }
+
+            $this->assertMayModify($timeEntry);
+
+            $this->timeEntryModel->delete($id);
+
+            ApiResponse::success(['message' => 'Time entry deleted.']);
+        } catch (InvalidArgumentException $e) {
+            ApiResponse::error($e->getMessage(), 400);
+        } catch (\Throwable $e) {
+            $this->logException($e, 'TimeTrackingController::delete');
+            ApiResponse::error('An error occurred deleting the time entry.', 500);
+        }
+    }
+
+    /**
+     * Editing someone else's entry needs manage_time_tracking on top of the
+     * plain edit/delete permission.
+     */
+    private function assertMayModify(object $timeEntry): void
+    {
+        $userId = $_SESSION['user']['id'] ?? null;
+
+        if ((int)$timeEntry->user_id !== (int)$userId) {
+            $this->requirePermission('manage_time_tracking');
+        }
     }
 }

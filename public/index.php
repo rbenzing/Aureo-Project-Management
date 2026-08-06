@@ -272,6 +272,9 @@ try {
     $router->get('time-tracking', ['controller' => 'TimeTracking', 'action' => 'index']);
     $router->post('time-tracking/start', ['controller' => 'TimeTracking', 'action' => 'startTimer']);
     $router->post('time-tracking/stop', ['controller' => 'TimeTracking', 'action' => 'stopTimer']);
+    $router->get('time-tracking/edit/:id', ['controller' => 'TimeTracking', 'action' => 'editForm', 'params' => ['id']]);
+    $router->post('time-tracking/update/:id', ['controller' => 'TimeTracking', 'action' => 'update', 'params' => ['id']]);
+    $router->post('time-tracking/delete/:id', ['controller' => 'TimeTracking', 'action' => 'delete', 'params' => ['id']]);
 
     // Get request URI and method
     $segments = $requestPath->segments();

@@ -131,7 +131,7 @@ $viewTitle = 'Time Tracking';
         function deleteTimeEntry(id) {
             if (confirm('Are you sure you want to delete this time entry?')) {
                 fetch(`/time-tracking/delete/${id}`, {
-                    method: 'DELETE',
+                    method: 'POST',
                     headers: {
                         'X-Requested-With': 'XMLHttpRequest',
                         'Content-Type': 'application/json',
