@@ -101,6 +101,69 @@ final class ConfigLoaderTest extends TestCase
         $this->assertSame('environment', ConfigLoader::load($this->root));
     }
 
+    /**
+     * PHP's default variables_order (GPCS - no E) never populates $_ENV from
+     * the real process environment, so a real container has every required
+     * key visible via getenv() while $_ENV stays empty. Every other test in
+     * this class populates $_ENV directly, which proves nothing about this
+     * case - see the class-level history in task-5-report.md for the live
+     * failure this reproduces (empty DB_NAME reaching phinx as `_test`).
+     */
+    public function testValuesOnlyInGetenvAreHydratedIntoEnv(): void
+    {
+        // setUp() already cleared $_ENV/$_SERVER/getenv() for every REQUIRED
+        // key; populate all five via putenv() only. tearDown() restores or
+        // clears putenv() for every REQUIRED key unconditionally, so no
+        // local cleanup is needed here.
+        foreach ($this->completeValues() as $key => $value) {
+            putenv("{$key}={$value}");
+        }
+
+        $this->assertSame('environment', ConfigLoader::load($this->root));
+
+        foreach ($this->completeValues() as $key => $value) {
+            $this->assertSame($value, $_ENV[$key] ?? null, "Expected \$_ENV['{$key}'] to be hydrated from getenv().");
+        }
+    }
+
+    public function testExistingEnvironmentValueWinsOverGetenv(): void
+    {
+        // DB_NAME is already in $_ENV; the other four required keys plus a
+        // *conflicting* DB_NAME are visible only via getenv() - same
+        // immutable precedence loadPhpFile() already gives $_ENV over a file.
+        $_ENV['DB_NAME'] = 'from_env';
+
+        foreach (['DB_NAME' => 'from_getenv'] + $this->completeValues() as $key => $value) {
+            putenv("{$key}={$value}");
+        }
+
+        $this->assertSame('environment', ConfigLoader::load($this->root));
+
+        $this->assertSame('from_env', $_ENV['DB_NAME']);
+    }
+
+    public function testOptionalKeyOnlyInGetenvIsHydrated(): void
+    {
+        // A container that sets real env vars sets more than the five
+        // REQUIRED keys - PASSWORD_PEPPER, SMTP_*, APP_SCHEME, etc. are all
+        // read straight from $_ENV elsewhere in the app. Rung 1 has to carry
+        // those across too, not just the required set.
+        foreach ($this->completeValues() as $key => $value) {
+            putenv("{$key}={$value}");
+        }
+        putenv('PASSWORD_PEPPER=from_getenv_optional');
+
+        try {
+            $this->assertSame('environment', ConfigLoader::load($this->root));
+
+            $this->assertSame('from_getenv_optional', $_ENV['PASSWORD_PEPPER'] ?? null);
+        } finally {
+            // PASSWORD_PEPPER is not in ConfigLoader::REQUIRED, so tearDown()'s
+            // generic putenv restore does not know to clear it.
+            putenv('PASSWORD_PEPPER');
+        }
+    }
+
     public function testExplicitOverridePathIsUsed(): void
     {
         $override = $this->root . '/elsewhere.php';

@@ -37,6 +37,8 @@ final class ConfigLoader
     public static function load(string $appRoot): string
     {
         if (self::environmentIsComplete()) {
+            self::hydrateEnvironmentFromRealEnvironment();
+
             return 'environment';
         }
 
@@ -95,12 +97,75 @@ final class ConfigLoader
     private static function environmentIsComplete(): bool
     {
         foreach (self::REQUIRED as $key) {
-            if (!isset($_ENV[$key]) && !isset($_SERVER[$key]) && getenv($key) === false) {
+            if (self::resolveFromRealEnvironment($key) === null) {
                 return false;
             }
         }
 
         return true;
+    }
+
+    /**
+     * PHP's default variables_order (GPCS - no E) never populates $_ENV from
+     * the real process environment: getenv($key) sees a value while
+     * isset($_ENV[$key]) stays false. Every consumer in the app reads $_ENV
+     * directly (see class docblock), so rung 1 completing was not enough -
+     * this is what actually makes the values reach $_ENV. It reuses the same
+     * three-way lookup environmentIsComplete() used to decide rung 1 was
+     * viable, so whichever source made that true is guaranteed to be the one
+     * that gets copied.
+     *
+     * Every variable the host provides is copied, not only REQUIRED - the
+     * app reads plenty of optional keys straight from $_ENV (APP_SCHEME,
+     * SMTP_*, PASSWORD_PEPPER, CSRF_TOKEN_EXPIRY, SESSION_SECURE, ...) and
+     * the .env/config.php rungs already load whatever keys are present
+     * rather than a fixed allowlist - rung 1 should behave the same way.
+     * getenv() with no argument (not $_SERVER) is the bulk source for that:
+     * it reflects the real process environment regardless of
+     * variables_order (guaranteed since PHP 7.1), whereas $_SERVER on web
+     * SAPIs is full of unrelated request/SAPI data (HTTP headers,
+     * SCRIPT_NAME, ...) that has no business landing in $_ENV.
+     */
+    private static function hydrateEnvironmentFromRealEnvironment(): void
+    {
+        foreach (self::REQUIRED as $key) {
+            self::copyIntoEnv($key, self::resolveFromRealEnvironment($key));
+        }
+
+        foreach ((array) getenv() as $key => $value) {
+            self::copyIntoEnv((string) $key, is_string($value) ? $value : null);
+        }
+    }
+
+    /**
+     * Same three-way source priority environmentIsComplete() /
+     * assertComplete() use to decide whether a key is available at all.
+     */
+    private static function resolveFromRealEnvironment(string $key): ?string
+    {
+        if (isset($_ENV[$key])) {
+            return (string) $_ENV[$key];
+        }
+
+        if (isset($_SERVER[$key])) {
+            return (string) $_SERVER[$key];
+        }
+
+        $value = getenv($key);
+
+        return $value === false ? null : $value;
+    }
+
+    private static function copyIntoEnv(string $key, ?string $value): void
+    {
+        // Match Dotenv's/loadPhpFile()'s immutable semantics: a value
+        // already present in $_ENV always wins.
+        if ($value === null || isset($_ENV[$key])) {
+            return;
+        }
+
+        $_ENV[$key] = $value;
+        $_SERVER[$key] = $value;
     }
 
     private static function loadDotEnv(string $path): void
@@ -135,7 +200,7 @@ final class ConfigLoader
         $missing = [];
 
         foreach (self::REQUIRED as $key) {
-            if (!isset($_ENV[$key]) && !isset($_SERVER[$key]) && getenv($key) === false) {
+            if (self::resolveFromRealEnvironment($key) === null) {
                 $missing[] = $key;
             }
         }
