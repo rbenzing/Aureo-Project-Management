@@ -62,10 +62,10 @@ time-tracking feature was completed and wired up. No breaking change — minor b
 - **`ConfigLoader`'s environment rung did not actually populate `$_ENV`.** PHP's default
   `variables_order` is `GPCS` (no `E`), so real environment variables never reach `$_ENV` even
   though `getenv()` sees them; `environmentIsComplete()` checks all three sources and reported
-  success, but every one of the 104 `$_ENV[...]` reads across the app then found nothing. This
-  mattered beyond a cosmetic gap: `PASSWORD_PEPPER` silently falling back to its default would have
-  invalidated every stored password. Rung 1 now copies the full real environment into `$_ENV`
-  before returning.
+  success, but every one of the 40 `$_ENV[...]` reads across app code (`src/`, `config/`, and
+  `phinx.php`; excludes tests) then found nothing. This mattered beyond a cosmetic gap:
+  `PASSWORD_PEPPER` silently falling back to its default would have invalidated every stored
+  password. Rung 1 now copies the full real environment into `$_ENV` before returning.
 - **`renderCSRFToken()` emitted an empty CSRF token for every caller.** It read `$csrfToken` from
   its own function body, but `BaseController::render()` only `extract()`s it into *view* scope —
   functions don't see caller-local variables. Five forms were unusable as a result: Projects

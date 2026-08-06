@@ -74,7 +74,7 @@ public/index.php          front controller + route registry
         ▼
   Controllers             HTTP concerns only; extend BaseController
         │
-        ├──► Http\Requests    input validation (FormRequest subclasses)
+        ├──► Http\Requests    input validation (FormRequest subclasses) - currently unused, see below
         ├──► Services         business logic, orchestration, infrastructure
         ├──► Repositories     heavier / composite read paths
         └──► Models           table-level persistence; extend BaseModel
@@ -151,8 +151,15 @@ render or redirect. They do not contain business rules and do not build SQL.
 ### `Http/Requests/`
 
 `FormRequest` subclasses declare `rules()` (and optionally `messages()` and `authorize()`), then
-`validate()` returns clean data or throws `ValidationException`. Use these for anything with more
-than a couple of fields; `Utils\Validator` covers the small cases.
+`validate()` returns clean data or throws `ValidationException` — the intended pattern for anything
+with more than a couple of fields, with `Utils\Validator` covering the small cases.
+
+**Currently unused: no controller calls into `FormRequest` or any of its four subclasses.**
+Controllers validate inline via `Utils\Validator` instead. This is recorded as a Known Issue in
+[CHANGELOG.md](../CHANGELOG.md) (the `1.1.0` entry): the class family is flagged rather than
+deleted because removing it would drop Tier 1 coverage to within 0.08 points of the coverage
+gate's fail threshold — inside the gate's own documented run-to-run drift. Treat it as dead code
+pending a decision, not as the pattern to follow for a new controller.
 
 ### `Services/`
 
@@ -291,7 +298,9 @@ repo root and matching `Config.php`. `dirname(BASE_PATH, 2)` is wrong — it wri
 1. New migration in `db/migrations/` — never touch the canonical one.
 2. Model in `src/Models/` extending `BaseModel`; add a repository if reads get composite.
 3. Business logic in `src/Services/`.
-4. `FormRequest` in `src/Http/Requests/` for input validation.
+4. Input validation with `Utils\Validator` — the pattern every current controller actually uses.
+   (`Http\Requests\FormRequest` exists for the same purpose but is currently unused dead code; see
+   [`Http/Requests/`](#httprequests) above before reaching for it.)
 5. Controller in `src/Controllers/` extending `BaseController`; gate actions with
    `requirePermission()`.
 6. Views in `src/Views/Feature/` with fragments under `inc/`.

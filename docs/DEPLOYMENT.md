@@ -51,17 +51,21 @@ not change between them — only where the document root points and how configur
 
 | Layout | Document root | Configuration | Notes |
 |---|---|---|---|
-| **Recommended** | `<app>/public` | `.env` above the document root | Nothing web-reachable but the front controller and assets |
-| Drop-in | `<app>` (the application root) | PHP config file written above the document root by the installer | Requires the release archive, never a `git clone` |
-| Subdirectory | `<parent>`, with the app in `<parent>/aureo` | As above | Asset and route URLs carry the `/aureo` prefix automatically |
+| **Recommended** | `<app>/public` | `.env`, one level *above* the document root — outside the served tree, so unreachable by URL regardless of server rules | Nothing web-reachable but the front controller and assets |
+| Drop-in | `<app>` (the application root) | `config/config.php`, *inside* the served tree at `<app>/config/` — reachable in principle, kept out by the `config` deny rule in `.htaccess`/`web.config` | Requires the release archive, never a `git clone` |
+| Subdirectory | `<parent>`, with the app in `<parent>/aureo` | `config/config.php`, *inside* the served tree at `<parent>/aureo/config/` — same protection as the drop-in row | Asset and route URLs carry the `/aureo` prefix automatically |
 
 **Document root at `public/` remains recommended.** It is the only layout where the web server can
 serve *only* the front controller and static assets — everything else (`.env`, `vendor/`, `db/`,
 `tests/`, and the rest of `src/`) sits outside the document root entirely and is unreachable by
-URL, full stop, regardless of `.htaccess`/`web.config` rules or a misconfiguration in either. The
-other two layouts are supported for hosts that give you no choice of document root (common on
-shared hosting), and they rely on the hardening rules in the shipped `.htaccess` / `web.config` to
-deny the files that would otherwise be exposed.
+URL, full stop, regardless of `.htaccess`/`web.config` rules or a misconfiguration in either. In the
+other two layouts, `config/config.php` sits *inside* the served tree (`ConfigLoader` resolves it
+from `dirname(BASE_PATH)`, which is fixed relative to the application, not to the document root) —
+it is reachable the same way `.env` would be, and stays hidden only because the deny rules in the
+shipped `.htaccess` / `web.config` say so. **Do not assume these files are categorically
+unreachable the way `.env` is in the recommended layout** — verify the deny rules are actually in
+effect (`curl` the config path and confirm a 403, not a 200) before trusting either of the other two
+layouts in production.
 
 **A `git clone` must never be extracted at a document root.** A `.git/` directory under a served
 root discloses the full source history via `GET /.git/config`, `GET /.git/HEAD`, and the object
@@ -92,6 +96,17 @@ server {
         deny all;
     }
 
+    # Any dotfile - matches .htaccess's ^\. alternative, which is a blanket
+    # "filename starts with a dot" rule, not just the extension list above.
+    # MUST precede the PHP location block below: a dotfile that happens to
+    # end in .php (e.g. the tracked .php-cs-fixer.php) would otherwise fall
+    # through both deny blocks above and be executed by php-fpm instead of
+    # denied, since nginx picks the first matching regex location in file
+    # order and \.php$ would win if listed first.
+    location ~ /\. {
+        deny all;
+    }
+
     location / {
         try_files $uri $uri/ /index.php?$query_string;
     }
@@ -104,6 +119,11 @@ server {
     }
 }
 ```
+
+This block is written to have the same coverage as the bundled `.htaccess`: the same denied
+directories, the same denied extensions, and — via the blanket dotfile rule above — the same
+"any filename starting with a dot" catch-all that `.htaccess`'s `<FilesMatch "(^\.|...)">` provides
+and a plain extension list cannot.
 
 The root `index.php` delegate sets `AUREO_ASSET_PREFIX` to `/public/assets` before including
 `public/index.php`, so assets are served straight out of the real `public/assets` directory without
@@ -209,18 +229,41 @@ Note that the `testing` environment appends `_test` to `DB_NAME`.
 2. **`AUREO_CONFIG` override.** An environment variable (or `$_SERVER` entry) naming an absolute
    path to a config file — `.env` format or a PHP file returning an array — checked before any
    fixed location.
-3. **`config/config-path.php`**, one level above the document root. A pointer file the installer
-   writes when it places the real secrets somewhere else on the filesystem; it `require`s to a
-   string path, which is then loaded the same way as rung 4 or 5.
-4. **`config/config.php`**, one level above the document root — a PHP file `require`d and expected
-   to `return` an array of key/value pairs. This exists for the drop-in and subdirectory layouts:
-   a plain-text `.env` is unreadable-by-default only while it sits *above* the document root, and
-   an install that places the application *at* the document root cannot rely on that — nginx has no
-   per-directory rule to deny it with, either. A PHP file served directly executes and emits
-   nothing, so it is safe even inside a served directory.
-5. **`.env`**, one level above the document root, loaded via `vlucas/phpdotenv`. This remains the
-   developer default and the recommended-layout convention; nothing about an existing `.env`-based
-   setup changes.
+3. **`config/config-path.php`**. A pointer file the installer writes when it places the real
+   secrets somewhere else on the filesystem; it `require`s to a string path, which is then loaded
+   the same way as rung 4 or 5.
+4. **`config/config.php`** — a PHP file `require`d and expected to `return` an array of key/value
+   pairs. This exists for the drop-in and subdirectory layouts: a plain-text `.env` is
+   unreadable-by-default only while it sits *above* the document root, and an install that places
+   the application *at* the document root cannot rely on that — nginx has no per-directory rule to
+   deny it with, either. A PHP file served directly executes and emits nothing, so it degrades
+   safely even when a request does land on it.
+5. **`.env`**, loaded via `vlucas/phpdotenv`. This remains the developer default and the
+   recommended-layout convention; nothing about an existing `.env`-based setup changes.
+
+**Rungs 3-5 all resolve relative to the application root — `dirname(BASE_PATH)`, one level above
+`public/` — which is a single fixed location regardless of deployment layout.** Whether that
+location is actually safe from direct requests depends on where the document root points, and it is
+*not* uniformly "above the document root":
+
+- **Recommended layout** (`<app>/public` is the document root): the application root sits outside
+  the served tree entirely. `.env` and `config/config.php` are unreachable by URL, full stop, with
+  no dependency on any deny rule.
+- **Drop-in layout** (`<app>` is the document root): the application root *is* the document root, so
+  `config/config.php` at `<app>/config/config.php` sits **inside** the served tree. It is reachable
+  in principle and is kept out only by the `config` directory deny rule shipped in `.htaccess` /
+  `web.config` — see [Deployment layouts](#deployment-layouts). A `.env` placed at `<app>/.env`
+  would equally be inside the served tree here, kept out only by the `.env` extension deny rule
+  rather than a directory rule — the installer for this layout writes `config/config.php`, not
+  `.env`, precisely so a plain-text file isn't the thing standing between an attacker and your
+  database credentials.
+- **Subdirectory layout** (`<parent>` is the document root, app in `<parent>/aureo`): same as
+  drop-in — `config/config.php` (or a stray `.env`) lands inside the served tree at
+  `<parent>/aureo/config/` (or `<parent>/aureo/.env`) and relies on the same deny rules.
+
+Do not assume rungs 3-5 are categorically unreachable the way `.env` is in the recommended layout;
+for the other two layouts, verify the deny rules are actually in effect (request the config path
+directly and confirm a 403, not a 200) before trusting them in production.
 
 If none of the five sources yields all five required keys, boot fails with a `RuntimeException`
 naming every path that was tried — deliberately, since a silent partial boot against the wrong
