@@ -403,5 +403,11 @@ function renderFormButtons(array $options = []): string
  */
 function renderCSRFToken(): string
 {
-    return '<input type="hidden" name="csrf_token" value="' . htmlspecialchars($csrfToken ?? '') . '">';
+    // BaseController::render() extract()s the csrfToken variable into view scope, but
+    // a function body cannot see caller-scope variables - reading it here silently
+    // produced value="" and every form using this helper was rejected by
+    // CsrfMiddleware. The session is the token's real home (see
+    // CsrfMiddleware::generateToken()).
+    return '<input type="hidden" name="csrf_token" value="'
+        . htmlspecialchars($_SESSION['csrf_token'] ?? '') . '">';
 }

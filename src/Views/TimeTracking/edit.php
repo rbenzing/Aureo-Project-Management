@@ -49,15 +49,7 @@ require_once BASE_PATH . '/../src/Views/Layouts/FormComponents.php';
             </div>
 
             <form action="/time-tracking/update/<?= $timeEntry->id ?? '' ?>" method="POST" class="p-6">
-                <!--
-                    renderCSRFToken() (FormComponents.php) reads $csrfToken from its own
-                    function scope, which PHP never populates - it is not a parameter, not
-                    global, and not `global`-declared, so it silently emits value="". Every
-                    view that calls it submits no real token and gets bounced by
-                    CsrfMiddleware. Inlining the token directly, as Tasks/edit.php already
-                    does, is the one pattern in this codebase that actually works.
-                -->
-                <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken ?? '') ?>">
+                <?= renderCSRFToken() ?>
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <!-- Task Selection -->
