@@ -154,7 +154,46 @@ class InstallController
             return ['verified' => false, 'exposed' => [], 'safe' => [], 'unreachable' => ExposureProbe::PATHS];
         }
 
-        return $this->probe->run($baseUrl);
+        // The probe asks the server to serve paths back to this same server
+        // while this request is still open, so it has to stop holding
+        // anything the callback will need.
+        //
+        // PHP's file session handler takes an exclusive lock for the lifetime
+        // of a request. Any probed path that is NOT denied falls through to
+        // public/index.php, which calls session_start() on line 7 and then
+        // blocks on that lock until the probe's own timeout fires. The result
+        // is an exposed file reported as "unreachable" - which the UI
+        // downgrades to "could not verify", an acknowledgeable warning. In
+        // other words the check would fail exactly when it has something to
+        // report, and fail in the direction of letting the install proceed.
+        //
+        // A missing deny rule is precisely the condition being tested for, so
+        // this is the common case on a bad host, not an edge case.
+        //
+        // Releasing the lock also bounds the runtime: six paths at five
+        // seconds each is thirty seconds, which is PHP's stock
+        // max_execution_time. The limit is lifted below for the host that
+        // genuinely cannot answer.
+        $sessionWasActive = session_status() === PHP_SESSION_ACTIVE;
+
+        if ($sessionWasActive) {
+            session_write_close();
+        }
+
+        $previousLimit = (string) ini_get('max_execution_time');
+        set_time_limit(0);
+
+        try {
+            return $this->probe->run($baseUrl);
+        } finally {
+            set_time_limit((int) $previousLimit);
+
+            if ($sessionWasActive) {
+                // Re-open for the caller: everything after this point writes
+                // the operator's answers back into the session.
+                session_start();
+            }
+        }
     }
 
     /**

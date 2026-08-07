@@ -218,6 +218,65 @@ final class InstallControllerTest extends TestCase
     }
 
     /**
+     * The probe must not hold the session lock while it runs.
+     *
+     * PHP's file session handler locks exclusively for the whole request.
+     * Any probed path that is not denied falls through to public/index.php,
+     * which calls session_start() and then blocks on that lock until the
+     * probe times out - so an exposed file gets reported as "unreachable",
+     * which the UI presents as an acknowledgeable "could not verify" rather
+     * than a hard block. The check would fail precisely when it has something
+     * to report, and fail towards letting the install proceed.
+     *
+     * Asserted by observing the session status from inside the fetcher, which
+     * is the only place the lock's state during the probe is visible.
+     */
+    public function testTheSessionLockIsReleasedWhileTheProbeRuns(): void
+    {
+        if (session_status() !== PHP_SESSION_ACTIVE) {
+            session_start();
+        }
+
+        if (session_status() !== PHP_SESSION_ACTIVE) {
+            $this->markTestSkipped('No session could be started in this environment.');
+        }
+
+        $statusDuringProbe = [];
+
+        $probe = new ExposureProbe(static function (string $url) use (&$statusDuringProbe): ?int {
+            $statusDuringProbe[] = session_status();
+
+            return 403;
+        });
+
+        $this->controller(probe: $probe)->handle('GET', ['install', 'exposure']);
+
+        $this->assertNotSame([], $statusDuringProbe, 'The fetcher never ran.');
+        $this->assertSame(
+            [PHP_SESSION_NONE],
+            array_values(array_unique($statusDuringProbe)),
+            'The session was still open during the probe, so the loopback request would deadlock on its lock.'
+        );
+    }
+
+    /** The caller writes the operator's answers straight after, so it must be usable again. */
+    public function testTheSessionIsReopenedAfterTheProbeFinishes(): void
+    {
+        if (session_status() !== PHP_SESSION_ACTIVE) {
+            session_start();
+        }
+
+        if (session_status() !== PHP_SESSION_ACTIVE) {
+            $this->markTestSkipped('No session could be started in this environment.');
+        }
+
+        $this->controller(probe: new ExposureProbe(static fn (string $url): ?int => 403))
+            ->handle('GET', ['install', 'exposure']);
+
+        $this->assertSame(PHP_SESSION_ACTIVE, session_status());
+    }
+
+    /**
      * A readable .env blocks installation outright. It is the one preflight
      * result that no acknowledgement can override.
      */
@@ -369,26 +428,98 @@ final class InstallControllerTest extends TestCase
         $this->assertSame('Aureo is already installed.', $c->renderedData['reason']);
     }
 
-    public function testRepeatedDatabasePostsAreRateLimited(): void
+    /**
+     * The counter is seeded rather than driven to the limit by twelve real
+     * POSTs.
+     *
+     * The limiter increments after the connection is attempted, so looping to
+     * the threshold means ten live MySQL connections. Measured here, a failed
+     * connect costs ~2.04s whether the port is refused (127.0.0.1:1) or the
+     * credentials are rejected (localhost:3306) - so that loop took 20.5s, and
+     * this one test was longer than the other 1988 combined. Seeding the
+     * bucket tests the limiter itself instead of the network stack.
+     */
+    public function testADatabasePostIsRefusedOnceTheAttemptLimitIsReached(): void
     {
         $_SESSION['aureo_install'] = ['exposure_ok' => true];
         $c = $this->controller();
         $this->withCsrf($c);
-        $token = $_POST['install_csrf'];
 
-        for ($attempt = 0; $attempt < 12; $attempt++) {
-            $_POST = ['install_csrf' => $token, 'db_host' => 'localhost', 'db_name' => 'x', 'db_user' => 'u', 'db_password' => 'p'];
+        $_SESSION['aureo_install_db_attempts'] = ['count' => 10, 'window_start' => time()];
 
-            try {
-                $c->handle('POST', ['install', 'database']);
-            } catch (RuntimeException $e) {
-                if ($e->getMessage() !== 'halt:redirect') {
-                    throw $e;
-                }
+        $_POST = [
+            'install_csrf' => $_SESSION['aureo_install_csrf'],
+            'db_host' => '127.0.0.1:1',
+            'db_name' => 'x',
+            'db_user' => 'u',
+            'db_password' => 'p',
+        ];
+
+        try {
+            $c->handle('POST', ['install', 'database']);
+        } catch (RuntimeException $e) {
+            if ($e->getMessage() !== 'halt:redirect') {
+                throw $e;
             }
         }
 
         $this->assertSame('Install/refused', $c->renderedView);
+    }
+
+    /** The limit must not trip early - an operator gets a genuine retry after a typo. */
+    public function testADatabasePostIsAllowedWhileUnderTheAttemptLimit(): void
+    {
+        $_SESSION['aureo_install'] = ['exposure_ok' => true];
+        $c = $this->controller();
+        $this->withCsrf($c);
+
+        $_SESSION['aureo_install_db_attempts'] = ['count' => 1, 'window_start' => time()];
+
+        $_POST = [
+            'install_csrf' => $_SESSION['aureo_install_csrf'],
+            'db_host' => '127.0.0.1:1',
+            'db_name' => 'x',
+            'db_user' => 'u',
+            'db_password' => 'p',
+        ];
+
+        try {
+            $c->handle('POST', ['install', 'database']);
+        } catch (RuntimeException $e) {
+            if ($e->getMessage() !== 'halt:redirect') {
+                throw $e;
+            }
+        }
+
+        $this->assertNotSame('Install/refused', $c->renderedView);
+    }
+
+    /** An expired window resets the count, or a slow install locks itself out permanently. */
+    public function testTheAttemptWindowExpires(): void
+    {
+        $_SESSION['aureo_install'] = ['exposure_ok' => true];
+        $c = $this->controller();
+        $this->withCsrf($c);
+
+        $_SESSION['aureo_install_db_attempts'] = ['count' => 99, 'window_start' => time() - 3600];
+
+        $_POST = [
+            'install_csrf' => $_SESSION['aureo_install_csrf'],
+            'db_host' => '127.0.0.1:1',
+            'db_name' => 'x',
+            'db_user' => 'u',
+            'db_password' => 'p',
+        ];
+
+        try {
+            $c->handle('POST', ['install', 'database']);
+        } catch (RuntimeException $e) {
+            if ($e->getMessage() !== 'halt:redirect') {
+                throw $e;
+            }
+        }
+
+        $this->assertNotSame('Install/refused', $c->renderedView);
     }
 
     public function testTheAssetBaseHonoursTheMountPoint(): void
