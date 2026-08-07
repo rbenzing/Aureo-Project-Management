@@ -61,6 +61,31 @@
 
 ## 🚀 Quick Start
 
+### Option 1: Release archive (a real server)
+
+No Composer or Node.js needed on the target host — the release archive ships with `vendor/` and
+the compiled CSS already built in.
+
+1. Download `aureo-<version>.zip` and `aureo-<version>.zip.sha256` from the
+   [Releases page](https://github.com/rbenzing/Aureo-Project-Management/releases).
+2. Verify and extract:
+
+   ```bash
+   sha256sum -c aureo-<version>.zip.sha256
+   unzip aureo-<version>.zip
+   ```
+
+3. Point your web server's document root at the extracted `aureo/public` (recommended) or `aureo`
+   itself — see [Deployment layouts](./docs/DEPLOYMENT.md#deployment-layouts).
+4. Open the site. With no configuration present yet, a guided web installer handles the rest:
+   environment checks, an exposure self-test, database setup, an administrator account, and site
+   settings.
+
+Full walkthrough, including checksum verification and what each step does:
+[Installing from the release archive](./docs/DEPLOYMENT.md#installation).
+
+### Option 2: Clone and build (development)
+
 **Prerequisites:** PHP 8.2+, MySQL 8.0+, Composer, Node.js + npm, and a running local `mysqld`.
 
 ```bash
@@ -90,7 +115,7 @@ The admin user is seeded with **all 55 permissions**. Change the password from S
 > wrapper, which breaks interactive prompts. Run the setup script directly so it can talk to your
 > terminal. `composer setup` still works non-interactively — it passes `--yes` and accepts every default.
 
-### 🔧 What the installer does
+### 🔧 What `bin/setup.php` does
 
 1. Copies `.env.example` → `.env` if missing.
 2. Prompts for MySQL host/port/user/password/database (stock XAMPP defaults work as-is).
@@ -134,6 +159,10 @@ Exit codes: `0` all clear (warnings allowed), `1` at least one failure, `2` coul
 
 A path the probe cannot reach at all is reported as *unverified*, never as safe. Hosts that block
 loopback HTTP cannot self-check, and you should confirm those paths by hand before going live.
+
+**Don't run `--url` against `composer start`.** PHP's built-in server is single-threaded, so it
+can't service the loopback request the probe makes while the triggering request is still open —
+every path comes back unreachable. Works normally under Apache or php-fpm.
 
 ## ⚙️ Configuration
 

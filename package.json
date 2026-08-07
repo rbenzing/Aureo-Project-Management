@@ -1,6 +1,6 @@
 {
   "name": "aureo-project-management",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Aureo Project Management - Modern project management application",
   "main": "postcss.config.js",
   "directories": {

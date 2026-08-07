@@ -55,6 +55,16 @@ not change between them — only where the document root points and how configur
 | **Recommended** | `<app>/public` | `.env`, one level *above* the document root — outside the served tree, so unreachable by URL regardless of server rules | Nothing web-reachable but the front controller and assets |
 | Drop-in | `<app>` (the application root) | `config/config.php`, *inside* the served tree at `<app>/config/` — reachable in principle, kept out by the `config` deny rule in `.htaccess`/`web.config` | Requires the release archive, never a `git clone` |
 
+**`config/installed.lock` gates the web installer regardless of layout.** Once it exists,
+`App\Core\InstallGate` passes every request through to the normal application and `/install`
+404s from the router — see
+[ARCHITECTURE.md#installer-boot-path](./ARCHITECTURE.md#installer-boot-path) for the full decision
+table. Deleting it does the opposite: it re-opens that unauthenticated route, which — on a site
+whose database already has an administrator — can still rewrite the site's configuration and
+replace the administrator account. **Never delete it on a live installation.** See
+[Recovery from a failed install](#recovery-from-a-failed-install) for the one case where removing
+it is intentional.
+
 **Both layouts mount the application at the domain root.** Routes and links throughout
 `src/Views` and `src/Controllers` are written root-absolute (`href="/tasks"`,
 `action="/login"`, `redirect('/projects')`), so the app must be reachable at `https://host/`,
@@ -81,6 +91,18 @@ non-runtime files entirely; a `git clone` does not. Use the recommended `public/
 layout for a clone, or the release archive for the drop-in layout.
 
 ### Drop-in layout: nginx
+
+**nginx has no parity with the Apache hardening below, and it never will.** nginx does not read
+`.htaccess` files at all, by design — there is no directive that changes that. CI's `hardening`
+job (`.github/workflows/php.yml`) boots the drop-in layout under real Apache
+(`php:8.2-apache`) and asserts that a planted `.env`, `.git/config`, `config/config.php` and
+`log/aureo.log` are all actually denied, not merely assumed to be. **It verifies Apache only** —
+there is no nginx job, because there is no nginx configuration shipped for it to verify against.
+The server block below is maintained by hand to have the same coverage as `.htaccess` (same denied
+directories, same denied extensions, same dotfile catch-all), but nothing in CI proves it stays
+that way. **The honest recommendation for nginx is the document-root-is-`public/` layout**
+(see [Web server](#web-server) below) — it needs no deny rules at all, because nothing outside
+`public/` is served regardless of what the server block does or doesn't deny.
 
 Apache picks up the bundled root `.htaccess` automatically. nginx has no per-directory
 configuration, so the equivalent rules have to live in the server block:
@@ -155,6 +177,53 @@ keeps every `require`/`include` in the codebase working unchanged in this layout
 
 ## Installation
 
+Two ways to get Aureo onto a server: download the release archive (no Composer, no Node.js, and no
+`git` needed on the target host), or clone the repository and build it yourself. The archive is
+the shorter path for a real server; a clone is for development or for hosts where you want to
+control every dependency version yourself.
+
+### Installing from the release archive
+
+1. Download `aureo-<version>.zip` and `aureo-<version>.zip.sha256` from the
+   [Releases page](https://github.com/rbenzing/Aureo-Project-Management/releases).
+2. Verify the checksum, then extract:
+
+   ```bash
+   sha256sum -c aureo-<version>.zip.sha256
+   unzip aureo-<version>.zip
+   ```
+
+   The archive contains one top-level `aureo/` directory. `vendor/` (production dependencies only)
+   and the compiled stylesheet are already inside it — no `composer install` or `npm run build`
+   needed on the target host.
+3. Point the web server's document root at the extracted `aureo/public` (recommended layout) or at
+   `aureo` itself (drop-in layout) — see [Deployment layouts](#deployment-layouts) above.
+4. Open the site in a browser. With no configuration file present yet, every request is served by
+   the installer (`App\Core\InstallGate` — see
+   [ARCHITECTURE.md#installer-boot-path](./ARCHITECTURE.md#installer-boot-path)), so any URL lands
+   on its first step.
+5. Complete the six guided steps:
+   - **preflight** — environment checks (PHP version, extensions, writable `log/`/`var/cache/`, a
+     writable configuration target). Fix anything reported as failed before continuing.
+   - **exposure** — a loopback self-test confirming files like `.env` and `config/config.php` are
+     not web-readable. A readable file blocks the install outright; a check that could not be
+     verified (some hosts block loopback HTTP) asks you to acknowledge it before continuing.
+   - **database** — host, name, user, password. The installer creates the database if the given
+     user has privileges to.
+   - **administrator** — email, name, and a password meeting the strong-password policy. This
+     replaces the migration's seeded `admin@aureo.us` / `password` account, it does not add a
+     second user.
+   - **settings** — domain, scheme, timezone, company name.
+   - **complete** — runs the Phinx migrations, applies the administrator and settings answers,
+     writes the configuration file, and writes `config/installed.lock`. Nothing is written to disk
+     before this step.
+
+Once **complete** finishes, `config/installed.lock` exists and the installer route is permanently
+disabled for that site. See [Recovery from a failed install](#recovery-from-a-failed-install)
+below if a run fails partway through.
+
+### Installing from a git checkout (development)
+
 ```bash
 git clone https://github.com/rbenzing/Aureo-Project-Management.git
 cd Aureo-Project-Management
@@ -171,16 +240,67 @@ npm run build
 Then configure `.env` and run migrations — see the two sections below.
 
 `bin/setup.php` exists for interactive local setup (it prompts for credentials, runs migrations,
-sets the admin password, optionally imports sample data, and writes `config/installed.lock` on
-success). **On a production host, prefer configuring `.env` by hand and running migrations
-explicitly** so nothing is guessed and no sample data is imported.
-
-`config/installed.lock` is what keeps the web installer (`/install`) from being reachable once a
-site is configured. Deleting it re-opens that unauthenticated route, which can rewrite the site's
-configuration — never delete it on a live installation.
+sets the admin password, optionally imports sample data, and — same as completing the web
+installer — writes `config/installed.lock` on success). **On a production host, prefer the release
+archive above**, or configure `.env` by hand and run migrations explicitly, so nothing is guessed
+and no sample data is imported.
 
 > **Do not run `composer install` without `--no-dev` in production.** Dev dependencies include
 > PHPUnit and PHP-CS-Fixer, which have no business on a production host.
+
+### Preflight checks
+
+Ask a host whether it can run Aureo before extracting anything onto it, or re-check an existing
+install:
+
+```bash
+php bin/preflight.php                              # environment checks only
+composer preflight                                 # same, via the composer script
+php bin/preflight.php --url=https://example.com     # also probe what the live site hands out
+```
+
+It runs the same two checks as the first two steps of the web installer: PHP version, required and
+optional extensions, whether `log/` and `var/cache/` are writable, whether a configuration file can
+be written somewhere, the compiled stylesheet, and which deployment layout is in effect. With
+`--url` it additionally probes `/.env`, `/config/config.php`, `/config/config-path.php`,
+`/log/aureo.log`, `/.git/config` and `/composer.json` over loopback HTTP — any `200` is a
+credential or source disclosure.
+
+Exit codes: `0` all clear (warnings allowed), `1` at least one check failed, `2` could not run
+(missing `vendor/autoload.php`, or a bad argument).
+
+**Do not run the `--url` exposure probe against a site served by `php -S` (`composer start`).**
+PHP's built-in server is single-threaded, so it cannot service the loopback request the probe makes
+while the request that triggered the probe is itself still open — the probe simply reports every
+path unreachable. This is a property of the built-in server, not a bug in the probe; it works
+normally under Apache or php-fpm. It is also why the CI `smoke` job configures a site with
+`bin/setup.php` rather than driving the web installer's exposure step end to end.
+
+An unverifiable result is never a pass — a path the probe cannot reach is reported as
+*unreachable*, not as safe, and the operator must confirm it by hand. Hosts that block loopback
+HTTP cannot self-check at all.
+
+### Recovery from a failed install
+
+The installer refuses to resume a partially completed run — this is deliberate, not a missing
+feature. Nothing distinguishes "an install that failed after creating tables but before finishing"
+from "a live site with real data" except the very state a resume would overwrite, so a resumable
+installer would be a resumable takeover: anyone who found `/install` still reachable on someone
+else's half-configured site could rewrite its database credentials and replace its administrator
+account.
+
+If an install fails partway through, start over from a clean slate:
+
+1. Drop the database (or drop and recreate it empty).
+2. Delete the configuration file the installer wrote — wherever
+   [Configuration sources](#configuration-sources) placed it (`config/config.php`, or the path
+   `config/config-path.php` points at).
+3. Delete `config/config-path.php` if it exists.
+4. Delete `config/installed.lock` if it exists. In practice a failure this early means it does
+   not — the installer writes it last, only after migrations, the administrator update, and the
+   configuration file all succeed — but remove it too if the failure happened after that point.
+5. Reload the site. With no configuration and no lock file resolving, `InstallGate` runs the
+   installer again from the first step.
 
 ---
 
@@ -220,7 +340,7 @@ must be writable.
 | `SESSION_SECURE` | `true` (requires HTTPS) |
 | `SESSION_HTTP_ONLY` | `true` |
 | `CSRF_TOKEN_EXPIRY` | Seconds; `3600` is a reasonable default |
-| `PASSWORD_PEPPER` | A unique, long random string. **Set once and never change it** — changing it invalidates every stored password. |
+| `PASSWORD_PEPPER` | Reserved for future use — **read by nothing today**. `App\Utils\PasswordHasher` hashes with no pepper applied. The installer and `bin/setup.php` generate a random value anyway so an installation that later gains peppering needs no config change, but setting or changing it currently has no effect. |
 
 ### Email
 
@@ -392,7 +512,6 @@ Before exposing the instance:
 - [ ] `APP_ENV=production`, `APP_DEBUG=false`, `APP_SCHEME=https`
 - [ ] `SESSION_SECURE=true`, `SESSION_HTTP_ONLY=true`
 - [ ] `DB_PASSWORD` non-empty; the database user is not root
-- [ ] `PASSWORD_PEPPER` set to a unique value and recorded somewhere safe
 - [ ] Seeded admin password changed
 - [ ] HTTPS working; HTTP redirects to HTTPS
 - [ ] `composer install --no-dev --optimize-autoloader` used
@@ -442,7 +561,9 @@ reloaded.
 **Back up:**
 
 - The **database** — this is the entire application state.
-- **`.env`** — particularly `PASSWORD_PEPPER`. Lose it and no password will validate.
+- **`.env`** (or the equivalent configuration source) — it holds your database credentials and
+  SMTP secrets. Losing it means reconfiguring by hand; no currently-read value in it, including
+  `PASSWORD_PEPPER`, needs to be preserved to keep existing password hashes valid.
 
 Everything else is reproducible from the repository.
 

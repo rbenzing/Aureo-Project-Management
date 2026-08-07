@@ -65,6 +65,57 @@ logging. Bots probing `/.well-known/*` would otherwise drown the log.
 
 ---
 
+## Installer boot path
+
+Stage 5 above is the least obvious control flow in the codebase, because it answers a harder
+question than routing usually does: whether this request should reach the application at all,
+given that — on a fresh drop-in extraction — nothing further down the stack can be trusted to
+exist yet.
+
+**Why it runs before `Config::init()`.** `Config::init()` calls `ConfigLoader::load()`, which
+throws a `RuntimeException` when no configuration source resolves (see
+[DEPLOYMENT.md#configuration-sources](./DEPLOYMENT.md#configuration-sources)). A freshly extracted
+release archive has no `.env` and no `config/config.php` — nothing. If the installer branch sat
+below `Config::init()`, that exception would fire on every request before routing ever ran, and no
+route — including `/install` — could ever be reached. The gate has to sit above configuration
+loading, not inside it.
+
+**Why it bypasses the DI container and the middleware stack.** Everything downstream assumes a
+working database: `CsrfMiddleware::__construct()` calls `Database::getInstance()` and
+`handleToken()` reads/writes a `csrf_tokens` table; `SecurityService::checkRateLimit()` reads
+`SettingsService`, which reads the `settings` table; `BaseController::__construct()` builds both
+`SettingsService` and `LoggerService`. None of that exists during an install. `InstallController`
+is therefore constructed directly in `public/index.php` rather than resolved through the
+container, does not extend `BaseController`, and does not use `CsrfMiddleware` — it carries its
+own session-backed CSRF token and its own session-counter rate limiting instead.
+
+**The decision table** (`App\Core\InstallGate::decide()`, exhaustively unit-tested in
+`tests/Unit/Core/InstallGateTest.php`) is the whole design:
+
+| `installed.lock` | config resolves | first segment | users in DB | decision |
+|---|---|---|---|---|
+| present | — | — | — | pass-through (the app boots; `/install` 404s from the router) |
+| absent | no | — | — | **run** (nothing boots, nothing to take over) |
+| absent | yes | not `install` | — | pass-through |
+| absent | yes | `install` | unknown or 0 | **run** |
+| absent | yes | `install` | ≥ 1 | **refuse** |
+
+Row 5 is the one that matters. Every installation that predates the lock file has a working
+configuration and a populated database but no lock file yet — the lock file is new — so without
+that row, shipping this would hand every existing site an unauthenticated `/install` route capable
+of rewriting its database credentials and replacing its administrator account.
+`InstallGate::needsUserCheck()` exists so that row count — the one piece of this decision that
+costs a database round trip — is fetched only on the single path where the answer can change the
+outcome, not on every request.
+
+`config/installed.lock` is therefore the entire security model for `/install` on a configured
+site: `InstallGate` checks only that the file exists, never its contents. Deleting it re-opens the
+route — see
+[DEPLOYMENT.md#recovery-from-a-failed-install](./DEPLOYMENT.md#recovery-from-a-failed-install) for
+the one situation where that is intentional.
+
+---
+
 ## Layers
 
 ```

@@ -9,10 +9,68 @@ The canonical version lives in the `VERSION` file at the repository root. Bump i
 with `composer version:patch` (or `:minor` / `:major`), which keeps `package.json`
 in step.
 
-## [Unreleased]
+## [1.2.0] - 2026-08-07
+
+Guided installer: an operator can now download a release archive, extract it into a web root, and
+complete setup in a browser — no SSH, no Composer and no Node.js required on the target host. CI
+now boots the built archive under both supported layouts and, separately, proves the drop-in
+layout's hardening rules actually deny what they claim to under real Apache.
+
+### Added
+
+- **Guided web installer** (`App\Controllers\InstallController`, `/install`) — six steps:
+  preflight, exposure, database, administrator, settings, complete. Gated by
+  `App\Core\InstallGate::decide()`, a pure decision table keyed on whether
+  `config/installed.lock` exists, whether configuration resolves, the first URL segment, and —
+  only when it changes the outcome — a row count on `users`. Runs before `Config::init()`, and
+  does not extend `BaseController` or use `CsrfMiddleware` — both need a database that does not
+  exist yet during install; it carries its own session-backed CSRF token and its own
+  session-counter rate limiting instead. See
+  [ARCHITECTURE.md#installer-boot-path](./docs/ARCHITECTURE.md#installer-boot-path).
+- **`App\Services\PreflightService`** — PHP version, required/optional extensions, writable
+  `log/`/`var/cache/`, a writable configuration target, the compiled stylesheet, and which
+  deployment layout is in effect.
+- **`App\Services\ExposureProbe`** — a loopback HTTP self-test confirming `.env`,
+  `config/config.php`, `config/config-path.php`, `log/aureo.log`, `.git/config` and
+  `composer.json` are not web-readable. A host that blocks loopback HTTP is reported as
+  unverified, never rounded up to a pass.
+- **`bin/preflight.php`** / `composer preflight` — the same checks for operators with shell
+  access, with an optional `--url` to run the exposure probe against a live site. Exit codes
+  `0`/`1`/`2`. Does not work against `composer start` (`php -S` is single-threaded and can't
+  service the probe's own loopback request). See
+  [docs/DEPLOYMENT.md](./docs/DEPLOYMENT.md#preflight-checks).
+- **`App\Services\InstallerService`** — the install engine behind the web installer: config
+  target selection, `PASSWORD_PEPPER` generation (still read by nothing — see Known issues
+  below), database connect/create, Phinx migrations through the PHP API rather than a shell-out
+  (shared hosting routinely disables `proc_open`), and writing the config file, the
+  `config/config-path.php` pointer, and `config/installed.lock`. `bin/setup.php` now writes the
+  same lock file on success, so CLI installs are locked too.
+- **Release archive.** `bin/build-release.php` / `composer build:release` assembles a
+  `git archive` baseline (respecting new `.gitattributes` `export-ignore` rules), adds a
+  production `vendor/` and the compiled stylesheet, and writes a SHA-256 checksum next to the
+  zip. `.github/workflows/release.yml` builds it and attaches it to the GitHub release on a
+  version-tag push.
+- **CI: `smoke` and `hardening` jobs.** `smoke` boots the built archive under both supported
+  layouts via `php -S`, configured non-interactively with `bin/setup.php`, and asserts the site
+  responds, the stylesheet URL matches the layout, and a locked site refuses `/install`.
+  `hardening` boots the drop-in layout under real Apache (`php:8.2-apache`) and asserts a planted
+  `.env`, `.git/config`, `config/config.php` and `log/aureo.log` are all actually denied rather
+  than merely assumed to be — **Apache only**; nginx has no per-directory configuration for it to
+  verify. See [docs/DEPLOYMENT.md](./docs/DEPLOYMENT.md#drop-in-layout-nginx).
 
 ### Fixed
 
+- **Installation could die on any host built without libargon2.** The canonical migration's
+  admin seed called `password_hash('password', PASSWORD_ARGON2ID)` unconditionally.
+  `PASSWORD_ARGON2ID` is a compile-time option — the constant is defined on every PHP 8 build, so
+  `defined()` proved nothing, but `password_hash()` throws a `ValueError`, not a warning, when
+  the build actually lacks libargon2. Every hashing site — registration, password reset, admin
+  user creation, the CLI installer, and this migration seed — now goes through
+  `App\Utils\PasswordHasher::hash()`, which consults `password_algos()` and falls back to
+  `PASSWORD_DEFAULT` (bcrypt on PHP 8.2) only where Argon2id is unavailable.
+- **`docs/DEPLOYMENT.md` and `docs/SECURITY.md` described `PASSWORD_PEPPER` as something to set,
+  record, and never lose.** It is read by nothing — `PasswordHasher` hashes with no pepper
+  applied. Both documents now say so plainly instead of implying it protects stored passwords.
 - **`projects.key_code` did not exist, so every project creation failed** with
   `SQLSTATE[42S22]`. The feature shipped complete except for the column — model property,
   `$fillable` entry, `ProjectService::generateKeyCode()`/`keyCodeExists()` and request validation
@@ -57,6 +115,15 @@ in step.
   parent document root. Recorded in
   [Known issues](./docs/DEPLOYMENT.md#known-issues). `RequestPath`'s subdirectory logic and tests
   are retained as the groundwork a future `url()` sweep would need.
+
+### Known issues
+
+- **nginx has no CI-verified parity with the Apache hardening rules for the drop-in layout, and
+  it never will.** nginx does not read `.htaccess` at all, so the `hardening` CI job — and its
+  proof that the deny rules actually deny — covers Apache only. The nginx server block in
+  [docs/DEPLOYMENT.md](./docs/DEPLOYMENT.md#drop-in-layout-nginx) is maintained by hand to have
+  the same coverage, but nothing proves it stays that way. The document-root-is-`public/` layout
+  needs no deny rules at all and is the recommended choice on nginx.
 
 ## [1.1.0] - 2026-08-06
 

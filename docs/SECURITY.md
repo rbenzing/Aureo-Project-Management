@@ -36,7 +36,7 @@ SESSION_SECURE=true      # Requires HTTPS
 SESSION_HTTP_ONLY=true
 
 # Security
-PASSWORD_PEPPER=<random-string>  # Generate a unique secret
+PASSWORD_PEPPER=<random-string>  # Reserved for future use - read by nothing today
 CSRF_TOKEN_EXPIRY=3600
 ```
 
@@ -222,7 +222,6 @@ SESSION_SAMESITE=Lax      # CSRF protection
 - [ ] Set `APP_DEBUG=false`
 - [ ] Set `APP_ENV=production`
 - [ ] Use `APP_SCHEME=https`
-- [ ] Generate strong `PASSWORD_PEPPER`
 - [ ] Rotate all SMTP credentials
 - [ ] Set strong database password
 - [ ] Configure `SESSION_SECURE=true`
