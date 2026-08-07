@@ -728,11 +728,19 @@ class Project extends BaseModel
         // Remove any non-alphanumeric characters and split by spaces
         $words = preg_split('/[^a-zA-Z0-9]/', $name, -1, PREG_SPLIT_NO_EMPTY);
 
-        // Simple project code - take first letter of each word and uppercase it
+        // Simple project code - take first letter of each word and uppercase
+        // it, capped at 4 chars to match ProjectService::generateKeyCode()
+        // and stay well inside the key_code VARCHAR(10) column. Without the
+        // cap, a long enough name overflows the column and the INSERT fails
+        // with "Data too long" under STRICT_TRANS_TABLES.
         $code = '';
         foreach ($words as $word) {
             if (!empty($word)) {
                 $code .= strtoupper(substr($word, 0, 1));
+            }
+
+            if (strlen($code) >= 4) {
+                break;
             }
         }
 
@@ -742,7 +750,47 @@ class Project extends BaseModel
         }
 
         // Ensure code is valid (fallback to "PRJ" if empty)
-        return !empty($code) ? $code : 'PRJ';
+        $code = !empty($code) ? $code : 'PRJ';
+
+        return $this->ensureUniqueKeyCode($code);
+    }
+
+    /**
+     * Append an incrementing counter to $baseCode until it doesn't collide
+     * with an existing key_code, mirroring ProjectService::generateKeyCode()'s
+     * contract (the two never ran the same collision-avoidance logic, which
+     * is what let two differently-named projects both resolve to "WR" and
+     * the second INSERT die on the key_code UNIQUE index).
+     *
+     * count() does not filter is_deleted, so soft-deleted projects still
+     * count as occupying a code here — intentionally: the UNIQUE index is
+     * enforced by MySQL across all rows regardless of soft-delete state, so
+     * excluding them would let this generate a code a soft-deleted row
+     * already holds, and the INSERT would fail with SQLSTATE[23000] anyway.
+     */
+    private function ensureUniqueKeyCode(string $baseCode): string
+    {
+        $code = $baseCode;
+        $counter = 1;
+
+        while ($this->count(['key_code' => $code]) > 0) {
+            $code = $this->appendCounterWithinLimit($baseCode, $counter);
+            $counter++;
+        }
+
+        return $code;
+    }
+
+    /**
+     * Appends $counter to $baseCode, truncating $baseCode as needed so the
+     * result never exceeds the key_code column width (VARCHAR(10)).
+     */
+    private function appendCounterWithinLimit(string $baseCode, int $counter): string
+    {
+        $suffix = (string) $counter;
+        $maxBaseLength = max(0, 10 - strlen($suffix));
+
+        return substr($baseCode, 0, $maxBaseLength) . $suffix;
     }
 
     /**

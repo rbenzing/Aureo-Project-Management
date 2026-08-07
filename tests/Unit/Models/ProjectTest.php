@@ -144,6 +144,29 @@ final class ProjectTest extends TestCase
         return (new ReflectionMethod(Project::class, $method))->invoke($project, ...$args);
     }
 
+    /**
+     * Partial mock of Project with only count() overridden, so
+     * transformKeyCodeFormat()'s uniqueness probe is deterministic without a
+     * real database connection. $countReturns is either a single value
+     * returned on every call, or an array consumed one-per-call (mirroring a
+     * collide-then-succeed sequence).
+     */
+    private function newProjectWithCountResults(array|int $countReturns): Project&\PHPUnit\Framework\MockObject\MockObject
+    {
+        $project = $this->getMockBuilder(Project::class)
+            ->disableOriginalConstructor()
+            ->onlyMethods(['count'])
+            ->getMock();
+
+        if (is_array($countReturns)) {
+            $project->method('count')->willReturnOnConsecutiveCalls(...$countReturns);
+        } else {
+            $project->method('count')->willReturn($countReturns);
+        }
+
+        return $project;
+    }
+
     // ------------------------------------------------------------ findWithDetails()
 
     public function testFindWithDetailsLoadsAllRelatedDataWithDefaultOptions(): void
@@ -533,37 +556,87 @@ final class ProjectTest extends TestCase
 
     public function testTransformKeyCodeFormatUsesInitialsForMultiWordName(): void
     {
-        $project = $this->newProjectWithDb($this->createMock(Database::class));
+        $project = $this->newProjectWithCountResults(0);
 
         $this->assertSame('PMS', $project->transformKeyCodeFormat('Project Management System'));
     }
 
     public function testTransformKeyCodeFormatFallsBackToFirstThreeLettersForShortSingleWord(): void
     {
-        $project = $this->newProjectWithDb($this->createMock(Database::class));
+        $project = $this->newProjectWithCountResults(0);
 
         $this->assertSame('WEB', $project->transformKeyCodeFormat('Website'));
     }
 
     public function testTransformKeyCodeFormatReturnsPrjForEmptyName(): void
     {
-        $project = $this->newProjectWithDb($this->createMock(Database::class));
+        $project = $this->newProjectWithCountResults(0);
 
         $this->assertSame('PRJ', $project->transformKeyCodeFormat(''));
     }
 
     public function testTransformKeyCodeFormatReturnsPrjWhenNameHasNoAlphanumericCharacters(): void
     {
-        $project = $this->newProjectWithDb($this->createMock(Database::class));
+        $project = $this->newProjectWithCountResults(0);
 
         $this->assertSame('PRJ', $project->transformKeyCodeFormat('!!!'));
     }
 
     public function testTransformKeyCodeFormatKeepsMultipleSingleLetterWords(): void
     {
-        $project = $this->newProjectWithDb($this->createMock(Database::class));
+        $project = $this->newProjectWithCountResults(0);
 
         $this->assertSame('ABCD', $project->transformKeyCodeFormat('A B C D'));
+    }
+
+    public function testTransformKeyCodeFormatCapsBaseCodeAtFourCharactersForManyWordName(): void
+    {
+        // Without the cap, an code with one letter per word overflows the
+        // key_code VARCHAR(10) column for long enough names and the INSERT
+        // fails with "Data too long" under STRICT_TRANS_TABLES.
+        $project = $this->newProjectWithCountResults(0);
+
+        $code = $project->transformKeyCodeFormat('One Two Three Four Five Six Seven Eight Nine Ten Eleven');
+
+        $this->assertSame('OTTF', $code);
+        $this->assertLessThanOrEqual(10, strlen($code));
+    }
+
+    public function testTransformKeyCodeFormatAppendsCounterOnCollision(): void
+    {
+        // "Website Redesign" and "Warehouse Rollout" both reduce to "WR"; the
+        // second create() must not collide with the first under the
+        // key_code UNIQUE index (db/migrations/20260806120000_add_project_key_code.php).
+        $project = $this->newProjectWithCountResults([1, 0]);
+
+        $this->assertSame('WR1', $project->transformKeyCodeFormat('Website Redesign'));
+    }
+
+    public function testTransformKeyCodeFormatKeepsIncrementingCounterUntilUnique(): void
+    {
+        $project = $this->newProjectWithCountResults([1, 1, 0]);
+
+        $this->assertSame('WR2', $project->transformKeyCodeFormat('Website Redesign'));
+    }
+
+    public function testTransformKeyCodeFormatResultNeverExceedsTenCharactersForSevenDigitCounter(): void
+    {
+        $project = $this->newProjectWithDb($this->createMock(Database::class));
+
+        $code = $this->invokePrivate($project, 'appendCounterWithinLimit', ['PMS', 1234567]);
+
+        $this->assertSame('PMS1234567', $code);
+        $this->assertSame(10, strlen($code));
+    }
+
+    public function testTransformKeyCodeFormatTruncatesBaseFurtherForEightDigitCounter(): void
+    {
+        $project = $this->newProjectWithDb($this->createMock(Database::class));
+
+        $code = $this->invokePrivate($project, 'appendCounterWithinLimit', ['PMS', 12345678]);
+
+        $this->assertSame('PM12345678', $code);
+        $this->assertSame(10, strlen($code));
     }
 
     // ---------------------------------------------------------------- getAllStatuses()
