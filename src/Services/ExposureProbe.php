@@ -187,7 +187,22 @@ final class ExposureProbe
                 'ssl' => ['verify_peer' => false, 'verify_peer_name' => false],
             ]);
 
-            $headers = get_headers($url, false, $context);
+            // get_headers() raises a warning for every request it cannot
+            // complete, and this probe exists precisely to make requests that
+            // may not complete - a host blocking loopback HTTP produces one
+            // warning per probed path. In the web installer those land in the
+            // middle of the rendered page; from bin/preflight.php they bury
+            // the report. The project forbids the @ operator, so swallow them
+            // with a scoped handler and restore it in finally, which also
+            // guarantees the handler cannot leak into the caller if
+            // get_headers() throws.
+            set_error_handler(static fn (): bool => true);
+
+            try {
+                $headers = get_headers($url, false, $context);
+            } finally {
+                restore_error_handler();
+            }
 
             if ($headers === false || $headers === []) {
                 return null;
