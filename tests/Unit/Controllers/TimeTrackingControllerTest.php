@@ -395,4 +395,86 @@ final class TimeTrackingControllerTest extends TestCase
 
         $this->assertNotContains('manage_time_tracking', $c->requiredPermissions);
     }
+
+    // --------------------------------------------------------- startTimer()
+
+    private function task(int $id = 3, ?int $assignedTo = 7): object
+    {
+        return (object) [
+            'id' => $id,
+            'assigned_to' => $assignedTo,
+            'is_deleted' => 0,
+        ];
+    }
+
+    /**
+     * The regression this guards: the check used to read
+     * `$task->assigned_to !== $userId && !$this->requirePermission('manage_tasks')`.
+     * requirePermission() is void and halts on failure, so on success it
+     * returns null, `!null` is true, and the whole condition collapsed to the
+     * ownership test - a user holding manage_tasks was rejected outright.
+     */
+    public function testStartTimerLetsAManageTasksHolderTimeSomeoneElsesTask(): void
+    {
+        $_SESSION['user']['id'] = 42;
+
+        $this->taskModel->method('find')->willReturn($this->task(3, 7));
+
+        $c = $this->controller();
+        $this->expectHalt($c, fn () => $c->startTimer('POST', ['task_id' => '3']));
+
+        $this->assertSame('success', $c->redirectType);
+        $this->assertSame('/tasks/view/3', $c->redirectUrl);
+        $this->assertSame('Timer started successfully.', $c->redirectMessage);
+        $this->assertContains('manage_tasks', $c->requiredPermissions);
+        $this->assertSame(3, $_SESSION['active_timer']['task_id']);
+    }
+
+    public function testStartTimerDoesNotRequireManageTasksForTheAssignee(): void
+    {
+        $_SESSION['user']['id'] = 7;
+
+        $this->taskModel->method('find')->willReturn($this->task(3, 7));
+
+        $c = $this->controller();
+        $this->expectHalt($c, fn () => $c->startTimer('POST', ['task_id' => '3']));
+
+        $this->assertSame('success', $c->redirectType);
+        $this->assertNotContains('manage_tasks', $c->requiredPermissions);
+        $this->assertContains('edit_tasks', $c->requiredPermissions);
+    }
+
+    public function testStartTimerRequiresManageTasksForAnUnassignedTask(): void
+    {
+        $_SESSION['user']['id'] = 7;
+
+        $this->taskModel->method('find')->willReturn($this->task(3, null));
+
+        $c = $this->controller();
+        $this->expectHalt($c, fn () => $c->startTimer('POST', ['task_id' => '3']));
+
+        $this->assertContains('manage_tasks', $c->requiredPermissions);
+    }
+
+    public function testStartTimerRejectsANonPostMethod(): void
+    {
+        $c = $this->controller();
+        $e = $this->expectHalt($c, fn () => $c->startTimer('GET', ['task_id' => '3']));
+
+        $this->assertSame('halt:error', $e->getMessage());
+        $this->assertSame('Invalid request method.', $c->redirectMessage);
+    }
+
+    public function testStartTimerRejectsAMissingTask(): void
+    {
+        $_SESSION['user']['id'] = 7;
+
+        $this->taskModel->method('find')->willReturn(false);
+
+        $c = $this->controller();
+        $this->expectHalt($c, fn () => $c->startTimer('POST', ['task_id' => '99']));
+
+        $this->assertSame('error', $c->redirectType);
+        $this->assertSame('Task not found', $c->redirectMessage);
+    }
 }

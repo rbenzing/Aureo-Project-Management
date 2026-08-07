@@ -352,10 +352,13 @@ class TimeTrackingController extends BaseController
                 throw new InvalidArgumentException('Task not found');
             }
 
-            // Check if user has permission to track time on this task
+            // Tracking time on someone else's task needs manage_tasks.
+            // requirePermission() returns void and halts on failure, so it must
+            // be a statement - using it as a boolean operand inverts the test
+            // and rejects exactly the users who hold the permission.
             $userId = $_SESSION['user']['id'] ?? null;
-            if ($task->assigned_to !== $userId && !$this->requirePermission('manage_tasks')) {
-                throw new InvalidArgumentException('You do not have permission to track time for this task');
+            if ((int)$task->assigned_to !== (int)$userId) {
+                $this->requirePermission('manage_tasks');
             }
 
             // Store timer start in session
