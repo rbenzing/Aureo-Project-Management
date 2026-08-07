@@ -144,6 +144,27 @@ jobs:
       - name: Check PSR-12 compliance
         run: vendor/bin/php-cs-fixer fix --dry-run --diff
 
+      # public/assets/css/styles.css is tracked on purpose, so Node-less shared
+      # hosting works. The cost is that a view change is only half a change
+      # until the stylesheet is rebuilt, and a missing utility is invisible on
+      # a dev machine that ran `npm run build` at some point. The installer
+      # views shipped without their warning styles - the yellow border and
+      # dark-mode background on the exposure step's "could not verify" - for
+      # exactly this reason.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Compiled CSS matches the views
+        run: |
+          npm install --no-audit --no-fund
+          npm run build
+          if ! git diff --exit-code -- public/assets/css/styles.css; then
+            echo
+            echo "public/assets/css/styles.css is stale. Run 'npm run build' and commit the result."
+            exit 1
+          fi
+
   security:
     runs-on: ubuntu-latest
 

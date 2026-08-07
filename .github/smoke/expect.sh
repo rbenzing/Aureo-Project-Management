@@ -11,7 +11,14 @@ expected="$2"
 contains="${3:-}"
 
 body=$(mktemp)
-status=$(curl -sS -o "$body" -w '%{http_code}' --max-time 20 "$url" || echo 000)
+# No `|| echo 000` fallback: on a connection failure curl already writes 000
+# via -w AND exits non-zero, so the fallback appended a second 000 and the
+# failure log read "-> 000000 (expected 200)". Harmless to the verdict - six
+# zeros never match a real code, so the job still failed - but it made the
+# one line an operator reads to diagnose CI nonsense. `|| true` keeps `set -e`
+# happy; the :- covers curl being absent entirely, where nothing is written.
+status=$(curl -sS -o "$body" -w '%{http_code}' --max-time 20 "$url") || true
+status=${status:-000}
 
 if [ "$status" != "$expected" ]; then
   echo "FAIL  $url -> $status (expected $expected)"
