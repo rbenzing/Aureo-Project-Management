@@ -13,6 +13,13 @@
 .env
 .env.*
 !.env.example
+
+# docs/DEPLOYMENT.md tells operators to create these by hand on the server;
+# they hold DB credentials and PASSWORD_PEPPER. On a clone-based install they
+# land inside the work tree, where `git add -A` would otherwise stage them.
+/config/config.php
+/config/config-path.php
+
 *.key
 *.pem
 *.p12
