@@ -108,8 +108,28 @@ composer cs:check   # PSR-12 lint (dry run + diff)
 composer cs:fix     # auto-fix code style
 composer test       # PHPUnit suite
 composer audit      # known vulnerabilities in dependencies
+composer preflight  # check this host can run Aureo (see below)
 npm run build       # rebuild Tailwind CSS
 ```
+
+### 🔎 Preflight
+
+Before deploying to an unfamiliar host, ask it whether it can actually run Aureo:
+
+```bash
+composer preflight                              # environment checks only
+php bin/preflight.php --url=https://example.com # also probe what the server hands out
+```
+
+It checks the PHP version and extensions, that `log/` and `var/cache/` are writable, that a
+configuration file can be written somewhere, and which deployment layout is in effect. With
+`--url` it additionally asks the running site for `/.env`, `/config/config.php`, `/log/aureo.log`
+and `/.git/config` — any of which returning `200` is a credential or source disclosure.
+
+Exit codes: `0` all clear (warnings allowed), `1` at least one failure, `2` could not run.
+
+A path the probe cannot reach at all is reported as *unverified*, never as safe. Hosts that block
+loopback HTTP cannot self-check, and you should confirm those paths by hand before going live.
 
 ## ⚙️ Configuration
 
