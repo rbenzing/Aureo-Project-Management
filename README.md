@@ -184,13 +184,17 @@ Full design rationale and request lifecycle: [ARCHITECTURE.md](./docs/ARCHITECTU
    the repository, so `npm run build` is only needed if you're changing the stylesheet.
 5. Configure HTTPS. [SECURITY.md](./docs/SECURITY.md) covers headers and cookie posture.
 
-Hosts that don't allow a `public/`-only document root are also supported — document root at the
-application root, or a subdirectory install — via a five-rung configuration chain and a shared
-mount-point resolver. See
+Hosts that don't allow a `public/`-only document root can instead point it at the application
+root (the "drop-in" layout), via a five-rung configuration chain and a shared mount-point
+resolver. See
 [Deployment layouts](./docs/DEPLOYMENT.md#deployment-layouts) and
-[Configuration sources](./docs/DEPLOYMENT.md#configuration-sources) in DEPLOYMENT.md. Whichever
-layout you use, **never extract a `git clone` at a document root** — a web-reachable `.git/`
-directory discloses the full source history.
+[Configuration sources](./docs/DEPLOYMENT.md#configuration-sources) in DEPLOYMENT.md.
+
+**Both supported layouts mount the app at the domain root.** Routes and links are root-absolute
+throughout, so installing under a subdirectory (`https://host/aureo/`) is not supported — see
+[Known issues](./docs/DEPLOYMENT.md#known-issues). Whichever layout you use, **never extract a
+`git clone` at a document root** — a web-reachable `.git/` directory discloses the full source
+history.
 
 ### Nginx example
 

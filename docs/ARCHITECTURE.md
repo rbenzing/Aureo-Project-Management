@@ -90,14 +90,18 @@ boring, and stable — changes here affect everything, so they get the most scru
 
 #### `RequestPath` and `ConfigLoader`
 
-Aureo supports three deployment layouts (document root at `public/`, document root at the
-application root, and a subdirectory install) plus a fourth fallback where no rewrite rule is
-available at all and URLs run through `/index.php/...`. Two small, pure classes make that possible
-without branching the rest of the codebase:
+Aureo supports two deployment layouts — document root at `public/` (recommended) and document
+root at the application root ("drop-in"). Both mount the application at the domain root;
+subdirectory installs are **not** supported (see
+[DEPLOYMENT.md](./DEPLOYMENT.md#known-issues)). Two small, pure classes keep the rest of the
+codebase free of layout branching:
 
 - **`RequestPath`** (`src/Core/RequestPath.php`) takes `REQUEST_URI` and `SCRIPT_NAME` and derives
   the application's mount point (`basePath()`, e.g. `''` or `'/aureo'`), the route path with the
-  mount point stripped (`path()`), and the router segments (`segments()`). It is a pure value
+  mount point stripped (`path()`), and the router segments (`segments()`). The non-empty mount
+  point and `usesPathInfo()` (the no-rewrite-rule fallback) have no production consumer today —
+  they are retained, and tested, as the groundwork a subdirectory-capable `url()` helper would
+  need. It is a pure value
   object — no globals read internally, no I/O — constructed once in `public/index.php` via
   `RequestPath::fromGlobals()` and shared by both the auth gate and the router dispatch call, which
   previously each computed URL segments with their own duplicated, domain-root-only logic. Prefix
@@ -115,16 +119,17 @@ without branching the rest of the codebase:
 `Config::setBasePath()` / `Config::basePath()` store the mount point `RequestPath` resolved, set
 once during boot in `public/index.php`. The `asset()` view helper
 (`src/Views/Layouts/ViewHelpers.php`) composes `Config::basePath()` with `AUREO_ASSET_PREFIX` to
-build every bundled CSS/JS URL, which is what makes the same view markup correct under all three
-layouts.
+build every bundled CSS/JS URL, which is what makes the same view markup correct in both
+layouts. **`asset()` is `basePath()`'s only production consumer** — the ~355 `href`/`action`
+attributes in `src/Views` and ~202 `redirect()` calls in `src/Controllers` are root-absolute and
+unprefixed, which is precisely why subdirectory installs cannot log in.
 
 #### Why `BASE_PATH` stays at `public/`
 
 `BASE_PATH` is defined once, in `public/index.php`, as `__DIR__` — i.e. `public/` — regardless of
-deployment layout. The root `index.php` delegate (used by the drop-in and subdirectory layouts)
-does not redefine it; it only sets `AUREO_ASSET_PREFIX` before `require`-ing `public/index.php`,
-so `BASE_PATH` still resolves to `public/` even when the document root is the application root or
-a parent directory. Every one of the roughly 320 `require`/`include`/`render()` calls in the
+deployment layout. The root `index.php` delegate (used by the drop-in layout) does not redefine
+it; it only sets `AUREO_ASSET_PREFIX` before `require`-ing `public/index.php`, so `BASE_PATH`
+still resolves to `public/` even when the document root is the application root. Every one of the roughly 320 `require`/`include`/`render()` calls in the
 codebase is written relative to `BASE_PATH` (`BASE_PATH . '/../src/Views/...'`, `BASE_PATH .
 '/../vendor/autoload.php'`, and so on). Keeping `BASE_PATH` fixed at `public/` in every layout is
 what lets those 320 call sites stay unmodified — the alternative (deriving `BASE_PATH` from the

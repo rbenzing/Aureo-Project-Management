@@ -20,6 +20,7 @@ Installing, configuring, upgrading and operating Aureo on a real server. For day
 - [Backups and restore](#backups-and-restore)
 - [Operations](#operations)
 - [Troubleshooting](#troubleshooting)
+- [Known issues](#known-issues)
 
 ---
 
@@ -44,7 +45,7 @@ window function appears anywhere in `src/`, `db/` or `tests/`. "8.0 or newer" is
 
 ## Deployment layouts
 
-Aureo supports three layouts. All three are handled by one request-path resolver
+Aureo supports two layouts. Both are handled by one request-path resolver
 (`App\Core\RequestPath`, see
 [ARCHITECTURE.md](./ARCHITECTURE.md#requestpath-and-configloader)), so the application code does
 not change between them — only where the document root points and how configuration is supplied.
@@ -53,26 +54,31 @@ not change between them — only where the document root points and how configur
 |---|---|---|---|
 | **Recommended** | `<app>/public` | `.env`, one level *above* the document root — outside the served tree, so unreachable by URL regardless of server rules | Nothing web-reachable but the front controller and assets |
 | Drop-in | `<app>` (the application root) | `config/config.php`, *inside* the served tree at `<app>/config/` — reachable in principle, kept out by the `config` deny rule in `.htaccess`/`web.config` | Requires the release archive, never a `git clone` |
-| Subdirectory | `<parent>`, with the app in `<parent>/aureo` | `config/config.php`, *inside* the served tree at `<parent>/aureo/config/` — same protection as the drop-in row | Asset and route URLs carry the `/aureo` prefix automatically |
+
+**Both layouts mount the application at the domain root.** Routes and links throughout
+`src/Views` and `src/Controllers` are written root-absolute (`href="/tasks"`,
+`action="/login"`, `redirect('/projects')`), so the app must be reachable at `https://host/`,
+not `https://host/somewhere/`. Installing into a subdirectory is **not supported** — see
+[Known issues](#known-issues).
 
 **Document root at `public/` remains recommended.** It is the only layout where the web server can
 serve *only* the front controller and static assets — everything else (`.env`, `vendor/`, `db/`,
 `tests/`, and the rest of `src/`) sits outside the document root entirely and is unreachable by
 URL, full stop, regardless of `.htaccess`/`web.config` rules or a misconfiguration in either. In the
-other two layouts, `config/config.php` sits *inside* the served tree (`ConfigLoader` resolves it
+drop-in layout, `config/config.php` sits *inside* the served tree (`ConfigLoader` resolves it
 from `dirname(BASE_PATH)`, which is fixed relative to the application, not to the document root) —
 it is reachable the same way `.env` would be, and stays hidden only because the deny rules in the
 shipped `.htaccess` / `web.config` say so. **Do not assume these files are categorically
 unreachable the way `.env` is in the recommended layout** — verify the deny rules are actually in
-effect (`curl` the config path and confirm a 403, not a 200) before trusting either of the other two
-layouts in production.
+effect (`curl` the config path and confirm a 403, not a 200) before trusting the drop-in layout
+in production.
 
 **A `git clone` must never be extracted at a document root.** A `.git/` directory under a served
 root discloses the full source history via `GET /.git/config`, `GET /.git/HEAD`, and the object
 store underneath — no application-level fix prevents this once `.git/` itself is web-reachable. The
-release archive (built for the drop-in and subdirectory layouts) omits `.git/` and most
+release archive (built for the drop-in layout) omits `.git/` and most
 non-runtime files entirely; a `git clone` does not. Use the recommended `public/`-as-document-root
-layout for a clone, or the release archive for the other two.
+layout for a clone, or the release archive for the drop-in layout.
 
 ### Drop-in layout: nginx
 
@@ -88,11 +94,25 @@ server {
 
     # Deny directories that must never be served. .htaccess enforces the same
     # list; nginx has no per-directory config, so it has to be here instead.
-    location ~ ^/(\.git|db|tests|bin|node_modules|var|log|vendor|config)(/|$) {
+    #
+    # `src` is here but NOT in the root .htaccess: Apache reads src/.htaccess
+    # (Require all denied) on its own, and nginx cannot. Omitting it exposes
+    # every view and class file as source.
+    #
+    # ~* (not ~) mirrors the [NC] flag on the .htaccess RewriteRule. nginx is
+    # case-sensitive by default, so GET /.Git/config would otherwise be served
+    # on a case-insensitive filesystem.
+    location ~* ^/(\.git|\.github|\.claude|\.superpowers|src|db|tests|bin|node_modules|var|log|vendor|config|tools|docs)(/|$) {
         deny all;
     }
 
-    location ~ \.(env|log|sql|md|lock|json|xml|dist|yml|yaml|gz)$ {
+    location ~ \.(env|log|sql|md|lock|json|xml|dist|yml|yaml|gz|config|diff)$ {
+        deny all;
+    }
+
+    # Extensionless and multi-dot files the extension list cannot reach. No
+    # bare \.js$ rule: that would also deny /public/assets/js/*.js.
+    location ~ ^/(VERSION|tailwind\.config\.js|postcss\.config\.js)$ {
         deny all;
     }
 
@@ -233,7 +253,7 @@ Note that the `testing` environment appends `_test` to `DB_NAME`.
    secrets somewhere else on the filesystem; it `require`s to a string path, which is then loaded
    the same way as rung 4 or 5.
 4. **`config/config.php`** — a PHP file `require`d and expected to `return` an array of key/value
-   pairs. This exists for the drop-in and subdirectory layouts: a plain-text `.env` is
+   pairs. This exists for the drop-in layout: a plain-text `.env` is
    unreadable-by-default only while it sits *above* the document root, and an install that places
    the application *at* the document root cannot rely on that — nginx has no per-directory rule to
    deny it with, either. A PHP file served directly executes and emits nothing, so it degrades
@@ -257,12 +277,8 @@ location is actually safe from direct requests depends on where the document roo
   rather than a directory rule — the installer for this layout writes `config/config.php`, not
   `.env`, precisely so a plain-text file isn't the thing standing between an attacker and your
   database credentials.
-- **Subdirectory layout** (`<parent>` is the document root, app in `<parent>/aureo`): same as
-  drop-in — `config/config.php` (or a stray `.env`) lands inside the served tree at
-  `<parent>/aureo/config/` (or `<parent>/aureo/.env`) and relies on the same deny rules.
-
 Do not assume rungs 3-5 are categorically unreachable the way `.env` is in the recommended layout;
-for the other two layouts, verify the deny rules are actually in effect (request the config path
+in the drop-in layout, verify the deny rules are actually in effect (request the config path
 directly and confirm a 403, not a 200) before trusting them in production.
 
 If none of the five sources yields all five required keys, boot fails with a `RuntimeException`
@@ -275,8 +291,7 @@ uses.
 `Config::loadEnvironment()` required a `.env` file one level above the document root and threw a
 `RuntimeException` otherwise. That broke every containerized or PaaS deployment (Docker, Heroku,
 Fly.io, ...) where configuration is supplied purely as environment variables. Rung 1 above is the
-fix; rungs 2-5 are the rest of the chain that also makes the drop-in and subdirectory layouts
-possible.
+fix; rungs 2-5 are the rest of the chain that also makes the drop-in layout possible.
 
 ---
 
@@ -285,7 +300,7 @@ possible.
 **Point the document root at `public/` when you can.** Serving the repository root exposes `.env`,
 `vendor/` and `log/` unless the hardening rules below are in place — pointing at `public/` makes
 the question moot, which is why it is the single most important deployment detail. See
-[Deployment layouts](#deployment-layouts) for the drop-in and subdirectory alternatives.
+[Deployment layouts](#deployment-layouts) for the drop-in alternative.
 
 ### Nginx
 
@@ -366,8 +381,8 @@ user and all 55 permissions.
 
 Before exposing the instance:
 
-- [ ] Document root is `public/` (recommended layout) — or, if using the drop-in or subdirectory
-      layout instead, the hardening rules in `.htaccess`/`web.config` are in place and verified
+- [ ] Document root is `public/` (recommended layout) — or, if using the drop-in layout
+      instead, the hardening rules in `.htaccess`/`web.config` are in place and verified
 - [ ] `.env` (or the equivalent config source — see [Configuration sources](#configuration-sources))
       is `chmod 600` and not in version control
 - [ ] `APP_ENV=production`, `APP_DEBUG=false`, `APP_SCHEME=https`
@@ -508,7 +523,7 @@ state-changing request fails. For an HTTP-only internal instance, set `SESSION_S
 `public/assets/css/styles.css` **is tracked in the repository** — a stock checkout is already
 styled and `npm`/`npm run build` are not required to see it. If pages are unstyled, check instead
 that the document root or `AUREO_ASSET_PREFIX`/`Config::basePath()` combination is producing the
-right URL for a subdirectory or drop-in install (see
+right URL for a drop-in install (see
 [Deployment layouts](#deployment-layouts)), or that `npm run build` was run *after* a local edit to
 `src/css/input.css` and produced a stylesheet that didn't get deployed.
 
@@ -530,3 +545,27 @@ links expire after 24 hours and reset links after 1 hour.
 
 **MySQL CLI errors with `caching_sha2_password could not be loaded` (Windows/XAMPP).**
 A client-side limitation. Use PDO from a PHP script, or `composer pma`, instead of `mysql.exe`.
+
+---
+
+## Known issues
+
+**Subdirectory installs are not supported.**
+Aureo must be mounted at the domain root — `https://host/`, not `https://host/aureo/`. Serving
+it from a subdirectory renders the login page but **cannot log in**: the form posts to
+`/login`, which resolves against the parent document root rather than the application.
+
+The mount point *is* resolved correctly at boot (`App\Core\RequestPath::basePath()`, fed into
+`Config::setBasePath()`), but only one production consumer reads it — the `asset()` view helper
+in `src/Views/Layouts/ViewHelpers.php`. So **`basePath()` reaches assets only**. Every other URL
+in the application is written root-absolute and unprefixed: roughly 350 `href="/…"` and
+`action="/…"` attributes across `src/Views`, and about 200 `redirect('/…')` calls across
+`src/Controllers`. CSS and images load; navigation, form posts and redirects do not.
+
+Making this work needs a `url()` helper applied to all ~550 of those sites, not a configuration
+change. `RequestPath` and its tests are kept because the resolver itself is correct and would be
+the foundation of that sweep. Note that `RequestPath::usesPathInfo()` likewise has no production
+consumer today — it exists for the no-rewrite-rule fallback and is exercised only by tests.
+
+Use the recommended (`public/` as document root) or drop-in (application root as document root)
+layout — see [Deployment layouts](#deployment-layouts).

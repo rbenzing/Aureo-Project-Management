@@ -11,20 +11,72 @@ in step.
 
 ## [Unreleased]
 
+### Fixed
+
+- **`projects.key_code` did not exist, so every project creation failed** with
+  `SQLSTATE[42S22]`. The feature shipped complete except for the column — model property,
+  `$fillable` entry, `ProjectService::generateKeyCode()`/`keyCodeExists()` and request validation
+  were all present. Added by migration `20260806120000_add_project_key_code`
+  (`VARCHAR(10) NULL` plus a UNIQUE index; MySQL permits multiple NULLs under UNIQUE, so no
+  backfill is needed).
+- **Nested transactions broke role and template creation.** `RoleController::create()` and
+  `TemplateController::create()`/`update()` open a transaction and then call model methods that
+  opened another on the same PDO connection. PDO does not nest — the second `beginTransaction()`
+  throws, the inner `catch` rolls back the *outer* transaction, and the controller's own
+  `rollBack()` then fails with "There is no active transaction", masking the real error.
+  `Permission::assignToRole()`, `Permission::bulkCreate()`, `Template::setDefaultTemplate()` and
+  `Template::createSprintTemplate()` now use `BaseModel::beginTransactionIfNone()` /
+  `commitIfOwned()` / `rollBackIfOwned()`, so they keep their own atomicity when called standalone
+  and defer to the caller when nested.
+- **`TimeTrackingController::startTimer()` rejected users who held `manage_tasks`.**
+  `requirePermission()` returns `void` and halts on failure, so `!$this->requirePermission(...)`
+  was always `true` and the condition collapsed to the ownership test. Now a statement, matching
+  `assertMayModify()`.
+- `.htaccess` directory deny rule is now `[NC]`. Apache compiles `<FilesMatch>`
+  case-insensitively on case-insensitive filesystems but `RewriteRule` stays case-sensitive, so
+  `GET /.Git/config` and `/.Git/objects/**` served the repository and its full history.
+- `.htaccess` / `web.config` / the nginx block now also deny `tools` (a phpMyAdmin install with
+  `AllowNoPassword`), `docs`, `.superpowers`, `.github` and `.claude`, plus `web.config` itself,
+  `VERSION`, `tailwind.config.js` and `postcss.config.js`. The nginx block additionally denies
+  `src`, which Apache covers via `src/.htaccess` and nginx cannot read.
+- `config/config.php` and `config/config-path.php` are now gitignored. `docs/DEPLOYMENT.md` tells
+  operators to create them and they hold DB credentials and `PASSWORD_PEPPER`; on a clone-based
+  install `git add -A` would have staged them.
+- `src/Views/Layouts/notifications.php` and `src/Views/Sprints/inc/sprint_list.php` were the only
+  two views without a `BASE_PATH` guard, so on nginx they executed on a direct request.
+- `DeadViewTest` self-immunized every view whose header comment used `// file:` with a space: the
+  strip targeted `//file:` only, so the file's own comment satisfied its own reachability check.
+  The haystack is now built per-view with that view excluded, which surfaced a real orphan,
+  `src/Views/Sprints/inc/project_header.php` (removed).
+
+### Changed
+
+- **Documentation now describes two deployment layouts, not three.** Subdirectory installs are
+  not supported and never were: `Config::basePath()` has exactly one production consumer,
+  `asset()`, so a subdirectory install renders but cannot log in — the login form posts to the
+  parent document root. Recorded in
+  [Known issues](./docs/DEPLOYMENT.md#known-issues). `RequestPath`'s subdirectory logic and tests
+  are retained as the groundwork a future `url()` sweep would need.
+
 ## [1.1.0] - 2026-08-06
 
 Host-layout independence: the application no longer assumes it owns the document root or that
-configuration arrives as a `.env` file above it. Three deployment layouts are now supported end to
-end (document root at `public/`, document root at the application root, and a subdirectory
-install), configuration can come from real environment variables alone, and a long-broken
-time-tracking feature was completed and wired up. No breaking change — minor bump.
+configuration arrives as a `.env` file above it. Two deployment layouts are supported end to end
+(document root at `public/`, and document root at the application root), configuration can come
+from real environment variables alone, and a long-broken time-tracking feature was completed and
+wired up. No breaking change — minor bump.
+
+> **Correction (post-release).** This entry originally claimed three layouts, including a
+> subdirectory install. That was wrong — see the Unreleased section above and
+> [Known issues](./docs/DEPLOYMENT.md#known-issues). The text below is left as shipped except
+> where it asserted subdirectory support.
 
 ### Added
 
-- **Three supported deployment layouts** — document root at `public/` (recommended, unchanged),
-  document root at the application root ("drop-in", for hosts that allow no other document root),
-  and a subdirectory install — all served by one `App\Core\RequestPath` resolver rather than
-  per-layout branches. See [docs/DEPLOYMENT.md](./docs/DEPLOYMENT.md#deployment-layouts).
+- **Two supported deployment layouts** — document root at `public/` (recommended, unchanged) and
+  document root at the application root ("drop-in", for hosts that allow no other document root)
+  — both served by one `App\Core\RequestPath` resolver rather than per-layout branches. See
+  [docs/DEPLOYMENT.md](./docs/DEPLOYMENT.md#deployment-layouts).
 - **`App\Core\RequestPath`** derives the application's mount point and route path from
   `SCRIPT_NAME`/`REQUEST_URI`, replacing two duplicated, domain-root-only URL-segmentation blocks
   in the front controller (the auth gate and the router dispatch each had their own copy). A pure
@@ -37,7 +89,7 @@ time-tracking feature was completed and wired up. No breaking change — minor b
   chain, so migrations work identically under every layout.
 - Root `index.php` delegate, `AUREO_ASSET_PREFIX`, and the `asset()` view helper
   (`src/Views/Layouts/ViewHelpers.php`), which compose `Config::basePath()` with the asset prefix
-  so bundled CSS/JS resolves correctly under all three layouts. 53 hardcoded asset URLs across 51
+  so bundled CSS/JS resolves correctly under both layouts. 53 hardcoded asset URLs across 51
   views were rewritten to use it.
 - Root `.htaccess` and `web.config` hardening for the drop-in layout: denies `.git`, `db`, `tests`,
   `bin`, `node_modules`, `var`, `log`, `vendor`, `config`, and non-PHP files that would otherwise be
@@ -71,9 +123,12 @@ time-tracking feature was completed and wired up. No breaking change — minor b
   functions don't see caller-local variables. Five forms were unusable as a result: Projects
   create, Roles create and edit, Templates create and edit. Now reads `$_SESSION['csrf_token']`
   directly, the value `CsrfMiddleware` itself writes and validates against.
-- **Subdirectory installs could not work.** Asset URLs were hardcoded root-absolute in 53 places
-  across 51 views (every view carries its own `<head>`), and `Config` had no notion of a mount
-  point to prepend. Fixed by `RequestPath` + `Config::basePath()` + `asset()` together.
+- **Asset URLs were hardcoded root-absolute in 53 places across 51 views** (every view carries its
+  own `<head>`), and `Config` had no notion of a mount point to prepend. `RequestPath` +
+  `Config::basePath()` + `asset()` fixed the asset URLs. This was originally written up as making
+  subdirectory installs work; it did not — `asset()` is `basePath()`'s only consumer, and the ~355
+  `href`/`action` attributes and ~202 controller redirects remain root-absolute. See
+  [Known issues](./docs/DEPLOYMENT.md#known-issues).
 - **`ViewHelpers.php` was not loaded before a view's `<head>` ran.** Only about 19 of 54 views
   loaded it themselves, and always below their own `<head>` — so `asset()` was undefined at runtime
   for most pages the moment their `<head>` called it. `BaseController::render()` now
