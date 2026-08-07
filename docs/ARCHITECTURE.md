@@ -35,25 +35,30 @@ the only route registry — and moves through these stages in order:
 | 1 | **Session** | `session_start()` before anything else. |
 | 2 | **CSP header** | Content-Security-Policy emitted immediately, before any code can output. |
 | 3 | **Autoload** | Composer autoloader; `App\` → `src/`, PSR-4. |
-| 4 | **Config** | `Config::init()` resolves configuration via `ConfigLoader` **before** the container, because container factories read `$_ENV`. |
-| 5 | **Base path** | `RequestPath::fromGlobals()` resolves the mount point; `Config::setBasePath()` stores it for `asset()` and any generated URL. |
-| 6 | **Container** | `config/container.php` returns a built PHP-DI container. |
-| 7 | **Security headers** | `SecurityService::applySecurityHeaders()`, with a hardcoded fallback set if settings are unavailable. |
-| 8 | **Rate limit** | Database-persisted check; 429 and exit on breach. |
-| 9 | **Input size** | POST bodies over the configured limit get 413 and exit. |
-| 10 | **Middleware** | `CsrfMiddleware::handleToken()`, then `ActivityMiddleware::handle()`. |
-| 11 | **Auth gate** | Runs **before routing**, using `RequestPath`'s segments. Any first URL segment not in `$publicPaths` requires an authenticated session. |
-| 12 | **Event wiring** | Listeners registered on the `EventDispatcher` singleton. |
-| 13 | **Routing** | `Router::dispatch($method, $segments)` resolves the controller from the container and invokes the action, using the same `RequestPath` segments as the auth gate. |
-| 14 | **Error handling** | `\PDOException` and `\Throwable` catches log and render a response whose detail level depends on `shouldHideErrorDetails()`. |
+| 4 | **Base path** | `RequestPath::fromGlobals()` resolves the mount point. Moved ahead of `Config::init()` (below) because it reads only `$_SERVER` and has no configuration dependency — the installer gate that follows needs it and has no config yet. |
+| 5 | **Installer gate** | `InstallGate::decide()` combines whether `config/installed.lock` exists, whether `ConfigLoader::load()` can resolve a configuration at all, the first URL segment, and — only when it changes the outcome — a row count on `users`. `RUN` or `REFUSE` hands the request to `InstallController` (its own renderer, own CSRF, own session-counter rate limiting — no container, no database assumed) and exits before anything below runs. `PASS_THROUGH` falls through to the next stage. |
+| 6 | **Config** | `Config::init()` resolves configuration via `ConfigLoader` **before** the container, because container factories read `$_ENV`. `Config::setBasePath()` stores the mount point resolved in stage 4 for `asset()` and any generated URL. |
+| 7 | **Container** | `config/container.php` returns a built PHP-DI container. |
+| 8 | **Security headers** | `SecurityService::applySecurityHeaders()`, with a hardcoded fallback set if settings are unavailable. |
+| 9 | **Rate limit** | Database-persisted check; 429 and exit on breach. |
+| 10 | **Input size** | POST bodies over the configured limit get 413 and exit. |
+| 11 | **Middleware** | `CsrfMiddleware::handleToken()`, then `ActivityMiddleware::handle()`. |
+| 12 | **Auth gate** | Runs **before routing**, using `RequestPath`'s segments. Any first URL segment not in `$publicPaths` requires an authenticated session. |
+| 13 | **Event wiring** | Listeners registered on the `EventDispatcher` singleton. |
+| 14 | **Routing** | `Router::dispatch($method, $segments)` resolves the controller from the container and invokes the action, using the same `RequestPath` segments as the auth gate. |
+| 15 | **Error handling** | `\PDOException` and `\Throwable` catches log and render a response whose detail level depends on `shouldHideErrorDetails()`. |
 
-Two consequences worth internalizing:
+Three consequences worth internalizing:
 
 - **A new public route must be added to `$publicPaths`** in `public/index.php`, or the auth gate
   will bounce it to login before the router ever sees it.
 - **The top-level catch is `\Throwable`, not `\Exception`.** PHP `Error`s (fatal type errors) must
   be caught here. Do not narrow it — `LoggerService::exception()` accepts `\Throwable` for the same
   reason.
+- **The installer gate (stage 5) runs before `Config::init()`, the container, and every middleware.**
+  `Config::init()` throws when no configuration resolves, so on a fresh archive extraction the
+  application would fatal before routing and no route could ever reach an installer. `InstallGate`
+  is a pure decision table, unit-tested exhaustively in `tests/Unit/Core/InstallGateTest.php`.
 
 4xx responses are logged as terse warnings without stack traces; only 5xx gets full exception
 logging. Bots probing `/.well-known/*` would otherwise drown the log.

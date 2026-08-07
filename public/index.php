@@ -29,14 +29,74 @@ header($cspHeader);
 // Include Composer's autoloader
 require_once BASE_PATH . '/../vendor/autoload.php';
 
+// Resolve where the app is mounted before anything reads the request path.
+// RequestPath needs no configuration, which is what lets the installer branch
+// below run on a host that has none. Both the auth gate and the dispatcher
+// further down need the same answer, and it differs by deployment layout.
+$requestPath = \App\Core\RequestPath::fromGlobals();
+
+// The installer runs before Config::init(), and it has to: Config::init()
+// throws when no configuration source resolves, so on a fresh extraction the
+// application fatals before routing and no route could ever reach it. This
+// branch carries its own everything (session CSRF, session rate limiting,
+// its own renderer) because the normal middleware stack - CsrfMiddleware,
+// SecurityService::checkRateLimit(), BaseController's SettingsService/
+// LoggerService - all reach a database that may not exist yet.
+$appRoot = \dirname(BASE_PATH);
+$lockExists = is_file($appRoot . '/' . \App\Core\InstallGate::LOCK_FILE);
+
+$configurationResolved = false;
+if (!$lockExists) {
+    try {
+        \App\Core\ConfigLoader::load($appRoot);
+        $configurationResolved = true;
+    } catch (\Throwable) {
+        $configurationResolved = false;
+    }
+}
+
+$firstSegment = trim($requestPath->segments()[0] ?? '');
+
+// Only consulted on the one path where the answer changes the outcome: an
+// unlocked, configured site being asked for /install. Every other request
+// skips the database round trip this would otherwise cost.
+$userCount = null;
+if (\App\Core\InstallGate::needsUserCheck($lockExists, $configurationResolved, $firstSegment)) {
+    $userCount = (new \App\Services\InstallerService($appRoot))->countUsers([
+        'host' => $_ENV['DB_HOST'] ?? 'localhost',
+        'name' => $_ENV['DB_NAME'] ?? '',
+        'user' => $_ENV['DB_USERNAME'] ?? '',
+        'password' => $_ENV['DB_PASSWORD'] ?? '',
+    ]);
+}
+
+$installDecision = \App\Core\InstallGate::decide($lockExists, $configurationResolved, $firstSegment, $userCount);
+
+if ($installDecision !== \App\Core\InstallGate::DECISION_PASS_THROUGH) {
+    $installController = new \App\Controllers\InstallController(
+        $appRoot,
+        $requestPath->basePath(),
+        new \App\Services\PreflightService(PHP_VERSION, null, null, null, (string) session_save_path()),
+        new \App\Services\ExposureProbe(),
+        new \App\Services\InstallerService($appRoot)
+    );
+
+    if ($installDecision === \App\Core\InstallGate::DECISION_REFUSE) {
+        $installController->refuse('Aureo is already installed. The installer is disabled while the database contains users.');
+        exit;
+    }
+
+    $installController->handle($_SERVER['REQUEST_METHOD'] ?? 'GET', $requestPath->segments());
+    exit;
+}
+
 // Load environment + configuration BEFORE building the DI container,
 // since container factories (e.g. SettingsService → Database) read $_ENV.
+// ConfigLoader::load() populates $_ENV as a side effect and was already
+// called above (that is what made $configurationResolved true); Config::init()
+// re-invokes ConfigLoader::load(), which is idempotent - it re-checks the
+// same rungs and finds $_ENV already complete.
 \App\Core\Config::init();
-
-// Resolve where the app is mounted before anything reads the request path.
-// Both the auth gate and the dispatcher below need the same answer, and it
-// differs by deployment layout.
-$requestPath = \App\Core\RequestPath::fromGlobals();
 \App\Core\Config::setBasePath($requestPath->basePath());
 
 // Load the dependency injection container
