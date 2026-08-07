@@ -122,11 +122,14 @@ final class InstallerService
     /**
      * Rows in `users`, or null when that cannot be established.
      *
-     * Null is load-bearing: InstallGate reads it as "unknown", which permits
-     * the installer to run. A table that does not exist yet and a database
-     * that cannot be reached are both "not evidence of an existing
-     * installation" - and an exception here would take down the request that
-     * every deployment makes, not just the install route.
+     * Null is load-bearing, and it means "unknown", not "empty". Every
+     * failure lands here: server unreachable, rotated credentials, exhausted
+     * connections, `users` not yet created. InstallGate::decide() refuses the
+     * install route on null whenever a configuration already resolves, so
+     * widening what is caught here only ever makes the gate more cautious -
+     * never less. Do not "improve" this by letting exceptions escape either:
+     * this runs on the code path every single request takes, not just
+     * /install.
      *
      * @param array{host:string,name:string,user:string,password:string} $credentials
      */

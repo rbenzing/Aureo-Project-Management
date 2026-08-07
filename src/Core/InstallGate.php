@@ -69,7 +69,23 @@ final class InstallGate
         // Configured, unlocked, and asking for /install. Every installation
         // predating the lock file looks exactly like this, so the database is
         // the only thing that distinguishes "half-finished" from "live site".
-        if ($existingUserCount !== null && $existingUserCount > 0) {
+        //
+        // Unknown counts REFUSE. InstallerService::countUsers() returns null
+        // for any failure at all - server unreachable, credentials rotated,
+        // max_connections exhausted, `users` absent - and a resolvable
+        // configuration is itself evidence that somebody already installed
+        // this. Treating null as "go ahead" meant a live site handed out its
+        // installer during any database blip, letting a caller repoint the
+        // credentials and create an administrator. Brief database outages are
+        // ordinary, and an attacker can help one along by exhausting
+        // connections, so this must fail closed.
+        //
+        // The cost is that a genuinely half-finished install - configuration
+        // written, migrations never run - is refused too. That case is
+        // recoverable by deleting the configuration file, which
+        // docs/DEPLOYMENT.md documents, and it is far rarer than a live site
+        // with a momentarily unreachable database.
+        if ($existingUserCount === null || $existingUserCount > 0) {
             return self::DECISION_REFUSE;
         }
 

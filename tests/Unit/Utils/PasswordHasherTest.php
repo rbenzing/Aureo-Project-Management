@@ -7,10 +7,69 @@ namespace Tests\Unit\Utils;
 use App\Utils\PasswordHasher;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
+use Tests\Unit\Utils\Support\PasswordHasherBuiltinToggles as Toggles;
+
+require_once __DIR__ . '/Support/PasswordHasherBuiltinOverrides.php';
 
 #[CoversClass(PasswordHasher::class)]
 final class PasswordHasherTest extends TestCase
 {
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        Toggles::reset();
+    }
+
+    protected function tearDown(): void
+    {
+        Toggles::reset();
+
+        parent::tearDown();
+    }
+
+    /**
+     * The fallback branch, forced.
+     *
+     * Which branch algorithm() takes is decided by how PHP was compiled, not
+     * by any input, so on a machine with libargon2 - every machine that
+     * normally runs this suite - the fallback is unreachable and would ship
+     * unexecuted. It is also the branch that only runs on hosts we cannot
+     * test on, so leaving it unpinned puts the error somewhere nobody sees it
+     * until an install fails.
+     */
+    public function testTheFallbackIsUsedWhenTheRuntimeLacksArgon2id(): void
+    {
+        Toggles::$hideArgon2id = true;
+
+        $this->assertSame(PASSWORD_DEFAULT, PasswordHasher::algorithm());
+    }
+
+    public function testTheFallbackStillProducesAVerifiableHash(): void
+    {
+        Toggles::$hideArgon2id = true;
+
+        $hash = PasswordHasher::hash('correct horse battery staple');
+
+        $this->assertTrue(password_verify('correct horse battery staple', $hash));
+        $this->assertFalse(password_verify('wrong', $hash));
+    }
+
+    /**
+     * The mixed-database case made concrete: a hash written by the fallback
+     * must still verify after the host gains libargon2, and vice versa. If
+     * this ever fails, moving a site between hosts locks every user out.
+     */
+    public function testHashesSurviveTheRuntimeGainingArgon2id(): void
+    {
+        Toggles::$hideArgon2id = true;
+        $fallbackHash = PasswordHasher::hash('secret');
+
+        Toggles::$hideArgon2id = false;
+
+        $this->assertTrue(password_verify('secret', $fallbackHash));
+    }
+
     public function testHashProducesAVerifiableHash(): void
     {
         $hash = PasswordHasher::hash('correct horse battery staple');

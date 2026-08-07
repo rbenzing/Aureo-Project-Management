@@ -69,12 +69,27 @@ final class InstallGateTest extends TestCase
     }
 
     /**
-     * Unknown means the users table is absent or the database is unreachable.
-     * Neither is evidence of an existing installation.
+     * Fail closed on an unknown count.
+     *
+     * countUsers() returns null for every failure mode there is - server
+     * unreachable, rotated credentials, exhausted connections, missing table.
+     * A live site whose database blinks would otherwise hand out its
+     * installer, and an attacker can induce that by exhausting connections.
+     * A resolvable configuration is itself evidence of an existing install.
      */
-    public function testAnUnknownUserCountAllowsTheInstallRoute(): void
+    public function testAnUnknownUserCountRefusesTheInstallRouteOnAConfiguredSite(): void
     {
-        $this->assertSame(InstallGate::DECISION_RUN, InstallGate::decide(false, true, 'install', null));
+        $this->assertSame(InstallGate::DECISION_REFUSE, InstallGate::decide(false, true, 'install', null));
+    }
+
+    /**
+     * The counterpart: with no configuration there is nothing to take over, so
+     * an unknown count must NOT block the very install it is there to enable.
+     * This is the case that makes a fresh drop-in extraction work at all.
+     */
+    public function testAnUnknownUserCountStillAllowsInstallWhenNothingIsConfigured(): void
+    {
+        $this->assertSame(InstallGate::DECISION_RUN, InstallGate::decide(false, false, 'install', null));
     }
 
     public function testUserCheckIsOnlyNeededForTheInstallRouteOnAConfiguredSite(): void
