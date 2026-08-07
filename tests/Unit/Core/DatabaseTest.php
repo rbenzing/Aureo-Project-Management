@@ -551,6 +551,17 @@ final class DatabaseTest extends TestCase
         $this->assertTrue($db->rollBack());
     }
 
+    public function testInTransactionDelegatesToPdo(): void
+    {
+        $pdo = $this->createMock(PDO::class);
+        $pdo->expects($this->once())->method('inTransaction')->willReturn(true);
+
+        $db = new Database(['dbname' => 'foo', 'username' => 'bar']);
+        $this->injectPdo($db, $pdo);
+
+        $this->assertTrue($db->inTransaction());
+    }
+
     // --- sanitizeParams() ---
 
     public function testSanitizeParamsRedactsSensitiveKeysOnly(): void

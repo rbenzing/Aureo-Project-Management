@@ -215,6 +215,61 @@ final class PermissionTest extends TestCase
         $model->assignToRole(5, [10]);
     }
 
+    /**
+     * RoleController::create() opens a transaction and then calls this method.
+     * PDO does not nest: a second beginTransaction() throws "There is already
+     * an active transaction", and the old inner catch rolled back the caller's
+     * transaction before rethrowing - which is why role creation was broken.
+     */
+    public function testAssignToRoleLeavesTransactionControlToAnOuterCaller(): void
+    {
+        $calls = [];
+        $db = $this->dbSequencedInsertUpdate([true, true], $calls);
+        $db->method('inTransaction')->willReturn(true);
+        $db->expects($this->never())->method('beginTransaction');
+        $db->expects($this->never())->method('commit');
+        $db->expects($this->never())->method('rollBack');
+        $this->seedDatabase($db);
+
+        $model = new Permission();
+
+        $this->assertTrue($model->assignToRole(5, [10]));
+        $this->assertCount(2, $calls); // the DELETE and the INSERT still ran
+    }
+
+    public function testAssignToRoleDoesNotRollBackAnOuterTransactionOnFailure(): void
+    {
+        $db = $this->dbSequencedInsertUpdate([new RuntimeException('insert failed')]);
+        $db->method('inTransaction')->willReturn(true);
+        $db->expects($this->never())->method('beginTransaction');
+        $db->expects($this->never())->method('rollBack');
+        $db->expects($this->never())->method('commit');
+        $this->seedDatabase($db);
+
+        $model = new Permission();
+
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('Failed to assign permissions:');
+
+        $model->assignToRole(5, [10]);
+    }
+
+    public function testBulkCreateLeavesTransactionControlToAnOuterCaller(): void
+    {
+        $db = $this->createMock(Database::class);
+        $db->method('inTransaction')->willReturn(true);
+        $db->method('executeQuery')->willReturn($this->statement([
+            'fetch' => $this->permissionRow(1, 'view_tasks'),
+        ]));
+        $db->expects($this->never())->method('beginTransaction');
+        $db->expects($this->never())->method('commit');
+        $this->seedDatabase($db);
+
+        $model = new Permission();
+
+        $this->assertSame([1], $model->bulkCreate([['name' => 'view_tasks']]));
+    }
+
     // ---------------------------------------------------- getGroupedPermissions()
 
     public function testGetGroupedPermissionsGroupsByFirstUnderscoreSegmentAndSortsKeys(): void

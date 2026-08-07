@@ -290,6 +290,21 @@ class Database
     }
 
     /**
+     * Whether a transaction is already open on this connection.
+     *
+     * PDO does not nest: a second beginTransaction() throws "There is already
+     * an active transaction". Model methods that own a transaction when called
+     * standalone use this to become a no-op for transaction control when a
+     * caller has already opened one, leaving commit/rollback to that owner.
+     *
+     * @return bool
+     */
+    public function inTransaction(): bool
+    {
+        return $this->getConnection()->inTransaction();
+    }
+
+    /**
      * Enable or disable query logging
      * @param bool $enable
      */

@@ -206,9 +206,9 @@ class Template extends BaseModel
      */
     public function setDefaultTemplate(int $templateId, string $templateType = 'project', ?int $companyId = null): bool
     {
-        try {
-            $this->db->beginTransaction();
+        $owned = $this->beginTransactionIfNone();
 
+        try {
             // Clear existing defaults for this company and type
             $sql = "UPDATE {$this->table} 
                     SET is_default = 0 
@@ -228,11 +228,11 @@ class Template extends BaseModel
 
             $this->db->executeInsertUpdate($sql, [':template_id' => $templateId]);
 
-            $this->db->commit();
+            $this->commitIfOwned($owned);
 
             return true;
         } catch (\Exception $e) {
-            $this->db->rollBack();
+            $this->rollBackIfOwned($owned);
 
             throw new RuntimeException("Failed to set default template: " . $e->getMessage());
         }
@@ -297,9 +297,9 @@ class Template extends BaseModel
      */
     public function createSprintTemplate(array $templateData, array $configData = []): int
     {
-        try {
-            $this->db->beginTransaction();
+        $owned = $this->beginTransactionIfNone();
 
+        try {
             // Create the basic template
             $templateId = $this->create($templateData);
 
@@ -308,11 +308,11 @@ class Template extends BaseModel
                 $this->createSprintTemplateConfiguration($templateId, $configData);
             }
 
-            $this->db->commit();
+            $this->commitIfOwned($owned);
 
             return $templateId;
         } catch (\Exception $e) {
-            $this->db->rollBack();
+            $this->rollBackIfOwned($owned);
 
             throw new RuntimeException("Failed to create sprint template: " . $e->getMessage());
         }

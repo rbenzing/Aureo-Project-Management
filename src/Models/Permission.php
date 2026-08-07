@@ -82,9 +82,9 @@ class Permission extends BaseModel
      */
     public function assignToRole(int $roleId, array $permissionIds): bool
     {
-        try {
-            $this->db->beginTransaction();
+        $owned = $this->beginTransactionIfNone();
 
+        try {
             // First, remove existing permissions
             $sql = "DELETE FROM role_permissions WHERE role_id = :role_id";
             $this->db->executeInsertUpdate($sql, [':role_id' => $roleId]);
@@ -101,12 +101,12 @@ class Permission extends BaseModel
                 }
             }
 
-            $this->db->commit();
+            $this->commitIfOwned($owned);
 
             return true;
 
         } catch (\Exception $e) {
-            $this->db->rollBack();
+            $this->rollBackIfOwned($owned);
 
             throw new RuntimeException("Failed to assign permissions: " . $e->getMessage());
         }
@@ -346,9 +346,9 @@ class Permission extends BaseModel
      */
     public function bulkCreate(array $permissions): array
     {
-        try {
-            $this->db->beginTransaction();
+        $owned = $this->beginTransactionIfNone();
 
+        try {
             $createdIds = [];
             foreach ($permissions as $permission) {
                 // Check if permission already exists
@@ -366,11 +366,11 @@ class Permission extends BaseModel
                 ]);
             }
 
-            $this->db->commit();
+            $this->commitIfOwned($owned);
 
             return $createdIds;
         } catch (\Exception $e) {
-            $this->db->rollBack();
+            $this->rollBackIfOwned($owned);
 
             throw new RuntimeException("Failed to bulk create permissions: " . $e->getMessage());
         }

@@ -779,6 +779,68 @@ final class BaseModelTest extends TestCase
         $this->assertTrue($model->rollBack());
     }
 
+    public function testInTransactionDelegatesToDatabase(): void
+    {
+        $db = $this->createMock(Database::class);
+        $db->expects($this->once())->method('inTransaction')->willReturn(true);
+        $model = $this->makeModel($db);
+
+        $this->assertTrue($model->inTransaction());
+    }
+
+    /**
+     * The nesting guard behind the role/template creation fix: PDO has no
+     * nested transactions, so a model method that is sometimes called inside a
+     * controller-owned transaction must not open (or close) a second one.
+     */
+    public function testBeginTransactionIfNoneOpensOneAndClaimsOwnershipWhenIdle(): void
+    {
+        $db = $this->createMock(Database::class);
+        $db->method('inTransaction')->willReturn(false);
+        $db->expects($this->once())->method('beginTransaction')->willReturn(true);
+        $db->expects($this->once())->method('commit')->willReturn(true);
+        $model = $this->makeModel($db);
+
+        $owned = $this->callProtected($model, 'beginTransactionIfNone');
+
+        $this->assertTrue($owned);
+
+        $this->callProtected($model, 'commitIfOwned', $owned);
+    }
+
+    public function testBeginTransactionIfNoneIsANoOpWhenAlreadyNested(): void
+    {
+        $db = $this->createMock(Database::class);
+        $db->method('inTransaction')->willReturn(true);
+        $db->expects($this->never())->method('beginTransaction');
+        $db->expects($this->never())->method('commit');
+        $db->expects($this->never())->method('rollBack');
+        $model = $this->makeModel($db);
+
+        $owned = $this->callProtected($model, 'beginTransactionIfNone');
+
+        $this->assertFalse($owned);
+
+        $this->callProtected($model, 'commitIfOwned', $owned);
+        $this->callProtected($model, 'rollBackIfOwned', $owned);
+    }
+
+    public function testRollBackIfOwnedRollsBackOnlyForTheOwner(): void
+    {
+        $db = $this->createMock(Database::class);
+        $db->expects($this->once())->method('rollBack')->willReturn(true);
+        $model = $this->makeModel($db);
+
+        $this->callProtected($model, 'rollBackIfOwned', true);
+    }
+
+    private function callProtected(BaseModel $model, string $method, mixed ...$args): mixed
+    {
+        // No setAccessible() call: it has been a no-op since PHP 8.1 and is
+        // deprecated in 8.5, which fails the suite under failOnDeprecation.
+        return (new \ReflectionMethod($model, $method))->invoke($model, ...$args);
+    }
+
     // ----------------------------------------------------------------- pluralize()
 
     public function testPluralizeHandlesIrregularWords(): void

@@ -377,6 +377,46 @@ final class TemplateTest extends TestCase
         $this->assertArrayNotHasKey(':company_id', $calls[0]['params']);
     }
 
+    /**
+     * TemplateController::create()/update() open a transaction and then call
+     * this method when "set as default" is ticked. PDO does not nest, so the
+     * old inner beginTransaction() threw and the inner catch rolled back the
+     * caller's transaction - which is why saving a default template failed.
+     */
+    public function testSetDefaultTemplateLeavesTransactionControlToAnOuterCaller(): void
+    {
+        $calls = [];
+        $unusedQueryCalls = [];
+        $db = $this->newDb([], [true, true], $unusedQueryCalls, $calls);
+        $db->method('inTransaction')->willReturn(true);
+        $db->expects($this->never())->method('beginTransaction');
+        $db->expects($this->never())->method('commit');
+        $db->expects($this->never())->method('rollBack');
+        $this->seedDatabase($db);
+
+        $model = new Template();
+
+        $this->assertTrue($model->setDefaultTemplate(9, 'project', null));
+        $this->assertCount(2, $calls); // both UPDATEs still ran
+    }
+
+    public function testSetDefaultTemplateDoesNotRollBackAnOuterTransactionOnFailure(): void
+    {
+        $db = $this->newDb([], [new RuntimeException('update failed')]);
+        $db->method('inTransaction')->willReturn(true);
+        $db->expects($this->never())->method('beginTransaction');
+        $db->expects($this->never())->method('rollBack');
+        $db->expects($this->never())->method('commit');
+        $this->seedDatabase($db);
+
+        $model = new Template();
+
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('Failed to set default template:');
+
+        $model->setDefaultTemplate(9, 'project', null);
+    }
+
     public function testSetDefaultTemplateRollsBackAndThrowsOnFailure(): void
     {
         $db = $this->newDb([], [new RuntimeException('update failed')]);

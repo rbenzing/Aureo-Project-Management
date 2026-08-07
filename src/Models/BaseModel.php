@@ -478,6 +478,64 @@ abstract class BaseModel
     }
 
     /**
+     * Whether a transaction is already open on the shared connection.
+     */
+    public function inTransaction(): bool
+    {
+        return $this->db->inTransaction();
+    }
+
+    /**
+     * Open a transaction only if this call is the outermost one.
+     *
+     * PDO has no nested transactions - a second beginTransaction() throws.
+     * Model methods that need atomicity when called standalone, but are also
+     * invoked from inside a controller-owned transaction, pair this with
+     * commitIfOwned()/rollBackIfOwned() so the outer caller keeps ownership.
+     *
+     * @return bool True when this call opened the transaction and therefore
+     *              owns committing or rolling it back.
+     */
+    protected function beginTransactionIfNone(): bool
+    {
+        if ($this->db->inTransaction()) {
+            return false;
+        }
+
+        $this->db->beginTransaction();
+
+        return true;
+    }
+
+    /**
+     * Commit only when this call opened the transaction.
+     *
+     * @param bool $owned Return value of the matching beginTransactionIfNone()
+     */
+    protected function commitIfOwned(bool $owned): void
+    {
+        if ($owned) {
+            $this->db->commit();
+        }
+    }
+
+    /**
+     * Roll back only when this call opened the transaction.
+     *
+     * When nested, the exception still propagates - the outer owner rolls back
+     * the whole unit of work. Rolling back here would discard the caller's
+     * earlier writes and leave its own rollBack() with nothing to undo.
+     *
+     * @param bool $owned Return value of the matching beginTransactionIfNone()
+     */
+    protected function rollBackIfOwned(bool $owned): void
+    {
+        if ($owned) {
+            $this->db->rollBack();
+        }
+    }
+
+    /**
      * Simple pluralization for table names
      * Handles common English pluralization rules
      *
