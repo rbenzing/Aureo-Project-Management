@@ -48,8 +48,13 @@ final class DeadViewTest extends TestCase
         return $views;
     }
 
-    /** Concatenated source of everything that could reference a view. */
-    private function haystack(): string
+    /**
+     * Source of everything that could reference a view, keyed by repo-relative
+     * path so a candidate can be checked against every file except itself.
+     *
+     * @return array<string, string>
+     */
+    private function sources(): array
     {
         $sources = [];
 
@@ -61,17 +66,19 @@ final class DeadViewTest extends TestCase
             /** @var SplFileInfo $file */
             foreach ($iterator as $file) {
                 if ($file->isFile() && $file->getExtension() === 'php') {
-                    $sources[] = (string) file_get_contents($file->getPathname());
+                    $relative = str_replace('\\', '/', $file->getPathname());
+                    $key = substr($relative, strlen(self::$root) + 1);
+                    $sources[$key] = (string) file_get_contents($file->getPathname());
                 }
             }
         }
 
-        return implode("\n", $sources);
+        return $sources;
     }
 
     public function testEveryViewIsRenderedOrIncluded(): void
     {
-        $haystack = $this->haystack();
+        $sources = $this->sources();
         $orphans = [];
 
         foreach ($this->viewFiles() as $view) {
@@ -83,12 +90,15 @@ final class DeadViewTest extends TestCase
             $renderTarget = "'" . $withoutExtension . "'";
             $includeTarget = '/' . $withoutPrefix;
 
-            // A file's own header comment mentions its path; exclude it by
-            // requiring the reference to appear somewhere other than that file.
-            $selfComment = '//file: Views/' . $withoutPrefix;
-            $searchable = str_replace($selfComment, '', $haystack);
+            // Most views open with a `// file: Views/...` header naming their
+            // own path, which would satisfy the search on its own. Excluding
+            // the whole candidate file is the only reliable way to ignore it:
+            // stripping the comment text missed the 28 headers written with a
+            // space after `//`, so each of those views vouched for itself and
+            // a genuine orphan (Sprints/inc/project_header.php) went unseen.
+            $haystack = implode("\n", array_values(array_diff_key($sources, [$view => true])));
 
-            if (!str_contains($searchable, $renderTarget) && !str_contains($searchable, $includeTarget)) {
+            if (!str_contains($haystack, $renderTarget) && !str_contains($haystack, $includeTarget)) {
                 $orphans[] = $view;
             }
         }
