@@ -8,6 +8,7 @@ use App\Core\ConfigLoader;
 use App\Core\InstallGate;
 use App\Services\InstallerService;
 use App\Services\PreflightService;
+use App\Utils\PasswordHasher;
 use PDO;
 use PDOStatement;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -20,6 +21,7 @@ use Throwable;
 #[UsesClass(ConfigLoader::class)]
 #[UsesClass(InstallGate::class)]
 #[UsesClass(PreflightService::class)]
+#[UsesClass(PasswordHasher::class)]
 final class InstallerServiceTest extends TestCase
 {
     private string $root;

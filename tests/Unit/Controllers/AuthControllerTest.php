@@ -15,6 +15,7 @@ use App\Models\User;
 use App\Services\LoggerService;
 use App\Services\SecurityService;
 use App\Services\SettingsService;
+use App\Utils\PasswordHasher;
 use App\Utils\Validator;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\IgnoreDeprecations;
@@ -139,6 +140,7 @@ final class AuthControllerTestable extends AuthController
 #[UsesClass(SettingsService::class)]
 #[UsesClass(LoggerService::class)]
 #[UsesClass(Validator::class)]
+#[UsesClass(PasswordHasher::class)]
 final class AuthControllerTest extends TestCase
 {
     /** @var User&\PHPUnit\Framework\MockObject\MockObject */

@@ -245,8 +245,9 @@ detail lives in [SECURITY.md](./SECURITY.md).
 
 1. **Authentication gate runs before routing.** Any first URL segment outside `$publicPaths`
    (`login`, `register`, `activate`, `reset-password`, `forgot-password`) requires a session.
-2. **Passwords are hashed with ARGON2ID.** Plaintext storage, MD5/SHA1, and hand-rolled crypto
-   are prohibited.
+2. **Passwords are hashed with Argon2id**, through `App\Utils\PasswordHasher` — which falls back
+   to `PASSWORD_DEFAULT` only on hosts whose PHP was built without libargon2, where naming
+   Argon2id throws. Plaintext storage, MD5/SHA1, and hand-rolled crypto are prohibited.
 3. **CSRF tokens are mandatory** on every state-changing request, validated by middleware and
    stored with expiry in `csrf_tokens`.
 4. **Rate limiting is database-persisted** in `rate_limits` so it survives session resets, and is

@@ -10,6 +10,7 @@ use App\Models\Company;
 use App\Models\Role;
 use App\Models\User;
 use App\Utils\Email;
+use App\Utils\PasswordHasher;
 use App\Utils\Validator;
 use InvalidArgumentException;
 use RuntimeException;
@@ -185,7 +186,7 @@ class UserController extends BaseController
                 'role_id' => filter_var($data['role_id'], FILTER_VALIDATE_INT),
                 'company_id' => !empty($data['company_id']) ?
                     filter_var($data['company_id'], FILTER_VALIDATE_INT) : null,
-                'password_hash' => password_hash(bin2hex(random_bytes(8)), PASSWORD_ARGON2ID),
+                'password_hash' => PasswordHasher::hash(bin2hex(random_bytes(8))),
                 'is_active' => false,
             ];
 

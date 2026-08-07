@@ -11,6 +11,7 @@ use App\Middleware\SessionMiddleware;
 use App\Models\User;
 use App\Services\SecurityService;
 use App\Utils\Email;
+use App\Utils\PasswordHasher;
 use App\Utils\Validator;
 use InvalidArgumentException;
 use RuntimeException;
@@ -172,7 +173,7 @@ class AuthController extends BaseController
                 'first_name' => htmlspecialchars($data['first_name']),
                 'last_name' => htmlspecialchars($data['last_name']),
                 'email' => filter_var($data['email'], FILTER_SANITIZE_EMAIL),
-                'password_hash' => password_hash($data['password'], PASSWORD_ARGON2ID),
+                'password_hash' => PasswordHasher::hash($data['password']),
                 'role_id' => $defaultRoleId,
                 'is_active' => false,
             ];
@@ -225,7 +226,7 @@ class AuthController extends BaseController
                     throw new InvalidArgumentException(implode(', ', $validator->errors()));
                 }
 
-                $this->userModel->update($user->id, ['password_hash' => password_hash($data['password'], PASSWORD_ARGON2ID)]);
+                $this->userModel->update($user->id, ['password_hash' => PasswordHasher::hash($data['password'])]);
 
                 $this->userModel->clearPasswordResetToken($user->id);
 

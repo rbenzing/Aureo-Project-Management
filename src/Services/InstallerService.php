@@ -6,6 +6,7 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Core\InstallGate;
+use App\Utils\PasswordHasher;
 use PDO;
 use Phinx\Config\Config as PhinxConfig;
 use Phinx\Migration\Manager;
@@ -321,27 +322,19 @@ final class InstallerService
     }
 
     /**
-     * The canonical migration seeds its administrator with PASSWORD_ARGON2ID.
-     * PHP 8 throws a ValueError - not a warning - when an algorithm constant
-     * names something the build does not provide, so on a host compiled
-     * without libargon2 the very first migration kills the install. Ask
-     * password_algos() what is actually available instead of trusting the
-     * constant to be meaningful.
+     * @see PasswordHasher for why the algorithm is chosen rather than named.
+     *
+     * Kept as a delegation: the installer is one of several callers, and
+     * hashing policy is not the installer's to own.
      */
     public static function preferredPasswordAlgorithm(): string|int|null
     {
-        $available = password_algos();
-
-        if (\defined('PASSWORD_ARGON2ID') && \in_array(PASSWORD_ARGON2ID, $available, true)) {
-            return PASSWORD_ARGON2ID;
-        }
-
-        return PASSWORD_DEFAULT;
+        return PasswordHasher::algorithm();
     }
 
     public static function hashPassword(string $plain): string
     {
-        return password_hash($plain, self::preferredPasswordAlgorithm());
+        return PasswordHasher::hash($plain);
     }
 
     /**

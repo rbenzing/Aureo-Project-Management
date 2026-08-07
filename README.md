@@ -41,7 +41,7 @@
 ### 🔒 Security & Privacy
 - **🛡️ CSRF Protection**: Mandatory token validation on every state-changing request
 - **🚦 Rate Limiting**: Database-persisted throttling that survives session resets
-- **🔐 ARGON2ID Hashing**: Modern password storage with a configurable pepper
+- **🔐 Argon2id Hashing**: Modern password storage, with a bcrypt fallback on hosts built without libargon2
 - **🧼 Parameterized SQL**: PDO prepared statements everywhere — no string-built queries
 - **🏠 Self-Hosted**: Your database, your server, no third-party data sharing
 

@@ -728,7 +728,7 @@ final class InitialDatabaseSchema extends AbstractMigration
         // ValueError, which killed this migration - the install path itself -
         // on exactly the shared hosts the drop-in layout targets. Ask
         // password_algos() what the runtime actually provides.
-        $adminHash = password_hash('password', \App\Services\InstallerService::preferredPasswordAlgorithm());
+        $adminHash = \App\Utils\PasswordHasher::hash('password');
         $this->getAdapter()->getConnection()->prepare(
             "INSERT INTO `users` (`id`, `guid`, `company_id`, `role_id`, `first_name`, `last_name`, `email`, `password_hash`, `is_active`, `is_deleted`)
              VALUES (1, UUID(), NULL, 1, 'Admin', 'User', 'admin@aureo.us', :hash, 1, 0)"

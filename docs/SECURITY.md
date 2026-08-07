@@ -50,12 +50,28 @@ CSRF_TOKEN_EXPIRY=3600
 
 ### 4. Password Security
 
-Passwords are hashed using **ARGON2ID**, which is the current recommended algorithm:
+Passwords are hashed using **Argon2id**, the current recommended algorithm, via
+`App\Utils\PasswordHasher` — the single place the application chooses an algorithm:
 
 - Algorithm: `PASSWORD_ARGON2ID`
 - Memory cost: 65536 KB
 - Time cost: 4 iterations
 - Parallelism: 1 thread
+
+Those costs are PHP's own defaults for Argon2id; the application passes no options array, so they
+follow the runtime rather than being configured here.
+
+**Fallback on hosts without libargon2.** Argon2id is a compile-time option, and `password_hash()`
+throws a `ValueError` — not a warning — when asked for an algorithm the build does not provide.
+Naming it unconditionally therefore made registration, password reset, administrator user
+creation and the install migration all fatal on such a host. `PasswordHasher::algorithm()` asks
+`password_algos()` what is actually available and falls back to `PASSWORD_DEFAULT` (bcrypt on PHP
+8.2) only where Argon2id is absent.
+
+This is not a downgrade of any working installation: every host that runs Aureo today has
+Argon2id and continues to use it. `password_verify()` reads the algorithm from the hash itself, so
+stored hashes keep verifying and a database may safely hold a mixture of both — which happens
+after a restore onto a differently-built host. Note that bcrypt truncates at 72 bytes.
 
 **Never:**
 - Store plaintext passwords

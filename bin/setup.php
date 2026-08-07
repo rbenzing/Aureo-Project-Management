@@ -297,7 +297,7 @@ try {
         [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]
     );
     $stmt = $dbPdo->prepare("UPDATE users SET password_hash = :h WHERE email = 'admin@aureo.us'");
-    $stmt->execute([':h' => password_hash($adminPass, PASSWORD_ARGON2ID)]);
+    $stmt->execute([':h' => \App\Utils\PasswordHasher::hash($adminPass)]);
     out('  Admin password set.');
 
     out('');
