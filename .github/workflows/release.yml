@@ -1,0 +1,57 @@
+name: Release
+
+on:
+  push:
+    tags: [ 'v*', '[0-9]+.[0-9]+.[0-9]+' ]
+
+permissions:
+  contents: write
+
+jobs:
+  archive:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: pdo, pdo_mysql, mbstring, zip
+          coverage: none
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # --no-dev is what makes the archive shippable: the whole point is that
+      # the target host has neither Composer nor Node, so vendor/ ships, but a
+      # vendor/ carrying PHPUnit and php-cs-fixer must never reach a web root.
+      - name: Install production dependencies
+        run: composer install --no-dev --optimize-autoloader --no-progress --no-scripts
+
+      - name: Build assets
+        run: |
+          npm install
+          npm run build
+
+      - name: Build the archive
+        run: php bin/build-release.php
+
+      - name: Verify no development files were packaged
+        run: |
+          if unzip -l dist/aureo-*.zip | grep -Eq 'tests/|\.github/|phpunit\.xml|coverage-floor\.json|vendor/phpunit/'; then
+            echo "Development files leaked into the release archive:"
+            unzip -l dist/aureo-*.zip | grep -E 'tests/|\.github/|phpunit\.xml|coverage-floor\.json|vendor/phpunit/'
+            exit 1
+          fi
+          echo "Archive is clean."
+
+      - name: Attach the archive to the release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/aureo-*.zip
+            dist/aureo-*.zip.sha256
+          generate_release_notes: true

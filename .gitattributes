@@ -1,0 +1,35 @@
+# Check out LF everywhere. This repository is developed with
+# core.autocrlf=true, which materialises CRLF in the working tree while the
+# index holds LF - so php-cs-fixer (which normalises to LF) reports whichever
+# files git most recently checked out as needing fixing, and `composer
+# cs:check` flips red on an arbitrary subset after any checkout, stash or
+# branch switch. It did exactly that four times during this work.
+* text=auto eol=lf
+
+# Paths excluded from `git archive`, which is how the release tarball is built.
+# Development-only material: it is not needed to run the application, and every
+# file omitted here is one fewer thing the drop-in layout has to deny over HTTP.
+#
+# Deliberately NOT excluded:
+#   db/            the installer runs these migrations
+#   bin/           bin/preflight.php ships; .htaccess denies the directory
+#   public/        the front controller and the compiled assets
+
+/.github          export-ignore
+/.claude          export-ignore
+/tests            export-ignore
+/.gitattributes   export-ignore
+/.gitignore       export-ignore
+/.php-cs-fixer.php export-ignore
+/phpunit.xml      export-ignore
+/coverage-floor.json export-ignore
+/bin/coverage-gate.php export-ignore
+/src/css          export-ignore
+/tailwind.config.js export-ignore
+/postcss.config.js export-ignore
+
+# Gitignored today, so git archive would skip them anyway. Listed because
+# export-ignore is the control that survives someone un-ignoring them later,
+# and both hold internal notes and source diffs.
+/.superpowers     export-ignore
+/docs/superpowers export-ignore

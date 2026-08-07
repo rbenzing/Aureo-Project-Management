@@ -140,6 +140,10 @@ postcss.cache/
 # -----------------------------------------------------------------------------
 /tools/
 
+# bin/build-release.php output: a zipped vendor/ + compiled assets, never a
+# source artifact and never something to commit.
+/dist/
+
 
 # -----------------------------------------------------------------------------
 # User uploads / runtime media (per-environment, never committed)

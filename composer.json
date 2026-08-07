@@ -64,6 +64,11 @@
         "cs:check": "php-cs-fixer fix --dry-run --diff",
         "cs:fix": "php-cs-fixer fix",
         "preflight": "php bin/preflight.php",
+        "build:release": [
+            "@composer install --no-dev --optimize-autoloader",
+            "npm run build",
+            "php bin/build-release.php"
+        ],
         "migrate": "phinx migrate",
         "migrate:rollback": "phinx rollback",
         "migrate:status": "phinx status",
