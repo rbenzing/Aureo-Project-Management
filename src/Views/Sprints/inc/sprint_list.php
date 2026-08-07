@@ -1,6 +1,13 @@
 <?php
 // file: Views/Sprints/inc/sprint_list.php
 // Sprint listing table component
+declare(strict_types=1);
+
+// Ensure this view is not directly accessible via the web
+if (!defined('BASE_PATH')) {
+    header("HTTP/1.0 403 Forbidden");
+    exit;
+}
 ?>
 <div class="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
     <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">

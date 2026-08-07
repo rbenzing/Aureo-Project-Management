@@ -11,7 +11,16 @@ RewriteEngine On
 # RedirectMatch) because mod_rewrite matches per-directory, stripping the
 # install prefix - RedirectMatch anchors at ^/ and so silently does nothing
 # when the app lives in a subdirectory.
-RewriteRule ^(\.git|db|tests|bin|node_modules|var|log|vendor|config)(/|$) - [F,L]
+#
+# [NC] is load-bearing: Apache compiles <FilesMatch> case-insensitively on
+# case-insensitive filesystems (Windows, default macOS), but RewriteRule stays
+# case-sensitive everywhere. Without it, GET /.Git/config served the repository
+# config, and /.Git/objects/** the entire history.
+#
+# tools/ holds a phpMyAdmin install configured with AllowNoPassword; docs/,
+# .superpowers/, .github/ and .claude/ hold internal notes, source diffs and CI
+# configuration. None of these are routes - see the router in public/index.php.
+RewriteRule ^(\.git|\.github|\.claude|\.superpowers|db|tests|bin|node_modules|var|log|vendor|config|tools|docs)(/|$) - [F,L,NC]
 
 # Serve real files and directories as-is; route everything else to the front
 # controller.
@@ -20,9 +29,19 @@ RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule ^(.*)$ index.php [QSA,L]
 
 # Deny anything that is not meant to be served. PHP class files are executed
-# rather than disclosed, and all 97 views guard on BASE_PATH, so the real risk
+# rather than disclosed, and every view guards on BASE_PATH, so the real risk
 # is the non-PHP files here.
-<FilesMatch "(^\.|\.(env|log|sql|md|lock|json|xml|dist|yml|yaml|gz)$)">
+#
+# Matched by name, not just extension:
+#   ^\.            dotfiles (.env, .gitignore, .nvmrc, ...)
+#   ^VERSION$      no extension, so no rule below would reach it
+#   \.config\.js$  tailwind.config.js / postcss.config.js. Deliberately NOT a
+#                  bare `js` extension: <FilesMatch> here applies to every
+#                  subdirectory, and a bare `js` would stop serving
+#                  public/assets/js/*.js in this layout.
+#   config         web.config, which otherwise ships the full IIS deny list in
+#                  plaintext to anyone who asks for it.
+<FilesMatch "(^\.|^VERSION$|\.config\.js$|\.(env|log|sql|md|lock|json|xml|dist|yml|yaml|gz|config|diff)$)">
     <IfModule mod_authz_core.c>
         Require all denied
     </IfModule>
