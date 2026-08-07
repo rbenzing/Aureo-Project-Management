@@ -20,6 +20,17 @@
 /config/config.php
 /config/config-path.php
 
+# Written by the installer (web or bin/setup.php) on success.
+# installed.lock would ship in the release archive and permanently disable
+# the installer for everyone who downloaded it. aureo-config.php is the
+# *preferred* config target under the recommended layout - dirname(DOCUMENT_ROOT)
+# is the repository root itself there, so a local install run produces an
+# untracked credentials file sitting at the repo root, one `git add .` away
+# from being published. In the drop-in layout the same candidate lands
+# outside the repository and git never sees it either way.
+/config/installed.lock
+/aureo-config.php
+
 *.key
 *.pem
 *.p12

@@ -11,7 +11,7 @@ Only facts an agent can't infer from code search. Update when something bites.
 
 ## Lifecycle
 - `composer install` runs npm install + npm run build only.
-- DB setup: `composer setup` (non-interactive, uses `.env` defaults) or `php bin/setup.php` (interactive prompts). Writes `.env`, runs Phinx, sets admin password to `"password"`, optionally imports sample data.
+- DB setup: `composer setup` (non-interactive, uses `.env` defaults) or `php bin/setup.php` (interactive prompts). Writes `.env`, runs Phinx, sets admin password to `"password"`, optionally imports sample data, writes `config/installed.lock` on success. That lock file disables the web installer's `/install` route; deleting it re-opens that unauthenticated route, which can rewrite the site's configuration.
 - `composer start` = `php -S` (opcaches aggressively — restart on edits). Composer times out at 300s unless `process-timeout: 0`.
 - App logs: `<repo>/log/aureo.log` — FIRST place to look on any failure. Resolved via `dirname(BASE_PATH)` where `BASE_PATH = public/` (one level up = repo root, matching `Config.php`). NOTE: `dirname(BASE_PATH, 2)` is WRONG — it writes to the repo's PARENT dir, silently hiding every logged error (this bit us).
 
@@ -48,7 +48,7 @@ Only facts an agent can't infer from code search. Update when something bites.
 - CI matrix covers 8.2/8.3/8.4/8.5; only the 8.2 job runs the coverage gate (a single floor file cannot be ratcheted by parallel jobs).
 
 ## Schema & migrations
-- Canonical migration [db/migrations/20251222180705_initial_database_schema.php](../db/migrations/20251222180705_initial_database_schema.php) IS the install path AND seeds the admin user with all 55 permissions. Do not rename/rewrite — add NEW Phinx migrations instead. There is no separate `schema.sql` — it was deleted (dead, drifted from the migration) and the canonical migration is the only schema representation.
+- Canonical migration [db/migrations/20251222180705_initial_database_schema.php](../db/migrations/20251222180705_initial_database_schema.php) IS the install path AND seeds the admin user with all 55 permissions. Do not rename/rewrite — add NEW Phinx migrations instead. There is no separate `schema.sql` — it was deleted (dead, drifted from the migration) and the canonical migration is the only schema representation. **One narrow, deliberate exception exists:** the admin seed's password hash algorithm was changed in place (unconditional `PASSWORD_ARGON2ID` → `App\Services\InstallerService::preferredPasswordAlgorithm()`), because the hardcoded constant threw `ValueError` on any PHP built without libargon2 — i.e. the install path itself was not portable. It changes no schema and the seed only ever runs on a fresh database. This is not a precedent for editing the migration otherwise.
 - `phinx.php` declares `production`/`local`/`development`/`testing` envs. New `APP_ENV` value → add a matching block or Phinx fails. It resolves config via the same `App\Core\ConfigLoader` five-rung chain as the app (env vars → `AUREO_CONFIG` override → `config/config-path.php` → `config/config.php` → `.env` — see [docs/DEPLOYMENT.md#configuration-sources](../docs/DEPLOYMENT.md#configuration-sources)), so migrations work under every deployment layout.
 
 ## SQL gotchas

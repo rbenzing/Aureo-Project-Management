@@ -98,8 +98,12 @@ The admin user is seeded with **all 55 permissions**. Change the password from S
 4. Runs Phinx migrations — schema, admin user, and the 55 permissions.
 5. Prompts for the admin password (defaults to `password`).
 6. Optionally imports `sample-data.sql`: 5 companies, 25 users, 50 projects, 5000 tasks, 50 sprints.
+7. Writes `config/installed.lock`, which disables the web installer. Deleting it re-opens an
+   unauthenticated route that can rewrite your configuration — only do that if you intend to
+   reinstall from scratch.
 
-Re-run it any time to reconfigure.
+Re-run it any time to reconfigure. Re-running does **not** delete `config/installed.lock` for you;
+remove it first if you actually want the web installer available again.
 
 ### ✅ Quality Gates
 

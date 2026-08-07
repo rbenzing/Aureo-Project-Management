@@ -720,8 +720,15 @@ final class InitialDatabaseSchema extends AbstractMigration
             (5, 'closed', 'Task has been closed', 0),
             (6, 'completed', 'Task has been completed', 0)");
 
-        // Insert default admin user. Password = "password" (change on first login).
-        $adminHash = password_hash('password', PASSWORD_ARGON2ID);
+        // Insert default admin user. Password = "password"; the web installer
+        // replaces it, and bin/setup.php prompts for a change.
+        //
+        // PASSWORD_ARGON2ID is a compile-time option. On a PHP built without
+        // libargon2 the constant still exists but password_hash() throws a
+        // ValueError, which killed this migration - the install path itself -
+        // on exactly the shared hosts the drop-in layout targets. Ask
+        // password_algos() what the runtime actually provides.
+        $adminHash = password_hash('password', \App\Services\InstallerService::preferredPasswordAlgorithm());
         $this->getAdapter()->getConnection()->prepare(
             "INSERT INTO `users` (`id`, `guid`, `company_id`, `role_id`, `first_name`, `last_name`, `email`, `password_hash`, `is_active`, `is_deleted`)
              VALUES (1, UUID(), NULL, 1, 'Admin', 'User', 'admin@aureo.us', :hash, 1, 0)"

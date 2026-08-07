@@ -171,9 +171,13 @@ npm run build
 Then configure `.env` and run migrations — see the two sections below.
 
 `bin/setup.php` exists for interactive local setup (it prompts for credentials, runs migrations,
-sets the admin password and optionally imports sample data). **On a production host, prefer
-configuring `.env` by hand and running migrations explicitly** so nothing is guessed and no
-sample data is imported.
+sets the admin password, optionally imports sample data, and writes `config/installed.lock` on
+success). **On a production host, prefer configuring `.env` by hand and running migrations
+explicitly** so nothing is guessed and no sample data is imported.
+
+`config/installed.lock` is what keeps the web installer (`/install`) from being reachable once a
+site is configured. Deleting it re-opens that unauthenticated route, which can rewrite the site's
+configuration — never delete it on a live installation.
 
 > **Do not run `composer install` without `--no-dev` in production.** Dev dependencies include
 > PHPUnit and PHP-CS-Fixer, which have no business on a production host.

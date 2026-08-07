@@ -314,6 +314,12 @@ try {
         out('  Sample data imported.');
     }
 
+    // A CLI install must end up exactly as locked as a web install, or
+    // /install stays open on a site that already has an administrator.
+    $version = is_file(ROOT . '/VERSION') ? trim((string) file_get_contents(ROOT . '/VERSION')) : 'unknown';
+    (new \App\Services\InstallerService(ROOT))->writeLock($version === '' ? 'unknown' : $version);
+    out('  Wrote ' . \App\Core\InstallGate::LOCK_FILE . ' — the web installer is now disabled.');
+
     out('');
     out('Setup complete. Start the dev server with:  composer start');
     out('Then open http://localhost:8000');

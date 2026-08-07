@@ -29,7 +29,7 @@ git clone https://github.com/rbenzing/Aureo-Project-Management.git
 cd Aureo-Project-Management
 
 composer install      # PHP + npm dependencies, builds CSS
-php bin/setup.php     # interactive: DB credentials, migrations, admin password, sample data
+php bin/setup.php     # interactive: DB credentials, migrations, admin password, sample data, lock file
 composer start        # http://localhost:8000
 ```
 
