@@ -12,9 +12,9 @@ in step.
 ## [1.2.0] - 2026-08-07
 
 Guided installer: an operator can now download a release archive, extract it into a web root, and
-complete setup in a browser — no SSH, no Composer and no Node.js required on the target host. CI
-now boots the built archive under both supported layouts and, separately, proves the drop-in
-layout's hardening rules actually deny what they claim to under real Apache.
+complete setup in a browser — no SSH, no Composer and no Node.js required on the target host.
+Neither deployment layout nor the drop-in hardening rules are verified by CI; `php
+bin/preflight.php --url=https://your-site` is the supported way to check a host before going live.
 
 ### Added
 
@@ -50,13 +50,9 @@ layout's hardening rules actually deny what they claim to under real Apache.
   production `vendor/` and the compiled stylesheet, and writes a SHA-256 checksum next to the
   zip. `.github/workflows/release.yml` builds it and attaches it to the GitHub release on a
   version-tag push.
-- **CI: `smoke` and `hardening` jobs.** `smoke` boots the built archive under both supported
-  layouts via `php -S`, configured non-interactively with `bin/setup.php`, and asserts the site
-  responds, the stylesheet URL matches the layout, and a locked site refuses `/install`.
-  `hardening` boots the drop-in layout under real Apache (`php:8.2-apache`) and asserts a planted
-  `.env`, `.git/config`, `config/config.php` and `log/aureo.log` are all actually denied rather
-  than merely assumed to be — **Apache only**; nginx has no per-directory configuration for it to
-  verify. See [docs/DEPLOYMENT.md](./docs/DEPLOYMENT.md#drop-in-layout-nginx).
+- **CI: compiled-CSS freshness guard** in the `lint` job. `public/assets/css/styles.css` is
+  tracked so Node-less hosting works, which makes a view change only half a change until the
+  stylesheet is rebuilt; the job rebuilds it and fails on any diff.
 
 ### Fixed
 
@@ -118,12 +114,16 @@ layout's hardening rules actually deny what they claim to under real Apache.
 
 ### Known issues
 
-- **nginx has no CI-verified parity with the Apache hardening rules for the drop-in layout, and
-  it never will.** nginx does not read `.htaccess` at all, so the `hardening` CI job — and its
-  proof that the deny rules actually deny — covers Apache only. The nginx server block in
-  [docs/DEPLOYMENT.md](./docs/DEPLOYMENT.md#drop-in-layout-nginx) is maintained by hand to have
-  the same coverage, but nothing proves it stays that way. The document-root-is-`public/` layout
-  needs no deny rules at all and is the recommended choice on nginx.
+- **Nothing in CI verifies the drop-in layout's hardening rules.** The root `.htaccess`, the
+  `web.config` and the nginx server block in
+  [docs/DEPLOYMENT.md](./docs/DEPLOYMENT.md#drop-in-layout-nginx) are maintained by hand, and no
+  job proves any of them still denies what it claims to. nginx additionally has no parity by
+  construction — it does not read `.htaccess` at all, so there is nothing shippable to protect a
+  drop-in install there. Check your own host with `php bin/preflight.php --url=https://your-site`,
+  which asks the running server for exactly those paths. The document-root-is-`public/` layout
+  needs no deny rules at all and is the recommended choice everywhere, nginx especially.
+- **The drop-in layout is not exercised end to end by any automated test.** It is verified by hand
+  and by the preflight probe.
 
 ## [1.1.0] - 2026-08-06
 

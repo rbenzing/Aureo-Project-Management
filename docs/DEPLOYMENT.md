@@ -93,14 +93,18 @@ layout for a clone, or the release archive for the drop-in layout.
 ### Drop-in layout: nginx
 
 **nginx has no parity with the Apache hardening below, and it never will.** nginx does not read
-`.htaccess` files at all, by design — there is no directive that changes that. CI's `hardening`
-job (`.github/workflows/php.yml`) boots the drop-in layout under real Apache
-(`php:8.2-apache`) and asserts that a planted `.env`, `.git/config`, `config/config.php` and
-`log/aureo.log` are all actually denied, not merely assumed to be. **It verifies Apache only** —
-there is no nginx job, because there is no nginx configuration shipped for it to verify against.
-The server block below is maintained by hand to have the same coverage as `.htaccess` (same denied
-directories, same denied extensions, same dotfile catch-all), but nothing in CI proves it stays
-that way. **The honest recommendation for nginx is the document-root-is-`public/` layout**
+`.htaccess` files at all, by design — there is no directive that changes that.
+
+**No CI job verifies any of these deny rules.** An earlier revision shipped a `hardening` job that
+booted the drop-in layout under real Apache and asserted a planted `.env`, `.git/config`,
+`config/config.php` and `log/aureo.log` were actually denied; it was removed along with the
+`smoke` job to keep the pipeline to `test`, `lint` and `security`. So the root `.htaccess`, the
+`web.config` and the nginx server block below are all maintained by hand and none of them is
+proven — by anything — to still deny what it claims to. **Verify them yourself against your own
+host before going live**: `php bin/preflight.php --url=https://your-site` asks the running server
+for exactly those paths and is the supported way to check.
+
+**The honest recommendation for nginx is the document-root-is-`public/` layout**
 (see [Web server](#web-server) below) — it needs no deny rules at all, because nothing outside
 `public/` is served regardless of what the server block does or doesn't deny.
 
@@ -273,8 +277,7 @@ Exit codes: `0` all clear (warnings allowed), `1` at least one check failed, `2`
 PHP's built-in server is single-threaded, so it cannot service the loopback request the probe makes
 while the request that triggered the probe is itself still open — the probe simply reports every
 path unreachable. This is a property of the built-in server, not a bug in the probe; it works
-normally under Apache or php-fpm. It is also why the CI `smoke` job configures a site with
-`bin/setup.php` rather than driving the web installer's exposure step end to end.
+normally under Apache or php-fpm.
 
 An unverifiable result is never a pass — a path the probe cannot reach is reported as
 *unreachable*, not as safe, and the operator must confirm it by hand. Hosts that block loopback
@@ -506,7 +509,8 @@ user and all 55 permissions.
 Before exposing the instance:
 
 - [ ] Document root is `public/` (recommended layout) — or, if using the drop-in layout
-      instead, the hardening rules in `.htaccess`/`web.config` are in place and verified
+      instead, the hardening rules in `.htaccess`/`web.config` are in place **and verified against
+      this host** with `php bin/preflight.php --url=https://your-site`. No CI job checks them.
 - [ ] `.env` (or the equivalent config source — see [Configuration sources](#configuration-sources))
       is `chmod 600` and not in version control
 - [ ] `APP_ENV=production`, `APP_DEBUG=false`, `APP_SCHEME=https`
