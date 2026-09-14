@@ -177,6 +177,9 @@ class AuthMiddleware
             $this->loadUserPermissions();
 
             return null;
+            // Deliberately \Exception, not \Throwable: an \Error here (e.g. a TypeError inside
+            // userModel->find()) would masquerade as "unauthenticated -> /login" instead of a
+            // louder 500. Carried over verbatim from the pre-refactor isAuthenticated().
         } catch (\Exception $e) {
             error_log("Authentication error: " . $e->getMessage());
 
