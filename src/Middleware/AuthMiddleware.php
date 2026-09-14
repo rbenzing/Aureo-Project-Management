@@ -19,7 +19,6 @@ class AuthMiddleware
 
     private User $userModel;
     private SettingsService $settingsService;
-    private ?HttpResponse $denial = null;
 
     public function __construct()
     {
@@ -32,7 +31,7 @@ class AuthMiddleware
      */
     public function isAuthenticated(): bool
     {
-        return $this->checkAuthentication() === null;
+        return $this->asPureProbe(fn (): ?HttpResponse => $this->checkAuthentication());
     }
 
     /**
@@ -42,7 +41,7 @@ class AuthMiddleware
      */
     public function hasPermission(string $permission): bool
     {
-        return $this->authorize($permission) === null;
+        return $this->asPureProbe(fn (): ?HttpResponse => $this->authorize($permission));
     }
 
     /**
@@ -52,7 +51,7 @@ class AuthMiddleware
      */
     public function hasAnyPermission(array $permissions): bool
     {
-        return $this->authorizeAny($permissions) === null;
+        return $this->asPureProbe(fn (): ?HttpResponse => $this->authorizeAny($permissions));
     }
 
     /**
@@ -62,7 +61,36 @@ class AuthMiddleware
      */
     public function hasAllPermissions(array $permissions): bool
     {
-        return $this->authorizeAll($permissions) === null;
+        return $this->asPureProbe(fn (): ?HttpResponse => $this->authorizeAll($permissions));
+    }
+
+    /**
+     * Runs a denial-capable check as a side-effect-free probe.
+     *
+     * checkAuthentication()/authorize()/authorizeAny()/authorizeAll() are built
+     * for the redirect-response flow, where the flash message an *Response()
+     * builder writes to $_SESSION['error'] is always consumed immediately by
+     * the redirect that follows it. The four boolean predicates above have no
+     * redirect to consume that flash — they exist precisely to be used as
+     * probes (e.g. conditional UI) — so without this, a denial would leave the
+     * flash orphaned in the session for whatever page renders next. This
+     * restores $_SESSION['error'] to exactly what it was before the check,
+     * including restoring "absent" as absent rather than null.
+     */
+    private function asPureProbe(callable $check): bool
+    {
+        $hadPriorError = array_key_exists('error', $_SESSION);
+        $priorError = $hadPriorError ? $_SESSION['error'] : null;
+
+        $result = $check() === null;
+
+        if ($hadPriorError) {
+            $_SESSION['error'] = $priorError;
+        } else {
+            unset($_SESSION['error']);
+        }
+
+        return $result;
     }
 
     /**

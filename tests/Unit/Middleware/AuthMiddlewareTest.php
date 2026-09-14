@@ -525,4 +525,48 @@ final class AuthMiddlewareTest extends TestCase
             $this->makeMiddleware($userMock, $settingsMock)->hasAllPermissions(['a', 'b'])
         );
     }
+
+    // ---- predicates are pure with respect to the $_SESSION['error'] flash -
+
+    public function testHasPermissionDenialLeavesNoFlashWhenNoneExistedBefore(): void
+    {
+        $_SESSION['user'] = ['profile' => ['id' => 1], 'permissions' => ['task.view']];
+        $_SESSION['last_activity'] = time();
+        unset($_SESSION['error']);
+
+        $userMock = $this->createMock(User::class);
+        $userMock->method('find')->willReturn((object) ['id' => 1, 'is_active' => 1]);
+        $settingsMock = $this->createMock(SettingsService::class);
+        $settingsMock->method('getSessionTimeout')->willReturn(3600);
+
+        $middleware = $this->makeMiddleware($userMock, $settingsMock);
+
+        $this->assertFalse($middleware->hasPermission('task.delete'));
+        $this->assertArrayNotHasKey(
+            'error',
+            $_SESSION,
+            'A denied probe must not orphan a flash message for the next page to render.'
+        );
+    }
+
+    public function testHasPermissionDenialRestoresThePriorFlashMessage(): void
+    {
+        $_SESSION['user'] = ['profile' => ['id' => 1], 'permissions' => ['task.view']];
+        $_SESSION['last_activity'] = time();
+        $_SESSION['error'] = 'a message set by something earlier in the request';
+
+        $userMock = $this->createMock(User::class);
+        $userMock->method('find')->willReturn((object) ['id' => 1, 'is_active' => 1]);
+        $settingsMock = $this->createMock(SettingsService::class);
+        $settingsMock->method('getSessionTimeout')->willReturn(3600);
+
+        $middleware = $this->makeMiddleware($userMock, $settingsMock);
+
+        $this->assertFalse($middleware->hasPermission('task.delete'));
+        $this->assertSame(
+            'a message set by something earlier in the request',
+            $_SESSION['error'],
+            'A denied probe must not clobber a flash message that was already pending.'
+        );
+    }
 }
