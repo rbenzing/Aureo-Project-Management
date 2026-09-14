@@ -36,9 +36,21 @@ final class ConfigLoader
      */
     public static function load(string $appRoot): string
     {
-        if (self::environmentIsComplete()) {
-            self::hydrateEnvironmentFromRealEnvironment();
+        // Hydrated before the completeness check, not only after it, so a
+        // PARTIAL environment is preserved too. Rung 1 requires all of
+        // REQUIRED; a host supplying only some keys (Docker, systemd, shared
+        // hosting) fell through to a file rung, where Dotenv's immutable check
+        // saw the key in $_SERVER and refused to write $_ENV. The value was
+        // then neither the host's nor the file's, and since every consumer
+        // reads $_ENV directly the application silently used its hardcoded
+        // default - 'localhost' for DB_HOST, '' for DB_PASSWORD.
+        //
+        // Copying first also gives the host precedence the file rungs already
+        // promise: both loadDotEnv() and loadPhpFile() skip keys already in
+        // $_ENV.
+        self::hydrateEnvironmentFromRealEnvironment();
 
+        if (self::environmentIsComplete()) {
             return 'environment';
         }
 

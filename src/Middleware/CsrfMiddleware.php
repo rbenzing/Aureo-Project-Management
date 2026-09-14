@@ -36,19 +36,26 @@ class CsrfMiddleware
             // Get token lifetime from security settings
             $settingsService = SettingsService::getInstance();
             $tokenLifetime = $settingsService->getSecuritySetting('csrf_token_lifetime', 3600);
-            $expiresAt = date('Y-m-d H:i:s', time() + $tokenLifetime);
 
             // Get user ID from session if available
             $userId = $_SESSION['user']['id'] ?? null;
 
             $this->db->executeInsertUpdate(
+                // expires_at is written with the database's clock because it is
+                // compared against that same clock (NOW()) on every validation.
+                // Computing it with PHP's date() instead made the comparison
+                // depend on the application's *display* timezone: the shipped
+                // fallback is America/New_York and databases typically run UTC,
+                // so tokens were stored hours in the past and every POST —
+                // including login — failed as "expired". Same pattern the User
+                // model already uses for activation and reset tokens.
                 "INSERT INTO csrf_tokens (token, session_id, user_id, expires_at)
-                    VALUES (:token, :session_id, :user_id, :expires_at)",
+                    VALUES (:token, :session_id, :user_id, DATE_ADD(NOW(), INTERVAL :lifetime SECOND))",
                 [
                     ':token' => $token,
                     ':session_id' => session_id(),
                     ':user_id' => $userId,
-                    ':expires_at' => $expiresAt,
+                    ':lifetime' => $tokenLifetime,
                 ]
             );
             // set token session value

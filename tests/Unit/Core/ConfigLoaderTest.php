@@ -281,6 +281,56 @@ final class ConfigLoaderTest extends TestCase
     }
 
     /**
+     * The real shape of a partial environment.
+     *
+     * testPartialEnvironmentMergesWithFileAndHostValueWinsOnOverlap above
+     * populates $_ENV directly, which — as
+     * testValuesOnlyInGetenvAreHydratedIntoEnv already warns — proves nothing
+     * about a genuine host variable: PHP's default variables_order (GPCS, no E)
+     * leaves $_ENV empty while getenv()/$_SERVER carry the value. That is how
+     * Docker, systemd and shared hosting actually supply configuration.
+     *
+     * Because rung 1 requires ALL of REQUIRED, a host that sets only some keys
+     * fell through to a file rung — where Dotenv's immutable check saw the key
+     * in $_SERVER and refused to write $_ENV. The value was then neither the
+     * host's nor the file's: every consumer reads $_ENV directly, so the
+     * application silently used its hardcoded default ('localhost', or an empty
+     * password).
+     */
+    public function testPartialEnvironmentVisibleOnlyViaGetenvSurvivesTheFileMerge(): void
+    {
+        putenv('DB_HOST=host-supplied:3308');
+
+        $this->writePhpConfig(
+            $this->root . '/config/config.php',
+            ['DB_HOST' => 'from_file:3306'] + $this->completeValues()
+        );
+
+        ConfigLoader::load($this->root);
+
+        $this->assertSame('host-supplied:3308', $_ENV['DB_HOST'] ?? null);
+        // ...and the keys the host did not supply still come from the file,
+        // proving this is a merge rather than the environment winning outright.
+        $this->assertSame('aureo_db', $_ENV['DB_NAME'] ?? null);
+    }
+
+    /** The same shape against the .env rung, which uses a different loader. */
+    public function testPartialEnvironmentVisibleOnlyViaGetenvSurvivesTheDotEnvMerge(): void
+    {
+        putenv('DB_PASSWORD=host-supplied-secret');
+
+        file_put_contents(
+            $this->root . '/.env',
+            "APP_DEBUG=false\nDB_HOST=localhost\nDB_NAME=from_dotenv\nDB_USERNAME=aureo\nDB_PASSWORD=from_dotenv\n"
+        );
+
+        ConfigLoader::load($this->root);
+
+        $this->assertSame('host-supplied-secret', $_ENV['DB_PASSWORD'] ?? null);
+        $this->assertSame('from_dotenv', $_ENV['DB_NAME'] ?? null);
+    }
+
+    /**
      * The old failure was 'file not found at <one path>'. With five possible
      * sources, a message naming only one of them sends people to the wrong
      * place.

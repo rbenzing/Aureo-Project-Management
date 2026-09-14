@@ -17,6 +17,9 @@ class Favorite extends BaseModel
 {
     protected string $table = 'user_favorites';
 
+    /** This table has no guid column. */
+    protected bool $usesGuid = false;
+
     public function __construct()
     {
         parent::__construct();

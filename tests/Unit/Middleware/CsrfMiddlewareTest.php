@@ -119,7 +119,13 @@ final class CsrfMiddlewareTest extends TestCase
         $this->assertSame($token, $_SESSION['csrf_token']);
         $this->assertSame($token, $captured[':token']);
         $this->assertNull($captured[':user_id']);
-        $this->assertNotEmpty($captured[':expires_at']);
+        // Expiry is bound as a lifetime in seconds and applied by the database
+        // (DATE_ADD(NOW(), INTERVAL :lifetime SECOND)) rather than precomputed
+        // with PHP's date(), so that the value is written on the same clock
+        // validateToken() compares it against. Asserting the configured
+        // lifetime actually reaches the query is what the old
+        // assertNotEmpty(':expires_at') was standing in for.
+        $this->assertSame(1800, $captured[':lifetime']);
     }
 
     public function testGenerateTokenIncludesSessionUserId(): void

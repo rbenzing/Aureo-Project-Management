@@ -286,8 +286,16 @@ final class BaseModelTest extends TestCase
         $newId = $model->create(['name' => 'Widget A']);
 
         $this->assertSame(7, $newId);
-        $this->assertSame('INSERT INTO widgets (name) VALUES (:name)', $captured['sql']);
+        // guid is appended by create(): the column is NOT NULL with no database
+        // default and is $guarded, so create() is the only thing that can supply
+        // it. Omitting it made every insert fail with "Field 'guid' doesn't have
+        // a default value" on any server running STRICT_TRANS_TABLES.
+        $this->assertSame('INSERT INTO widgets (name, guid) VALUES (:name, :guid)', $captured['sql']);
         $this->assertSame('Widget A', $captured['params'][':name']);
+        $this->assertMatchesRegularExpression(
+            '/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/',
+            $captured['params'][':guid']
+        );
         $this->assertTrue($model->afterSaveCalled);
         $this->assertSame(7, $model->afterSaveId);
     }
@@ -314,8 +322,32 @@ final class BaseModelTest extends TestCase
             'name' => 'Widget A',
         ]);
 
-        $this->assertSame('INSERT INTO widgets (name) VALUES (:name)', $captured['sql']);
+        $this->assertSame('INSERT INTO widgets (name, guid) VALUES (:name, :guid)', $captured['sql']);
         $this->assertSame('Widget A', $captured['params'][':name']);
+        // The caller's guid is still rejected - create() substitutes its own,
+        // so mass assignment cannot dictate the value the column indexes.
+        $this->assertNotSame('abc', $captured['params'][':guid']);
+    }
+
+    public function testCreateOmitsGuidForTablesWithoutTheColumn(): void
+    {
+        $captured = ['sql' => '', 'params' => []];
+        $db = $this->createMock(Database::class);
+        $db->method('executeInsertUpdate')->willReturnCallback(
+            function (string $sql, array $params) use (&$captured): bool {
+                $captured = ['sql' => $sql, 'params' => $params];
+
+                return true;
+            }
+        );
+        $db->method('lastInsertId')->willReturn(3);
+        $model = $this->makeModel($db);
+        $this->setProperty($model, 'usesGuid', false);
+
+        $model->create(['name' => 'Widget A']);
+
+        $this->assertSame('INSERT INTO widgets (name) VALUES (:name)', $captured['sql']);
+        $this->assertArrayNotHasKey(':guid', $captured['params']);
     }
 
     public function testCreateReturnsFalseWhenInsertFails(): void
