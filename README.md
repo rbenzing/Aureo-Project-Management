@@ -280,6 +280,8 @@ Apache works with the bundled `public/.htaccess`.
 - **[Contributing](./CONTRIBUTING.md)**: Development workflow, coding standards, and PR expectations
 - **[Security](./docs/SECURITY.md)**: Security features, production checklist, and vulnerability reporting
 - **[Agent Guidance](./.claude/CLAUDE.md)**: Project-specific footguns — read before non-trivial work
+- **[Changelog](./CHANGELOG.md)**: What changed in each release, and the known issues that came with it
+- **[Audit](./AUDIT.md)**: The empirical validation audit — what was verified working, what was not, and the evidence for each
 
 ## 🩺 Troubleshooting
 

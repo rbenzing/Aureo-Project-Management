@@ -98,6 +98,10 @@ csrf_token_lifetime=3600
 2. Validated on all POST/PUT/DELETE/PATCH requests
 3. Auto-rotated on expiry
 4. Stored in database with expiration tracking
+5. Expiry is computed by the database — `DATE_ADD(NOW(), INTERVAL :lifetime SECOND)` — never by
+   PHP. The two clocks routinely differ (a UTC database under an application whose timezone comes
+   from the `settings` table), and a token stamped from the wrong one is already expired when it
+   is stored. This is what broke every POST, login included, before 1.3.0.
 
 **Implementation:**
 - Middleware: `App\Middleware\CsrfMiddleware`

@@ -19,9 +19,10 @@
 
 ## Summary
 
-Three ship-blocking defects were confirmed and fixed; two of them made a freshly installed instance
-unusable. All three were invisible to the suite because the affected code paths are only ever
-exercised against mocks.
+Five ship-blocking defects were confirmed and fixed; two of them made a freshly installed instance
+unusable, and a third broke global search for every real query. All five were invisible to the
+suite because the affected code paths are only ever exercised against mocks — which is also why
+the two SQL defects (H4, H5) were found by reading statements rather than by running tests.
 
 **One finding from the first pass did not survive scrutiny and has been withdrawn — see H2.**
 
@@ -33,7 +34,8 @@ exercised against mocks.
 | H1 | High | Partial env-var config silently discarded — app falls back to `localhost` / empty password | **Fixed** |
 | ~~H2~~ | ~~High~~ | ~~Coverage gate fails under CI parity~~ | **Withdrawn — not a real defect** |
 | H3 | High | 5 controllers at exactly **0.0%** coverage (916 statements) | Open |
-| H4 | High | `/api/search` returns HTTP 500 — pre-existing, not caused by this refactor | Open |
+| H4 | High | `/api/search` returned HTTP 500 for every query of 3+ chars — a duplicated `:query` placeholder, not the missing FULLTEXT index first suspected | **Fixed** |
+| H5 | High | `Role::assignPermission()` could only ever throw — same duplicated-placeholder defect; no production callers | **Fixed** |
 | M1 | Medium | Integration suite was one file, 16 tests, auth-only | **Improved** (3 files, 27 tests) |
 | M2 | Medium | `renderTimerControls()` emits an always-empty CSRF field (dead code) | Open |
 | M3 | Medium | `InstallerServiceTest` hardcoded `127.0.0.1:3306`, silently skipping | **Fixed** |
@@ -42,12 +44,12 @@ exercised against mocks.
 | M6 | Medium | No deployment/container artifacts in the repo | Open |
 | L1 | Low | `/install` answers `200` (with a refusal body) instead of `403` | Open |
 | L2 | Low | `phinx.php` is directly executable in the drop-in layout | Open |
-| L3 | Low | `CLAUDE.md` is stale — documents a fixed bug as unfixed | Open |
+| L3 | Low | `CLAUDE.md` is stale — documents a fixed bug as unfixed | **Fixed** |
 
 **Verification after fixes (exact CI parity — PHP 8.2 defaults, MySQL-compatible DB on 127.0.0.1:3306):**
 
 ```
-vendor/bin/phpunit --fail-on-skipped   OK (2076 tests, 4532 assertions)   exit 0
+vendor/bin/phpunit --fail-on-skipped   OK (2082 tests, 4541 assertions)   exit 0
 php bin/coverage-gate.php              PASS  all coverage gates satisfied
 php-cs-fixer fix --dry-run --diff      Found 0 of 312 files that can be fixed
 npm run build                          styles.css unchanged (committed CSS in sync)
@@ -294,10 +296,10 @@ the gate is satisfied by the aggregate and cannot see that five files are at zer
 
 ---
 
-## H4 — High, open: `/api/search` returns HTTP 500
+## H4 — High, FIXED: `/api/search` returned HTTP 500 for every real query
 
 Found while re-verifying the API controllers' wire format after the C3 fix. Every request to
-`/api/search` fails:
+`/api/search` failed:
 
 ```
 GET /api/search?q=...  -> 500
@@ -305,27 +307,115 @@ GET /api/search?q=...  -> 500
 
 Trace: `SearchController::search` → `SearchService::search` → `SearchRepository::search` →
 `SearchIndex::fullTextSearch` → `Database::executeQuery`, failing with `"Database query failed"`.
-The `searchable_index` table appears to lack a usable FULLTEXT index.
 
-**Confirmed pre-existing, not a regression from this branch.** Checked out the pre-refactor
-merge-base commit `79934c4` and issued the identical request against the same database:
+**Confirmed pre-existing, not a regression from the response refactor.** Checked out the
+pre-refactor merge-base commit `79934c4` and issued the identical request against the same
+database:
 
 ```
 79934c4 (pre-refactor)  GET /api/search?q=...  -> 500
 this branch             GET /api/search?q=...  -> 500   (identical failure)
 ```
 
-**Severity:** High. This is a user-facing endpoint that is entirely broken for every caller, not an
-edge case. It needs its own diagnosis of the `searchable_index` schema — out of scope for this
-refactor, which touches authentication/authorization response handling only.
+### The first diagnosis was wrong
+
+This audit originally recorded the cause as "the `searchable_index` table appears to lack a usable
+FULLTEXT index." **It does not.** The migrated schema carries it:
+
+```
+FULLTEXT KEY `ft_search_blob` (`search_blob`)
+```
+
+That hypothesis was written from the symptom without being tested, and it would have sent the next
+person to rebuild an index that was already correct. The real cause is a **duplicated named
+placeholder** — the footgun `CLAUDE.md` already documents under SQL gotchas:
+
+```sql
+SELECT *, MATCH(search_blob) AGAINST(:query IN NATURAL LANGUAGE MODE) AS score
+...
+  AND MATCH(search_blob) AGAINST(:query IN NATURAL LANGUAGE MODE) > 0
+                                 ^^^^^^ the same name, bound twice
+```
+
+`Database` sets `PDO::ATTR_EMULATE_PREPARES=false`, and a native prepare allows exactly one binding
+per placeholder, so the driver rejected the statement before it ran. Proven against the real
+database, changing only the placeholder names:
+
+```
+A) duplicate :query          -> PDOException: SQLSTATE[HY093]: Invalid parameter number
+B) :query_score/:query_match -> OK
+```
+
+**Scope was narrower than "search is down", and worth stating precisely.**
+`SearchRepository::search()` routes queries shorter than three characters to `prefixSearch()`,
+which names `:query` once and was always sound. So one- and two-character queries worked; every
+query of three characters or more — which is to say all real usage — returned 500.
+
+**Fix** — [src/Models/SearchIndex.php](src/Models/SearchIndex.php): distinct `:query_score` and
+`:query_match` bindings, with a comment at the call site recording why they must not be collapsed
+back into one name.
+
+**Verified end to end** through the same chain the endpoint uses:
+
+```
+SearchService::search('chainprobe', 1, [], 10)
+  -> count=1, took_ms=2, score=0.6055193543434143
+```
+
+**Regression cover:**
+[tests/Integration/SearchQueryTest.php](tests/Integration/SearchQueryTest.php) — 4 tests against a
+real database covering the plain query, the entity-type filter (which appends further placeholders
+to the same statement), a negative filter, and the short-query prefix path.
 
 ---
 
+## H5 — High, FIXED: `Role::assignPermission()` could only ever throw
+
+Found by grepping for the same defect class after H4, rather than by waiting for it to be
+reported. `Role::assignPermission()` named `:role_id` in both the `VALUES` list and the
+`ON DUPLICATE KEY UPDATE` clause:
+
+```sql
+INSERT INTO role_permissions (role_id, permission_id)
+VALUES (:role_id, :permission_id)
+ON DUPLICATE KEY UPDATE role_id = :role_id
+```
+
+Every call raised `SQLSTATE[HY093]: Invalid parameter number`, wrapped and rethrown as
+`RuntimeException: Failed to assign permission`. **It has no production callers** — `RoleController`
+assigns permissions through `syncPermissions()` — so it has not been reported by anyone, and the
+severity is latent rather than live.
+
+The instructive part is why the suite was blind to it. `RoleTest` mocks `Database` and asserts on
+the statement *text*:
+
+```php
+$this->assertStringContainsString('ON DUPLICATE KEY UPDATE role_id = :role_id', $calls[0]['sql']);
+```
+
+A test that pins the SQL string cannot distinguish a valid statement from an invalid one — it had
+pinned the broken clause in place for as long as it existed. This is the same gap that hid C1: the
+whole model layer is unit-tested against a mock that accepts any SQL.
+
+**Fix** — [src/Models/Role.php](src/Models/Role.php): `ON DUPLICATE KEY UPDATE role_id =
+VALUES(role_id)`, the upsert idiom already used by `SearchIndex::upsert()`, which needs no second
+binding at all. The unit test's assertion was updated to match.
+
+**Regression cover:**
+[tests/Integration/RolePermissionSqlTest.php](tests/Integration/RolePermissionSqlTest.php) — 2 tests
+against a real database; the second assigns twice, because the upsert clause is only reached on the
+second call.
+
+**Still open:** the scan that found this covered `src/Models`, `src/Repositories` and
+`src/Services`. Every other hit was a false positive (separate statements sharing a name, or
+phpdoc). Hand-written SQL in `src/Controllers` was not swept.
+
+---
 ## Remaining open items
 
 - **M1 — Integration coverage** (improved, not closed). Was one file / 16 tests, all auth reads;
-  now three files / 27 tests covering record creation and token lifecycle. Still nothing for
-  task/sprint/time-tracking flows.
+  now six files / 33 tests covering record creation, token lifecycle, session persistence and the
+  hand-written search and role SQL. Still nothing for task/sprint/time-tracking flows.
 - **M2 — `renderTimerControls()`** reads `$csrfToken` from inside its own function body
   ([src/Views/Layouts/ViewHelpers.php:509](src/Views/Layouts/ViewHelpers.php#L509)), which can never
   see caller scope — the defect `CLAUDE.md` records as fixed in `FormComponents.php`. It has **no
@@ -344,9 +434,6 @@ refactor, which touches authentication/authorization response handling only.
   `InstallGate::decide()` fails closed on an unknown user count, but `403` would be the honest code.
 - **L2 — `phinx.php` executes in the drop-in layout** (`GET /phinx.php` → `200`, empty body). It
   matches neither the directory nor the extension deny list in `.htaccess`. Add it.
-- **L3 — `CLAUDE.md` is stale**: it says `TimeTrackingController::startTimer()` "has exactly this
-  bug", but [the code](src/Controllers/TimeTrackingController.php#L356) is correct and carries a
-  comment explaining the fix. Worth correcting so the next agent does not re-fix it.
 
 ---
 
@@ -376,11 +463,11 @@ refactor, which touches authentication/authorization response handling only.
 
 ## Recommended next steps
 
-1. **H4** — diagnose and fix `/api/search` (currently `500` on every request; pre-existing, not
-   caused by this branch). The trace ends at `SearchIndex::fullTextSearch` →
-   `Database::executeQuery` with `"Database query failed"`, and `searchable_index` appears to lack a
-   usable FULLTEXT index — so the first question is whether the index is missing from the schema or
-   incompatible with the server.
+1. **Sweep the remaining hand-written SQL for duplicated placeholders.** H4 and H5 were the same
+   one-line defect in two places, each invisible to a suite that mocks the driver. The scan behind
+   H5 covered `src/Models`, `src/Repositories` and `src/Services`; `src/Controllers` was not swept.
+   A cheap guard would be a test that prepares every statement the models emit against a real
+   connection.
 2. **H3** — take the five zero-coverage controllers off zero, starting with `UserController` and
    `RoleController`.
 3. **M4 / M5** — make the suite root-safe and stop it writing to the real application log.

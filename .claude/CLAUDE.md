@@ -60,12 +60,15 @@ Only facts an agent can't infer from code search. Update when something bites.
 ## SQL gotchas
 - **Native MySQL prepares** (with `PDO::ATTR_EMULATE_PREPARES=false`) require one named placeholder per binding. Reusing `:foo` twice in one statement throws `Invalid parameter number` — use distinct names (`:foo_a`, `:foo_b`).
 - **`INSERT ... ON DUPLICATE KEY UPDATE`** is the project's pattern for upserts — see `SecurityService::checkRateLimit` for an example.
+- **Never compute an expiry timestamp in PHP and compare it against the database's `NOW()`.** Write it with `DATE_ADD(NOW(), INTERVAL :lifetime SECOND)` so one clock decides both ends. `Config::initializeSettings()` takes PHP's timezone from the `settings` table, which is **empty on a fresh install** — the hardcoded `'America/New_York'` fallback then applies while the database runs UTC, and a row stamped hours in the past is expired before it is stored. This made every POST fail, login included: `CsrfMiddleware::generateToken()` plus three write sites in `SessionMiddleware`.
+- **`BaseModel::create()` generates `guid` itself.** Eight tables declare `guid CHAR(36) NOT NULL` with no default and `guid` is in `$guarded`, so nothing a caller passes survives; generation happens after `prepareSaveData()` via `generateGuid()`. A new model whose table has **no** `guid` column must set `protected bool $usesGuid = false` (as `Favorite`, `Permission`, `SearchIndex` and `TimeEntry` do) or every insert fails with `Unknown column 'guid'`.
 
 ## Env quirks
 - `APP_ENV=production` requires non-empty `DB_PASSWORD`. `setup.php` writes `APP_ENV=local`.
 - For local HTTP dev: `SESSION_SECURE=false`, `APP_SCHEME=http` (otherwise cookies/CSRF silently fail).
 
 ## Known footguns
+- **Tailwind scans `src/**/*.php` for class names — comments included.** A bare utility word in prose (`collapse`, `grid`, `hidden`, `block`, `container`…) makes `npm run build` emit that rule into the tracked `public/assets/css/styles.css`, and CI's compiled-CSS freshness guard fails on the resulting diff. Reword the comment; do not commit the phantom rule.
 - Windows XAMPP `mysql.exe` may fail with `caching_sha2_password could not be loaded` — use PDO from PHP scripts or `composer pma` instead.
 - PHP opcache: the dev server caches compiled files. Restart `composer start` after editing PHP — don't waste cycles debugging stale bytecode.
 

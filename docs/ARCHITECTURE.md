@@ -43,9 +43,9 @@ the only route registry — and moves through these stages in order:
 | 9 | **Rate limit** | Database-persisted check; 429 and exit on breach. |
 | 10 | **Input size** | POST bodies over the configured limit get 413 and exit. |
 | 11 | **Middleware** | `CsrfMiddleware::handleToken()`, then `ActivityMiddleware::handle()`. |
-| 12 | **Auth gate** | Runs **before routing**, using `RequestPath`'s segments. Any first URL segment not in `$publicPaths` requires an authenticated session. |
+| 12 | **Auth gate** | Runs **before routing**, using `RequestPath`'s segments. Any first URL segment not in `$publicPaths` requires an authenticated session. `AuthMiddleware::authenticate()` returns a denial `HttpResponse` rather than terminating; the front controller sends it and returns. |
 | 13 | **Event wiring** | Listeners registered on the `EventDispatcher` singleton. |
-| 14 | **Routing** | `Router::dispatch($method, $segments)` resolves the controller from the container and invokes the action, using the same `RequestPath` segments as the auth gate. |
+| 14 | **Routing** | `Router::dispatch($method, $segments)` resolves the controller from the container and invokes the action, using the same `RequestPath` segments as the auth gate. If the action returns an `HttpResponse`, the router sends it; actions that render a view return `void` and have already echoed. |
 | 15 | **Error handling** | `\PDOException` and `\Throwable` catches log and render a response whose detail level depends on `shouldHideErrorDetails()`. |
 
 Three consequences worth internalizing:
@@ -141,8 +141,33 @@ public/index.php          front controller + route registry
 
 ### `Core/`
 
-`Router`, `Config`, `Database`, `Response`, `ApiResponse`, `RequestPath`, `ConfigLoader`. Small,
-boring, and stable — changes here affect everything, so they get the most scrutiny in review.
+`Router`, `Config`, `Database`, `HttpResponse`, `Response`, `ApiResponse`, `RequestPath`,
+`ConfigLoader`. Small, boring, and stable — changes here affect everything, so they get the most
+scrutiny in review.
+
+#### The response layer
+
+Deciding what to send and actually sending it are separate concerns, split across three classes:
+
+- **`HttpResponse`** is an immutable value object — status, headers, body — built through
+  `json()`, `text()`, `html()`, `redirect()` or `noContent()`, and copied rather than mutated by
+  `withHeader()`. Its `send()` is the only method in the layer that touches PHP's output
+  functions, and it does **not** `exit`.
+- **`Response`** and **`ApiResponse`** are thin factories returning `HttpResponse`. They differ
+  deliberately and their wire formats are pinned by tests: `Response::json()` adds
+  `Cache-Control: no-cache, must-revalidate` and an `Expires` header in the past and encodes with
+  `JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES`, while `ApiResponse` sets `Content-Type`
+  alone and encodes with `JSON_THROW_ON_ERROR`.
+- **`Router::dispatch()`** sends whatever an action returns, and ignores a `void` return.
+
+**The load-bearing rule:** an action must `return` its response. Because nothing exits any more, a
+bare `Response::json(...)` statement is a silently discarded no-op — the action falls through and
+the router sends nothing. Every converted action declares `: HttpResponse` so that falling off the
+end raises a `TypeError` instead, but the discarded-statement form still type-checks.
+
+`BaseController::requirePermission()` is the deliberate exception: it still sends and exits, which
+is what keeps its 98 call sites across 12 controllers unchanged. Only its *decision* moved, into
+`AuthMiddleware::authorize()`, where it can be tested.
 
 #### `RequestPath` and `ConfigLoader`
 
@@ -217,10 +242,12 @@ with more than a couple of fields, with `Utils\Validator` covering the small cas
 
 **Currently unused: no controller calls into `FormRequest` or any of its four subclasses.**
 Controllers validate inline via `Utils\Validator` instead. This is recorded as a Known Issue in
-[CHANGELOG.md](../CHANGELOG.md) (the `1.1.0` entry): the class family is flagged rather than
-deleted because removing it would drop Tier 1 coverage to within 0.08 points of the coverage
-gate's fail threshold — inside the gate's own documented run-to-run drift. Treat it as dead code
-pending a decision, not as the pattern to follow for a new controller.
+[CHANGELOG.md](../CHANGELOG.md) (the `1.1.0` entry). It was originally kept because deleting it
+would have dropped Tier 1 coverage to within 0.08 points of the gate's fail threshold — inside
+the gate's own documented run-to-run drift. **That argument no longer holds:** `1.3.0` lifted
+Tier 1 to 97.93%, and removing these 186 fully covered statements would leave 97.80%, still clear
+of the 97.43% the ratchet permits. Treat it as dead code pending a decision, not as the pattern
+to follow for a new controller.
 
 ### `Services/`
 

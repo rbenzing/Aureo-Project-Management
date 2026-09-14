@@ -80,7 +80,9 @@ permission level, never the role level — see [§5](#5-authorization).
 ### Cross-cutting conventions
 - Every domain table carries `is_deleted`. **Deletion is always soft** — `BaseModel` injects
   `is_deleted = 0` into reads automatically. No user-facing action performs a hard delete.
-- Most tables carry a `guid` alongside the numeric `id`.
+- Most tables carry a `guid` alongside the numeric `id`. `BaseModel::create()` generates it as an
+  RFC 4122 v4 UUID on insert; the column is `NOT NULL` with no database default, so a model whose
+  table has no `guid` must opt out with `protected bool $usesGuid = false`.
 - `created_at` / `updated_at` are maintained on all domain tables.
 
 ---
@@ -212,8 +214,9 @@ security toggles in [§6](#6-security-requirements).
 **55 permissions** are seeded by the canonical migration. A single role — **`admin`** — is seeded
 and granted all 55. Additional roles are created through the UI.
 
-Checks are always permission-level (`hasUserPermission()` / `requirePermission()`), never
-role-name comparisons.
+Checks are always permission-level, never role-name comparisons: `hasUserPermission()` in views,
+`requirePermission()` in controllers, and `AuthMiddleware::authorize()` / `authorizeAny()` /
+`authorizeAll()` where the caller needs the denial response rather than a halt.
 
 | Domain | Permissions |
 |---|---|

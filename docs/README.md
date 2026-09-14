@@ -11,6 +11,7 @@ Start here. Each document has one job.
 | **[SECURITY.md](./SECURITY.md)** | What protects it, and how do I report a vulnerability? | Administrators, developers |
 | **[../CONTRIBUTING.md](../CONTRIBUTING.md)** | How do I contribute a change? | Contributors |
 | **[../.claude/CLAUDE.md](../.claude/CLAUDE.md)** | Which non-obvious constraints will bite me? | Developers, agents |
+| **[../AUDIT.md](../AUDIT.md)** | What is empirically verified to work, and what is known broken? | Developers, administrators |
 
 ---
 
