@@ -9,6 +9,123 @@ The canonical version lives in the `VERSION` file at the repository root. Bump i
 with `composer version:patch` (or `:minor` / `:major`), which keeps `package.json`
 in step.
 
+## [1.3.0] - 2026-09-14
+
+An empirical audit of the whole application ([AUDIT.md](./AUDIT.md)) found that **every record
+creation failed**, that **CSRF tokens were issued already expired**, and that the authorization
+layer was invisible to its own test suite: a mutation granting every permission to every user
+went unnoticed. All three are fixed. The response layer no longer terminates the
+process, which is what made the authorization defect testable at all.
+
+Anyone running 1.2.0 or earlier should upgrade: on a fresh install the first two defects together
+mean nothing can be created and no form can be submitted.
+
+### Fixed
+
+- **Every record creation failed.** Eight tables declare `guid CHAR(36) NOT NULL` with no default,
+  while `BaseModel` listed `guid` in `$guarded` — stripped from every insert and generated
+  nowhere, so each one raised
+  `SQLSTATE[HY000]: General error: 1364 Field 'guid' doesn't have a default value`. Companies,
+  projects, tasks, sprints, milestones, templates, roles and users — the entire write surface.
+  `BaseModel::create()` now generates an RFC 4122 v4 UUID after `prepareSaveData()`, so a
+  caller-supplied guid is still discarded as guarded; the four models whose tables have no guid
+  column (`Favorite`, `Permission`, `SearchIndex`, `TimeEntry`) opt out with
+  `protected bool $usesGuid = false`, mirroring the existing `$usesSoftDeletes` pattern.
+- **CSRF tokens were created already expired, so every POST failed — including login.**
+  `CsrfMiddleware` wrote `expires_at` using PHP's clock, and validation compared it against the
+  database's `NOW()`. PHP's timezone comes from the `settings` table, which is empty on a fresh
+  install, so the hardcoded `America/New_York` fallback applied while the database ran UTC — and a
+  token stamped three hours in the past is expired before it is stored. `SessionMiddleware` had
+  the same defect at three write sites. Both now let the database compute expiry:
+  `DATE_ADD(NOW(), INTERVAL :lifetime SECOND)`.
+- **A partial environment discarded both the host's values and the config file's.**
+  `ConfigLoader`'s first rung requires all five of `APP_DEBUG`, `DB_HOST`, `DB_NAME`,
+  `DB_USERNAME` and `DB_PASSWORD`. A host supplying only some — Docker, systemd, shared hosting —
+  fell through to a file rung, where Dotenv's immutability check saw the key in `$_SERVER` and
+  refused to write `$_ENV`. Since every consumer reads `$_ENV`, the resolved value was neither the
+  host's nor the file's. `$_ENV` is now hydrated from the real environment *before* the
+  completeness check, so host values survive and take precedence while the file supplies whatever
+  the host omitted — the merge the documentation already described.
+- **The authorization layer could not fail in a test, so it was never really tested.** Every
+  denial in `AuthMiddleware` ran `header()` then `exit`, which terminates the PHPUnit process, so
+  the deny branches were unreachable in-process and the existing tests reached around the public
+  methods into a private one by reflection. Mutating `hasPermission()` to always grant, and
+  `isAuthenticated()` to admit anonymous users, left the entire suite green. Both mutations are
+  now caught. See [AUDIT.md](./AUDIT.md#c3--critical-fixed-the-authorization-layer-was-mutation-blind).
+- **Global search returned HTTP 500 for every query of three characters or more.**
+  `SearchIndex::fullTextSearch()` named the same `:query` placeholder twice in one statement —
+  once for the score column, once for the filter — and `Database` runs with
+  `PDO::ATTR_EMULATE_PREPARES=false`, where a native prepare allows one binding per placeholder.
+  The driver rejected the statement with `SQLSTATE[HY093]: Invalid parameter number` before it
+  ran, so the command palette and the search box failed for all real input; only one- and
+  two-character queries worked, because those take `prefixSearch()` instead. The bindings are now
+  `:query_score` and `:query_match`. This predates 1.2.0 and is **not** a regression from the
+  response refactor — the earlier audit misattributed it to a missing FULLTEXT index, which the
+  schema in fact has.
+- **`Role::assignPermission()` could only ever throw**, with the same defect: `:role_id` named in
+  both the `VALUES` list and the `ON DUPLICATE KEY UPDATE` clause. It now uses
+  `VALUES(role_id)`, the upsert idiom already used elsewhere, which needs no second binding.
+  Nothing in production called it — `RoleController` goes through `syncPermissions()` — so this
+  was latent rather than live. Its unit test had asserted on the broken SQL string, which is why
+  a mocked driver never caught it.
+- **`SettingsController` relied on a side effect for its permission check.** `index()` and
+  `update()` called `hasAnyPermission([...])` as a bare statement, enforcing access only because
+  the method exited. Both now check the returned denial explicitly. A regression test asserts that
+  a user holding none of the settings permissions is refused, and the denial was confirmed against
+  a running instance.
+
+### Added
+
+- **`App\Core\HttpResponse`** — an immutable value object carrying status, headers and body, with
+  `json()`, `text()`, `html()`, `redirect()` and `noContent()` factories plus a copy-on-write
+  `withHeader()`. `send()` is the only method that touches PHP's output layer, and it does not
+  `exit`.
+- **A non-exiting denial API on `AuthMiddleware`** — `authenticate()`, `authorize()`,
+  `authorizeAny()` and `authorizeAll()` return an `HttpResponse` on denial and `null` on success,
+  while the `isAuthenticated()` / `hasPermission()` / `hasAnyPermission()` / `hasAllPermissions()`
+  predicates became pure and now answer honestly instead of halting.
+- **[AUDIT.md](./AUDIT.md)** — the full empirical validation audit, with the evidence for every
+  finding above and the open items below.
+
+### Changed
+
+- **`Response` and `ApiResponse` are now factories returning `HttpResponse` instead of `void`
+  methods that `exit`.** `Router::dispatch()` sends whatever an action returns. Status codes,
+  headers and bodies are byte-for-byte unchanged — `Response::json()` keeps its `Cache-Control`
+  and `Expires` headers and its `JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES` flags, and
+  `ApiResponse` keeps `JSON_THROW_ON_ERROR` and emits no cache headers.
+  **An API action must now `return` its response**: a bare `Response::json(...)` statement is a
+  silently discarded no-op rather than a terminator. Every converted action declares
+  `: HttpResponse` so falling off the end raises a `TypeError`.
+  `BaseController::requirePermission()` deliberately still halts, leaving its 98 call sites
+  untouched; only its decision moved into the now-tested `authorize()`.
+- **Coverage floors ratcheted.** `src/Core` rose from 76.50% to 94.39% now that the response
+  classes are reachable, `Middleware` from 86.16% to 93.86%, and Tier 1 from 95.45% to 97.93%
+  against a 90% target, and `Models` from 95.70% to 96.08% as the new integration tests reached
+  SQL that mocks had been standing in for. The suite is 2082 tests and 4541 assertions.
+- **CI drops the smoke and hardening jobs.** They asserted deny rules against a synthetic
+  container rather than a real host, so a pass proved nothing about a deployment. `php
+  bin/preflight.php --url=https://your-site` remains the supported way to verify a live host.
+
+### Known issues
+
+- **Five controllers have exactly zero test coverage** — `MilestoneController`, `RoleController`,
+  `SprintTemplateController`, `TemplateController` and `UserController`, 916 statements never
+  executed, including the two that administer accounts and permissions. The `Controllers` tier
+  gate is satisfied by the aggregate and cannot see that these five are at zero.
+- **`ViewHelpers.php::renderTimerControls()` builds a CSRF field that is always empty**, reading
+  `$csrfToken` from inside its own function body where caller scope is not visible. It has no
+  callers, so it has never manifested; copying the pattern into live code would ship a broken
+  token.
+- **Hand-written SQL in `src/Controllers` has not been swept for the duplicated-placeholder
+  defect** behind the two search and role fixes above. The sweep covered `src/Models`,
+  `src/Repositories` and `src/Services`, where every other match proved to be a false positive.
+  Because the model layer is unit-tested against a mock that accepts any SQL, a statement of this
+  shape fails only in production.
+- The 1.2.0 known issues still stand: **nothing in CI verifies the drop-in layout's hardening
+  rules**, and **the drop-in layout is not exercised end to end by any automated test**. Check
+  your own host with `php bin/preflight.php --url=https://your-site`.
+
 ## [1.2.0] - 2026-08-07
 
 Guided installer: an operator can now download a release archive, extract it into a web root, and
@@ -377,7 +494,9 @@ uncatchable `TypeError`.
 
 Initial tagged release.
 
-[Unreleased]: https://github.com/rbenzing/Aureo-Project-Management/compare/1.1.0...HEAD
+[Unreleased]: https://github.com/rbenzing/Aureo-Project-Management/compare/1.3.0...HEAD
+[1.3.0]: https://github.com/rbenzing/Aureo-Project-Management/compare/1.2.0...1.3.0
+[1.2.0]: https://github.com/rbenzing/Aureo-Project-Management/compare/1.1.0...1.2.0
 [1.1.0]: https://github.com/rbenzing/Aureo-Project-Management/compare/1.0.2...1.1.0
 [1.0.2]: https://github.com/rbenzing/Aureo-Project-Management/compare/1.0.1...1.0.2
 [1.0.1]: https://github.com/rbenzing/Aureo-Project-Management/compare/1.0.0...1.0.1
