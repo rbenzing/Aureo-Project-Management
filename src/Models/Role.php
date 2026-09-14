@@ -246,7 +246,7 @@ class Role extends BaseModel
         try {
             $sql = "INSERT INTO role_permissions (role_id, permission_id)
                     VALUES (:role_id, :permission_id)
-                    ON DUPLICATE KEY UPDATE role_id = :role_id";
+                    ON DUPLICATE KEY UPDATE role_id = VALUES(role_id)";
 
             return $this->db->executeInsertUpdate($sql, [
                 ':role_id' => $roleId,

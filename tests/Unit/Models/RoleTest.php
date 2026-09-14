@@ -379,7 +379,7 @@ final class RoleTest extends TestCase
         $result = $model->assignPermission(1, 10);
 
         $this->assertTrue($result);
-        $this->assertStringContainsString('ON DUPLICATE KEY UPDATE role_id = :role_id', $calls[0]['sql']);
+        $this->assertStringContainsString('ON DUPLICATE KEY UPDATE role_id = VALUES(role_id)', $calls[0]['sql']);
         $this->assertSame(1, $calls[0]['params'][':role_id']);
         $this->assertSame(10, $calls[0]['params'][':permission_id']);
     }
