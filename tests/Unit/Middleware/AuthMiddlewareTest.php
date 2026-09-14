@@ -349,6 +349,7 @@ final class AuthMiddlewareTest extends TestCase
         $this->assertNotNull($denial);
         $this->assertSame('/login', $denial->headers()['Location']);
         $this->assertArrayNotHasKey('user', $_SESSION);
+        $this->assertSame('Your session has expired. Please log in again.', $_SESSION['error']);
     }
 
     public function testAuthorizeReturnsNullWhenThePermissionIsHeld(): void
@@ -378,6 +379,7 @@ final class AuthMiddlewareTest extends TestCase
 
         $this->assertNotNull($denial);
         $this->assertSame(302, $denial->status());
+        $this->assertSame('/dashboard', $denial->headers()['Location']);
         $this->assertSame(
             'You do not have permission to access this resource.',
             $_SESSION['error']
@@ -416,6 +418,7 @@ final class AuthMiddlewareTest extends TestCase
 
         $this->assertNotNull($denial, 'A user holding none of the permissions must be denied.');
         $this->assertSame(302, $denial->status());
+        $this->assertSame('/dashboard', $denial->headers()['Location']);
     }
 
     public function testAuthorizeAllDeniesWhenOnePermissionIsMissing(): void
