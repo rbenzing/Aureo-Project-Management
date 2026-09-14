@@ -7,6 +7,7 @@ namespace Tests\Unit\Middleware;
 use App\Core\Config;
 use App\Core\ConfigLoader;
 use App\Core\Database;
+use App\Core\HttpResponse;
 use App\Middleware\AuthMiddleware;
 use App\Models\BaseModel;
 use App\Models\Setting;
@@ -54,6 +55,7 @@ use ReflectionMethod;
 #[UsesClass(LoggerService::class)]
 #[UsesClass(User::class)]
 #[UsesClass(BaseModel::class)]
+#[UsesClass(HttpResponse::class)]
 final class AuthMiddlewareTest extends TestCase
 {
     protected function tearDown(): void
@@ -305,5 +307,202 @@ final class AuthMiddlewareTest extends TestCase
         $this->invokePrivate($middleware, 'updateSessionActivity');
 
         $this->assertGreaterThanOrEqual($before, $_SESSION['last_activity']);
+    }
+
+    // ---- non-exiting denial API -----------------------------------------
+
+    public function testAuthenticateReturnsNullWhenTheSessionIsValid(): void
+    {
+        $_SESSION['user'] = ['profile' => ['id' => 1], 'permissions' => ['task.view']];
+        $_SESSION['last_activity'] = time();
+
+        $userMock = $this->createMock(User::class);
+        $userMock->method('find')->willReturn((object) ['id' => 1, 'is_active' => 1]);
+        $settingsMock = $this->createMock(SettingsService::class);
+        $settingsMock->method('getSessionTimeout')->willReturn(3600);
+
+        $this->assertNull($this->makeMiddleware($userMock, $settingsMock)->authenticate());
+    }
+
+    public function testAuthenticateRedirectsToLoginWhenNoSessionUserExists(): void
+    {
+        unset($_SESSION['user']);
+
+        $denial = $this->makeMiddleware()->authenticate();
+
+        $this->assertNotNull($denial);
+        $this->assertSame(302, $denial->status());
+        $this->assertSame('/login', $denial->headers()['Location']);
+        $this->assertSame('You must be logged in to access this page.', $_SESSION['error']);
+    }
+
+    public function testAuthenticateRedirectsWhenTheSessionHasExpired(): void
+    {
+        $_SESSION['user'] = ['profile' => ['id' => 1]];
+        $_SESSION['last_activity'] = time() - 100000;
+
+        $settingsMock = $this->createMock(SettingsService::class);
+        $settingsMock->method('getSessionTimeout')->willReturn(1);
+
+        $denial = $this->makeMiddleware(null, $settingsMock)->authenticate();
+
+        $this->assertNotNull($denial);
+        $this->assertSame('/login', $denial->headers()['Location']);
+        $this->assertArrayNotHasKey('user', $_SESSION);
+    }
+
+    public function testAuthorizeReturnsNullWhenThePermissionIsHeld(): void
+    {
+        $_SESSION['user'] = ['profile' => ['id' => 1], 'permissions' => ['task.view']];
+        $_SESSION['last_activity'] = time();
+
+        $userMock = $this->createMock(User::class);
+        $userMock->method('find')->willReturn((object) ['id' => 1, 'is_active' => 1]);
+        $settingsMock = $this->createMock(SettingsService::class);
+        $settingsMock->method('getSessionTimeout')->willReturn(3600);
+
+        $this->assertNull($this->makeMiddleware($userMock, $settingsMock)->authorize('task.view'));
+    }
+
+    public function testAuthorizeDeniesAPermissionNotHeld(): void
+    {
+        $_SESSION['user'] = ['profile' => ['id' => 1], 'permissions' => ['task.view']];
+        $_SESSION['last_activity'] = time();
+
+        $userMock = $this->createMock(User::class);
+        $userMock->method('find')->willReturn((object) ['id' => 1, 'is_active' => 1]);
+        $settingsMock = $this->createMock(SettingsService::class);
+        $settingsMock->method('getSessionTimeout')->willReturn(3600);
+
+        $denial = $this->makeMiddleware($userMock, $settingsMock)->authorize('task.delete');
+
+        $this->assertNotNull($denial);
+        $this->assertSame(302, $denial->status());
+        $this->assertSame(
+            'You do not have permission to access this resource.',
+            $_SESSION['error']
+        );
+    }
+
+    public function testAuthorizeAnyAllowsWhenOnePermissionIsHeld(): void
+    {
+        $_SESSION['user'] = ['profile' => ['id' => 1], 'permissions' => ['edit_settings']];
+        $_SESSION['last_activity'] = time();
+
+        $userMock = $this->createMock(User::class);
+        $userMock->method('find')->willReturn((object) ['id' => 1, 'is_active' => 1]);
+        $settingsMock = $this->createMock(SettingsService::class);
+        $settingsMock->method('getSessionTimeout')->willReturn(3600);
+
+        $this->assertNull(
+            $this->makeMiddleware($userMock, $settingsMock)
+                ->authorizeAny(['view_settings', 'edit_settings'])
+        );
+    }
+
+    /** The exact case that protects /settings. */
+    public function testAuthorizeAnyDeniesWhenNoPermissionIsHeld(): void
+    {
+        $_SESSION['user'] = ['profile' => ['id' => 1], 'permissions' => ['task.view']];
+        $_SESSION['last_activity'] = time();
+
+        $userMock = $this->createMock(User::class);
+        $userMock->method('find')->willReturn((object) ['id' => 1, 'is_active' => 1]);
+        $settingsMock = $this->createMock(SettingsService::class);
+        $settingsMock->method('getSessionTimeout')->willReturn(3600);
+
+        $denial = $this->makeMiddleware($userMock, $settingsMock)
+            ->authorizeAny(['view_settings', 'edit_settings']);
+
+        $this->assertNotNull($denial, 'A user holding none of the permissions must be denied.');
+        $this->assertSame(302, $denial->status());
+    }
+
+    public function testAuthorizeAllDeniesWhenOnePermissionIsMissing(): void
+    {
+        $_SESSION['user'] = ['profile' => ['id' => 1], 'permissions' => ['a']];
+        $_SESSION['last_activity'] = time();
+
+        $userMock = $this->createMock(User::class);
+        $userMock->method('find')->willReturn((object) ['id' => 1, 'is_active' => 1]);
+        $settingsMock = $this->createMock(SettingsService::class);
+        $settingsMock->method('getSessionTimeout')->willReturn(3600);
+
+        $this->assertNotNull(
+            $this->makeMiddleware($userMock, $settingsMock)->authorizeAll(['a', 'b'])
+        );
+    }
+
+    public function testAuthenticateRedirectsWhenSessionDataIsInvalid(): void
+    {
+        $_SESSION['user'] = ['profile' => []];
+        $_SESSION['last_activity'] = time();
+
+        $settingsMock = $this->createMock(SettingsService::class);
+        $settingsMock->method('getSessionTimeout')->willReturn(3600);
+
+        $denial = $this->makeMiddleware(null, $settingsMock)->authenticate();
+
+        $this->assertNotNull($denial);
+        $this->assertSame('/login', $denial->headers()['Location']);
+        $this->assertSame('Invalid session data.', $_SESSION['error']);
+    }
+
+    public function testAuthenticateRedirectsAndClearsSessionForInactiveAccount(): void
+    {
+        $_SESSION['user'] = ['profile' => ['id' => 1]];
+        $_SESSION['last_activity'] = time();
+
+        $userMock = $this->createMock(User::class);
+        $userMock->method('find')->willReturn((object) ['id' => 1, 'is_active' => 0]);
+        $settingsMock = $this->createMock(SettingsService::class);
+        $settingsMock->method('getSessionTimeout')->willReturn(3600);
+
+        $denial = $this->makeMiddleware($userMock, $settingsMock)->authenticate();
+
+        $this->assertNotNull($denial);
+        $this->assertSame('/login', $denial->headers()['Location']);
+        $this->assertArrayNotHasKey('user', $_SESSION);
+        $this->assertSame(
+            'Your account is no longer active. Please contact support.',
+            $_SESSION['error']
+        );
+    }
+
+    public function testAuthenticateRedirectsWhenUserLookupThrows(): void
+    {
+        $_SESSION['user'] = ['profile' => ['id' => 1]];
+        $_SESSION['last_activity'] = time();
+
+        $userMock = $this->createMock(User::class);
+        $userMock->method('find')->willThrowException(new \Exception('db exploded'));
+        $settingsMock = $this->createMock(SettingsService::class);
+        $settingsMock->method('getSessionTimeout')->willReturn(3600);
+
+        $denial = $this->makeMiddleware($userMock, $settingsMock)->authenticate();
+
+        $this->assertNotNull($denial);
+        $this->assertSame('/login', $denial->headers()['Location']);
+        $this->assertSame('An error occurred during authentication.', $_SESSION['error']);
+    }
+
+    public function testAuthorizeAnyPassesThroughAnAuthenticationDenial(): void
+    {
+        unset($_SESSION['user']);
+
+        $denial = $this->makeMiddleware()->authorizeAny(['view_settings']);
+
+        $this->assertNotNull($denial);
+        $this->assertSame('/login', $denial->headers()['Location']);
+    }
+
+    public function testAuthorizeAllPassesThroughAnAuthenticationDenial(): void
+    {
+        unset($_SESSION['user']);
+
+        $denial = $this->makeMiddleware()->authorizeAll(['view_settings']);
+
+        $this->assertNotNull($denial);
+        $this->assertSame('/login', $denial->headers()['Location']);
     }
 }
