@@ -20,8 +20,10 @@ class ActivityController extends BaseController
         parent::__construct();
 
         // Check authentication first
-        if (!$this->authMiddleware->isAuthenticated()) {
-            $this->redirect('/login');
+        $denial = $this->authMiddleware->authenticate();
+        if ($denial !== null) {
+            $denial->send();
+            exit;
         }
 
         $this->userModel = $userModel ?? new User();

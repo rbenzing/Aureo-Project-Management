@@ -52,7 +52,12 @@ abstract class BaseController
      */
     protected function requirePermission(string $permission): void
     {
-        $this->authMiddleware->hasPermission($permission);
+        $denial = $this->authMiddleware->authorize($permission);
+
+        if ($denial !== null) {
+            $denial->send();
+            exit;
+        }
     }
 
     /**

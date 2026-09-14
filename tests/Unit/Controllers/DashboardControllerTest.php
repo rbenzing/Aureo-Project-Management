@@ -9,6 +9,7 @@ use App\Controllers\DashboardController;
 use App\Core\Config;
 use App\Core\ConfigLoader;
 use App\Core\Database;
+use App\Core\HttpResponse;
 use App\Enums\TaskStatus;
 use App\Middleware\AuthMiddleware;
 use App\Models\Milestone;
@@ -78,6 +79,7 @@ final class DashboardControllerTestable extends DashboardController
 #[UsesClass(Task::class)]
 #[UsesClass(Milestone::class)]
 #[UsesClass(Sprint::class)]
+#[UsesClass(HttpResponse::class)]
 final class DashboardControllerTest extends TestCase
 {
     /** @var AuthMiddleware&\PHPUnit\Framework\MockObject\MockObject */
@@ -179,30 +181,31 @@ final class DashboardControllerTest extends TestCase
         }
     }
 
-    public function testNotAuthenticatedRedirectsToLoginWithCriticalError(): void
+    /**
+     * authenticate() now returns the denial itself (a redirect HttpResponse)
+     * instead of index() throwing; the controller must send it and return,
+     * never falling through to render() or to the testable redirectWithError()
+     * override.
+     */
+    public function testNotAuthenticatedSendsTheAuthMiddlewareDenialAndReturns(): void
     {
-        $this->authMiddleware->method('isAuthenticated')->willReturn(false);
+        $denial = HttpResponse::redirect('/login');
+        $this->authMiddleware->method('authenticate')->willReturn($denial);
 
         $c = $this->controller();
 
-        try {
-            $c->index('GET', []);
-            $this->fail('Expected redirect exception');
-        } catch (RuntimeException $e) {
-            $this->assertSame('redirect:' . $c->redirectMessage, $e->getMessage());
-        }
+        ob_start();
+        $c->index('GET', []);
+        ob_get_clean();
 
-        $this->assertSame('/login', $c->redirectUrl);
-        $this->assertErrorMessage(
-            'Authentication required.',
-            'A critical error occurred while loading the dashboard.',
-            $c->redirectMessage
-        );
+        $this->assertNull($c->redirectUrl, 'redirectWithError() must not run when authenticate() itself denies');
+        $this->assertNull($c->renderedView);
+        $this->assertSame(302, http_response_code());
     }
 
     public function testAuthenticatedWithoutSessionProfileIdRedirectsToLogin(): void
     {
-        $this->authMiddleware->method('isAuthenticated')->willReturn(true);
+        $this->authMiddleware->method('authenticate')->willReturn(null);
         $_SESSION['user'] = ['id' => 1, 'profile' => [], 'roles' => [], 'permissions' => [], 'config' => []];
 
         $c = $this->controller();
@@ -223,7 +226,7 @@ final class DashboardControllerTest extends TestCase
 
     public function testUserNotFoundRedirectsToLogin(): void
     {
-        $this->authMiddleware->method('isAuthenticated')->willReturn(true);
+        $this->authMiddleware->method('authenticate')->willReturn(null);
         $this->authenticatedUser(42);
         $this->userModel->method('findWithDetails')->with(42)->willReturn(null);
 
@@ -244,7 +247,7 @@ final class DashboardControllerTest extends TestCase
 
     public function testDeletedUserRedirectsToLogin(): void
     {
-        $this->authMiddleware->method('isAuthenticated')->willReturn(true);
+        $this->authMiddleware->method('authenticate')->willReturn(null);
         $user = $this->authenticatedUser(42);
         $user->is_deleted = true;
         $this->userModel->method('findWithDetails')->with(42)->willReturn($user);
@@ -266,7 +269,7 @@ final class DashboardControllerTest extends TestCase
 
     public function testNoPermissionsRendersDefaultZeroedDashboard(): void
     {
-        $this->authMiddleware->method('isAuthenticated')->willReturn(true);
+        $this->authMiddleware->method('authenticate')->willReturn(null);
         $user = $this->authenticatedUser(42);
         $this->userModel->method('findWithDetails')->willReturn($user);
         // No permissions granted -> every optional data section must stay at its default.
@@ -294,7 +297,7 @@ final class DashboardControllerTest extends TestCase
 
     public function testViewProjectsPermissionPopulatesRecentProjectsAndProjectSummary(): void
     {
-        $this->authMiddleware->method('isAuthenticated')->willReturn(true);
+        $this->authMiddleware->method('authenticate')->willReturn(null);
         $user = $this->authenticatedUser(42);
         $this->userModel->method('findWithDetails')->willReturn($user);
         $_SESSION['user']['permissions'] = ['view_projects'];
@@ -319,7 +322,7 @@ final class DashboardControllerTest extends TestCase
 
     public function testViewProjectsPermissionExceptionKeepsRecentProjectsEmpty(): void
     {
-        $this->authMiddleware->method('isAuthenticated')->willReturn(true);
+        $this->authMiddleware->method('authenticate')->willReturn(null);
         $user = $this->authenticatedUser(42);
         $this->userModel->method('findWithDetails')->willReturn($user);
         $_SESSION['user']['permissions'] = ['view_projects'];
@@ -336,7 +339,7 @@ final class DashboardControllerTest extends TestCase
 
     public function testViewTasksPermissionPopulatesTaskDataViaDatabase(): void
     {
-        $this->authMiddleware->method('isAuthenticated')->willReturn(true);
+        $this->authMiddleware->method('authenticate')->willReturn(null);
         $user = $this->authenticatedUser(42);
         $this->userModel->method('findWithDetails')->willReturn($user);
         $_SESSION['user']['permissions'] = ['view_tasks'];
@@ -367,7 +370,7 @@ final class DashboardControllerTest extends TestCase
 
     public function testViewTasksPermissionDatabaseFailureKeepsRecentTasksButDefaultsExtras(): void
     {
-        $this->authMiddleware->method('isAuthenticated')->willReturn(true);
+        $this->authMiddleware->method('authenticate')->willReturn(null);
         $user = $this->authenticatedUser(42);
         $this->userModel->method('findWithDetails')->willReturn($user);
         $_SESSION['user']['permissions'] = ['view_tasks'];
@@ -394,7 +397,7 @@ final class DashboardControllerTest extends TestCase
 
     public function testViewMilestonesPermissionPopulatesUpcomingMilestones(): void
     {
-        $this->authMiddleware->method('isAuthenticated')->willReturn(true);
+        $this->authMiddleware->method('authenticate')->willReturn(null);
         $user = $this->authenticatedUser(42);
         $this->userModel->method('findWithDetails')->willReturn($user);
         $_SESSION['user']['permissions'] = ['view_milestones'];
@@ -412,7 +415,7 @@ final class DashboardControllerTest extends TestCase
 
     public function testViewMilestonesPermissionExceptionKeepsEmpty(): void
     {
-        $this->authMiddleware->method('isAuthenticated')->willReturn(true);
+        $this->authMiddleware->method('authenticate')->willReturn(null);
         $user = $this->authenticatedUser(42);
         $this->userModel->method('findWithDetails')->willReturn($user);
         $_SESSION['user']['permissions'] = ['view_milestones'];
@@ -427,7 +430,7 @@ final class DashboardControllerTest extends TestCase
 
     public function testViewTimeTrackingPopulatesSummaryAndActiveTimerWithTask(): void
     {
-        $this->authMiddleware->method('isAuthenticated')->willReturn(true);
+        $this->authMiddleware->method('authenticate')->willReturn(null);
         $user = $this->authenticatedUser(42);
         $this->userModel->method('findWithDetails')->willReturn($user);
         $_SESSION['user']['permissions'] = ['view_time_tracking'];
@@ -458,7 +461,7 @@ final class DashboardControllerTest extends TestCase
 
     public function testViewTimeTrackingActiveTimerReferencingDeletedTaskOmitsTaskKey(): void
     {
-        $this->authMiddleware->method('isAuthenticated')->willReturn(true);
+        $this->authMiddleware->method('authenticate')->willReturn(null);
         $user = $this->authenticatedUser(42);
         $this->userModel->method('findWithDetails')->willReturn($user);
         $_SESSION['user']['permissions'] = ['view_time_tracking'];
@@ -478,7 +481,7 @@ final class DashboardControllerTest extends TestCase
 
     public function testViewTimeTrackingNoActiveTimerStaysNull(): void
     {
-        $this->authMiddleware->method('isAuthenticated')->willReturn(true);
+        $this->authMiddleware->method('authenticate')->willReturn(null);
         $user = $this->authenticatedUser(42);
         $this->userModel->method('findWithDetails')->willReturn($user);
         $_SESSION['user']['permissions'] = ['view_time_tracking'];
@@ -492,7 +495,7 @@ final class DashboardControllerTest extends TestCase
 
     public function testViewSprintsPermissionPopulatesActiveSprints(): void
     {
-        $this->authMiddleware->method('isAuthenticated')->willReturn(true);
+        $this->authMiddleware->method('authenticate')->willReturn(null);
         $user = $this->authenticatedUser(42);
         $this->userModel->method('findWithDetails')->willReturn($user);
         $_SESSION['user']['permissions'] = ['view_sprints'];
@@ -508,7 +511,7 @@ final class DashboardControllerTest extends TestCase
 
     public function testViewSprintsPermissionExceptionKeepsEmpty(): void
     {
-        $this->authMiddleware->method('isAuthenticated')->willReturn(true);
+        $this->authMiddleware->method('authenticate')->willReturn(null);
         $user = $this->authenticatedUser(42);
         $this->userModel->method('findWithDetails')->willReturn($user);
         $_SESSION['user']['permissions'] = ['view_sprints'];
@@ -523,7 +526,7 @@ final class DashboardControllerTest extends TestCase
 
     public function testTaskSummaryCountsExcludeOverdueFromInProgressAndComputeOpenOther(): void
     {
-        $this->authMiddleware->method('isAuthenticated')->willReturn(true);
+        $this->authMiddleware->method('authenticate')->willReturn(null);
         $user = $this->authenticatedUser(42);
         $this->userModel->method('findWithDetails')->willReturn($user);
         $_SESSION['user']['permissions'] = ['view_tasks'];

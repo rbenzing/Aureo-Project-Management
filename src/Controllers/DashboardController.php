@@ -60,8 +60,11 @@ class DashboardController extends BaseController
     {
         try {
             // Basic authentication check - no specific permission required for dashboard access
-            if (!$this->authMiddleware->isAuthenticated()) {
-                throw new RuntimeException('Authentication required.');
+            $denial = $this->authMiddleware->authenticate();
+            if ($denial !== null) {
+                $denial->send();
+
+                return;
             }
 
             $userId = $_SESSION['user']['profile']['id'] ?? null;
