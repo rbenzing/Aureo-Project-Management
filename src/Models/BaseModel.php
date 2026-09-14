@@ -22,6 +22,14 @@ abstract class BaseModel
     protected array $hidden = [];
     protected array $dates = ['created_at', 'updated_at'];
     protected bool $usesSoftDeletes = true;
+    /**
+     * Whether this model's table carries the `guid CHAR(36) NOT NULL` column.
+     *
+     * The column has no database default, and `guid` is $guarded so it can
+     * never arrive through mass assignment — meaning nothing but create()
+     * can supply it. Tables without the column set this to false.
+     */
+    protected bool $usesGuid = true;
     protected array $validationRules = [];
     protected array $searchable = [];
 
@@ -166,6 +174,13 @@ abstract class BaseModel
     {
         try {
             $data = $this->prepareSaveData($data);
+
+            // prepareSaveData() has just stripped any caller-supplied guid as
+            // guarded, so this runs after it deliberately: the value is always
+            // ours, never the caller's.
+            if ($this->usesGuid) {
+                $data['guid'] = $this->generateGuid();
+            }
 
             $fields = array_keys($data);
             $placeholders = array_map(fn ($field) => ":$field", $fields);
@@ -436,6 +451,22 @@ abstract class BaseModel
             $data,
             array_flip($this->guarded)
         );
+    }
+
+    /**
+     * Generate an RFC 4122 version 4 UUID for the guid column.
+     *
+     * Hand-rolled rather than pulled from a package: the project ships no UUID
+     * dependency, and random_bytes() is the same CSPRNG the rest of the
+     * codebase already relies on for tokens.
+     */
+    protected function generateGuid(): string
+    {
+        $bytes = random_bytes(16);
+        $bytes[6] = chr((ord($bytes[6]) & 0x0F) | 0x40);
+        $bytes[8] = chr((ord($bytes[8]) & 0x3F) | 0x80);
+
+        return vsprintf('%s%s-%s-%s-%s-%s%s%s', str_split(bin2hex($bytes), 4));
     }
 
     /**

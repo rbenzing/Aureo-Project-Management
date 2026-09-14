@@ -15,6 +15,9 @@ class TimeEntry extends BaseModel
 {
     protected string $table = 'time_entries';
 
+    /** This table has no guid column. */
+    protected bool $usesGuid = false;
+
     /**
      * time_entries carries no is_deleted column, so BaseModel's soft-delete
      * filter would reference a column that does not exist. Deletion here is

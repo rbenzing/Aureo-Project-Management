@@ -17,6 +17,9 @@ class Permission extends BaseModel
 {
     protected string $table = 'permissions';
 
+    /** This table has no guid column. */
+    protected bool $usesGuid = false;
+
     /**
      * Permission properties
      */

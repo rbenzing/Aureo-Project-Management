@@ -9,6 +9,9 @@ use PDO;
 class SearchIndex extends BaseModel
 {
     protected string $table = 'searchable_index';
+
+    /** This table has no guid column. */
+    protected bool $usesGuid = false;
     protected bool $usesSoftDeletes = false;
 
     protected array $fillable = [
