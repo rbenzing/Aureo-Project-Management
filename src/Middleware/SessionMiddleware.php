@@ -90,11 +90,11 @@ class SessionMiddleware
             // Extend session expiration time and update last_accessed_at
             $settingsService = SettingsService::getInstance();
             $sessionTimeout = $settingsService->getSessionTimeout();
-            $newExpiresAt = date('Y-m-d H:i:s', time() + $sessionTimeout);
             self::$db->executeQuery(
-                "UPDATE sessions SET expires_at = :expires_at, last_accessed_at = NOW() WHERE id = :id",
+                "UPDATE sessions SET expires_at = DATE_ADD(NOW(), INTERVAL :lifetime SECOND),
+                        last_accessed_at = NOW() WHERE id = :id",
                 [
-                    ':expires_at' => $newExpiresAt,
+                    ':lifetime' => $sessionTimeout,
                     ':id' => $sessionId,
                 ]
             );
@@ -134,7 +134,6 @@ class SessionMiddleware
         // Get session timeout from settings
         $settingsService = SettingsService::getInstance();
         $sessionTimeout = $settingsService->getSessionTimeout();
-        $expiresAt = date('Y-m-d H:i:s', time() + $sessionTimeout);
 
         // Serialize session data
         $serializedData = json_encode($data);
@@ -145,7 +144,8 @@ class SessionMiddleware
         // Insert or update the session in the database
         self::$db->executeQuery(
             "INSERT INTO sessions (id, user_id, data, ip_address, user_agent, expires_at, last_accessed_at)
-             VALUES (:id, :user_id, :data, :ip_address, :user_agent, :expires_at, NOW())
+             VALUES (:id, :user_id, :data, :ip_address, :user_agent,
+                     DATE_ADD(NOW(), INTERVAL :lifetime SECOND), NOW())
              ON DUPLICATE KEY UPDATE 
                  user_id = VALUES(user_id), 
                  data = VALUES(data), 
@@ -159,7 +159,7 @@ class SessionMiddleware
                 ':data' => $serializedData,
                 ':ip_address' => $ipAddress,
                 ':user_agent' => $userAgent,
-                ':expires_at' => $expiresAt,
+                ':lifetime' => $sessionTimeout,
             ]
         );
 
@@ -230,10 +230,11 @@ class SessionMiddleware
             $settingsService = SettingsService::getInstance();
             $sessionTimeout = $settingsService->getSessionTimeout();
             self::$db->executeQuery(
-                "INSERT INTO sessions (id, data, expires_at) VALUES (:id, '{}', :expires_at)",
+                "INSERT INTO sessions (id, data, expires_at)
+                 VALUES (:id, '{}', DATE_ADD(NOW(), INTERVAL :lifetime SECOND))",
                 [
                     ':id' => $newSessionId,
-                    ':expires_at' => date('Y-m-d H:i:s', time() + $sessionTimeout),
+                    ':lifetime' => $sessionTimeout,
                 ]
             );
         }
