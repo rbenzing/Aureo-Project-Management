@@ -45,14 +45,19 @@ abstract class BaseController
     }
 
     /**
-     * Require specific permission, throw exception if not authorized
+     * Require specific permission. Sends the denial response and terminates
+     * the request if the user lacks the permission.
      *
      * @param string $permission Permission slug to check
-     * @throws RuntimeException If user lacks permission
      */
     protected function requirePermission(string $permission): void
     {
-        $this->authMiddleware->hasPermission($permission);
+        $denial = $this->authMiddleware->authorize($permission);
+
+        if ($denial !== null) {
+            $denial->send();
+            exit;
+        }
     }
 
     /**

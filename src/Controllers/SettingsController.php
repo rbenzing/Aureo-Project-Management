@@ -24,11 +24,17 @@ class SettingsController extends BaseController
     public function index(string $requestMethod, array $data): void
     {
         // Check authentication and permissions - user needs at least one settings permission
-        $this->authMiddleware->hasAnyPermission([
+        $denial = $this->authMiddleware->authorizeAny([
             'view_settings', 'edit_settings', 'edit_security_settings',
             'manage_sprint_settings', 'manage_task_settings',
             'manage_milestone_settings', 'manage_project_settings',
         ]);
+
+        if ($denial !== null) {
+            $denial->send();
+
+            return;
+        }
 
         try {
             // Get all settings grouped by category
@@ -140,11 +146,17 @@ class SettingsController extends BaseController
     public function update(string $requestMethod, array $data): void
     {
         // Check authentication - user needs at least one settings permission
-        $this->authMiddleware->hasAnyPermission([
+        $denial = $this->authMiddleware->authorizeAny([
             'edit_settings', 'edit_security_settings',
             'manage_sprint_settings', 'manage_task_settings',
             'manage_milestone_settings', 'manage_project_settings',
         ]);
+
+        if ($denial !== null) {
+            $denial->send();
+
+            return;
+        }
 
         // Validate CSRF token
         if (!isset($data['csrf_token']) || $data['csrf_token'] !== $_SESSION['csrf_token']) {

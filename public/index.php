@@ -146,7 +146,15 @@ try {
     $publicPaths = ['login', 'register', 'activate', 'reset-password', 'forgot-password'];
     $firstSegment = trim($requestPath->segments()[0]);
     if (!in_array($firstSegment, $publicPaths, true)) {
-        $container->get(\App\Middleware\AuthMiddleware::class)->isAuthenticated();
+        $denial = $container->get(\App\Middleware\AuthMiddleware::class)->authenticate();
+
+        if ($denial !== null) {
+            $denial->send();
+
+            // Ends the front controller. `return` rather than `exit` so the
+            // script unwinds normally; nothing runs after dispatch() anyway.
+            return;
+        }
     }
 
     // Register event listeners

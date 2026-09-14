@@ -27,19 +27,15 @@ use ReflectionMethod;
  * remaining branches ('project', 'user', 'sprint', 'milestone', and the
  * default fallthrough for an unrecognised type) plus constructor DI.
  *
- * UNCOVERABLE: search(), recordClick() and recentQueries() are SearchController's
- * entire public API, and EVERY branch of all three -- success and
- * early-return alike -- terminates by calling ApiResponse::success()
- * (src/Core/ApiResponse.php), whose last statement is a bare `exit;`. Same
- * situation as FavoritesController/Response::json() in this batch: exit is
- * not interceptable via DI or an overridable method (ApiResponse::success()
- * is called as a plain static call, not through any protected/overridable
- * seam), and killing the PHPUnit process is explicitly off-limits, as is
- * process isolation per the task brief. Only resolveUrl() (private, reached
- * via reflection) and the constructor are safely testable; the ~86-line
- * controller's coverage ceiling is therefore small and architectural, not a
- * gap in test effort -- mirroring the pre-existing ~69% cap CLAUDE.md
- * documents for src/Core/Response and ApiResponse themselves.
+ * search(), recordClick() and recentQueries() are NOT exercised here.
+ * ApiResponse's methods used to end in a bare `exit;`, which made those three
+ * actions uncoverable; the App\Core\Response/ApiResponse refactor (see
+ * src/Core/ApiResponse.php, src/Core/HttpResponse.php) changed that -
+ * ApiResponse now builds and returns an HttpResponse instead of exiting, so
+ * these actions are callable and assertable like any other method. Adding
+ * that coverage is out of scope for this task and is left to a later one;
+ * this file's scope remains resolveUrl() (private, reached via reflection)
+ * and constructor DI.
  */
 #[CoversClass(SearchController::class)]
 #[UsesClass(BaseController::class)]

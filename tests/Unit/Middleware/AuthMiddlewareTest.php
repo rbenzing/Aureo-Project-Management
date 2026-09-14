@@ -7,6 +7,7 @@ namespace Tests\Unit\Middleware;
 use App\Core\Config;
 use App\Core\ConfigLoader;
 use App\Core\Database;
+use App\Core\HttpResponse;
 use App\Middleware\AuthMiddleware;
 use App\Models\BaseModel;
 use App\Models\Setting;
@@ -30,20 +31,16 @@ use ReflectionMethod;
  * $settingsService properties are then swapped for test doubles via
  * reflection so no real query ever executes.
  *
- * IMPORTANT — every failure/denial path in this class (unauthenticated,
- * session timeout, unauthorized, inactive account, and the catch-all in
- * isAuthenticated()) funnels through redirect(), which calls header()+exit.
- * That terminates the PHPUnit process, so none of those branches can be
- * exercised through the public API in-process. Because every one of
- * isAuthenticated()'s `return false;` statements is preceded by a call that
- * unconditionally exits, those branches are also *unreachable in
- * production* without exiting first — this is documented per-test below and
- * summarized in the final report rather than chased with process isolation.
- * Private helpers that do not themselves call redirect()
- * (checkPermission, isSessionExpired, loadUserPermissions,
- * validateUserSession's success path, updateSessionActivity) are exercised
- * directly via ReflectionMethod to reach branches the exiting wrappers
- * would otherwise hide.
+ * isAuthenticated(), hasPermission(), hasAnyPermission() and
+ * hasAllPermissions() are now pure: they delegate to the non-exiting
+ * checkAuthentication()/authorize()/authorizeAny()/authorizeAll() and
+ * return a real boolean (`=== null`) instead of redirecting and exiting on
+ * denial. That means every denial branch — including the false-return
+ * paths — is now directly assertable through the public API; no more
+ * reaching around them with ReflectionMethod. Private helpers with no
+ * public equivalent (isSessionExpired, loadUserPermissions,
+ * updateSessionActivity) are still exercised directly via ReflectionMethod
+ * since they have no other way to be reached in isolation.
  */
 #[CoversClass(AuthMiddleware::class)]
 #[UsesClass(Config::class)]
@@ -54,6 +51,7 @@ use ReflectionMethod;
 #[UsesClass(LoggerService::class)]
 #[UsesClass(User::class)]
 #[UsesClass(BaseModel::class)]
+#[UsesClass(HttpResponse::class)]
 final class AuthMiddlewareTest extends TestCase
 {
     protected function tearDown(): void
@@ -159,9 +157,7 @@ final class AuthMiddlewareTest extends TestCase
         $this->assertGreaterThan($staleTime, $_SESSION['last_activity']);
     }
 
-    // ---- hasPermission() / hasAnyPermission() / hasAllPermissions() ---
-    // success paths only: their denial branches call handleUnauthorized(),
-    // which exits (see class docblock).
+    // ---- hasPermission() / hasAnyPermission() / hasAllPermissions() -----
 
     public function testHasPermissionReturnsTrueWhenPermissionIsPresent(): void
     {
@@ -209,25 +205,7 @@ final class AuthMiddlewareTest extends TestCase
         $this->assertTrue($middleware->hasAllPermissions(['a', 'b']));
     }
 
-    // ---- private helpers invoked directly to reach branches the ---------
-    // ---- exiting wrappers would otherwise make unreachable -------------
-
-    public function testCheckPermissionTrueAndFalseBranches(): void
-    {
-        $middleware = $this->makeMiddleware();
-
-        $_SESSION['user']['permissions'] = ['task.view'];
-        $this->assertTrue($this->invokePrivate($middleware, 'checkPermission', ['task.view']));
-        $this->assertFalse($this->invokePrivate($middleware, 'checkPermission', ['task.delete']));
-    }
-
-    public function testCheckPermissionFalseWhenPermissionsMissingFromSession(): void
-    {
-        $middleware = $this->makeMiddleware();
-
-        unset($_SESSION['user']);
-        $this->assertFalse($this->invokePrivate($middleware, 'checkPermission', ['task.view']));
-    }
+    // ---- private helpers with no direct public-API equivalent -----------
 
     public function testIsSessionExpiredTrueWhenLastActivityNotSet(): void
     {
@@ -286,17 +264,6 @@ final class AuthMiddlewareTest extends TestCase
         $this->assertSame(['already.set'], $_SESSION['user']['permissions']);
     }
 
-    public function testValidateUserSessionReturnsTrueForActiveUser(): void
-    {
-        $userMock = $this->createMock(User::class);
-        $userMock->method('find')->with(5)->willReturn($this->activeUser());
-
-        $middleware = $this->makeMiddleware($userMock);
-
-        $_SESSION['user'] = ['profile' => ['id' => 5]];
-        $this->assertTrue($this->invokePrivate($middleware, 'validateUserSession'));
-    }
-
     public function testUpdateSessionActivitySetsCurrentTimestamp(): void
     {
         $middleware = $this->makeMiddleware();
@@ -305,5 +272,301 @@ final class AuthMiddlewareTest extends TestCase
         $this->invokePrivate($middleware, 'updateSessionActivity');
 
         $this->assertGreaterThanOrEqual($before, $_SESSION['last_activity']);
+    }
+
+    // ---- non-exiting denial API -----------------------------------------
+
+    public function testAuthenticateReturnsNullWhenTheSessionIsValid(): void
+    {
+        $_SESSION['user'] = ['profile' => ['id' => 1], 'permissions' => ['task.view']];
+        $_SESSION['last_activity'] = time();
+
+        $userMock = $this->createMock(User::class);
+        $userMock->method('find')->willReturn((object) ['id' => 1, 'is_active' => 1]);
+        $settingsMock = $this->createMock(SettingsService::class);
+        $settingsMock->method('getSessionTimeout')->willReturn(3600);
+
+        $this->assertNull($this->makeMiddleware($userMock, $settingsMock)->authenticate());
+    }
+
+    public function testAuthenticateRedirectsToLoginWhenNoSessionUserExists(): void
+    {
+        unset($_SESSION['user']);
+
+        $denial = $this->makeMiddleware()->authenticate();
+
+        $this->assertNotNull($denial);
+        $this->assertSame(302, $denial->status());
+        $this->assertSame('/login', $denial->headers()['Location']);
+        $this->assertSame('You must be logged in to access this page.', $_SESSION['error']);
+    }
+
+    public function testAuthenticateRedirectsWhenTheSessionHasExpired(): void
+    {
+        $_SESSION['user'] = ['profile' => ['id' => 1]];
+        $_SESSION['last_activity'] = time() - 100000;
+
+        $settingsMock = $this->createMock(SettingsService::class);
+        $settingsMock->method('getSessionTimeout')->willReturn(1);
+
+        $denial = $this->makeMiddleware(null, $settingsMock)->authenticate();
+
+        $this->assertNotNull($denial);
+        $this->assertSame('/login', $denial->headers()['Location']);
+        $this->assertArrayNotHasKey('user', $_SESSION);
+        $this->assertSame('Your session has expired. Please log in again.', $_SESSION['error']);
+    }
+
+    public function testAuthorizeReturnsNullWhenThePermissionIsHeld(): void
+    {
+        $_SESSION['user'] = ['profile' => ['id' => 1], 'permissions' => ['task.view']];
+        $_SESSION['last_activity'] = time();
+
+        $userMock = $this->createMock(User::class);
+        $userMock->method('find')->willReturn((object) ['id' => 1, 'is_active' => 1]);
+        $settingsMock = $this->createMock(SettingsService::class);
+        $settingsMock->method('getSessionTimeout')->willReturn(3600);
+
+        $this->assertNull($this->makeMiddleware($userMock, $settingsMock)->authorize('task.view'));
+    }
+
+    public function testAuthorizeDeniesAPermissionNotHeld(): void
+    {
+        $_SESSION['user'] = ['profile' => ['id' => 1], 'permissions' => ['task.view']];
+        $_SESSION['last_activity'] = time();
+
+        $userMock = $this->createMock(User::class);
+        $userMock->method('find')->willReturn((object) ['id' => 1, 'is_active' => 1]);
+        $settingsMock = $this->createMock(SettingsService::class);
+        $settingsMock->method('getSessionTimeout')->willReturn(3600);
+
+        $denial = $this->makeMiddleware($userMock, $settingsMock)->authorize('task.delete');
+
+        $this->assertNotNull($denial);
+        $this->assertSame(302, $denial->status());
+        $this->assertSame('/dashboard', $denial->headers()['Location']);
+        $this->assertSame(
+            'You do not have permission to access this resource.',
+            $_SESSION['error']
+        );
+    }
+
+    public function testAuthorizeAnyAllowsWhenOnePermissionIsHeld(): void
+    {
+        $_SESSION['user'] = ['profile' => ['id' => 1], 'permissions' => ['edit_settings']];
+        $_SESSION['last_activity'] = time();
+
+        $userMock = $this->createMock(User::class);
+        $userMock->method('find')->willReturn((object) ['id' => 1, 'is_active' => 1]);
+        $settingsMock = $this->createMock(SettingsService::class);
+        $settingsMock->method('getSessionTimeout')->willReturn(3600);
+
+        $this->assertNull(
+            $this->makeMiddleware($userMock, $settingsMock)
+                ->authorizeAny(['view_settings', 'edit_settings'])
+        );
+    }
+
+    /** The exact case that protects /settings. */
+    public function testAuthorizeAnyDeniesWhenNoPermissionIsHeld(): void
+    {
+        $_SESSION['user'] = ['profile' => ['id' => 1], 'permissions' => ['task.view']];
+        $_SESSION['last_activity'] = time();
+
+        $userMock = $this->createMock(User::class);
+        $userMock->method('find')->willReturn((object) ['id' => 1, 'is_active' => 1]);
+        $settingsMock = $this->createMock(SettingsService::class);
+        $settingsMock->method('getSessionTimeout')->willReturn(3600);
+
+        $denial = $this->makeMiddleware($userMock, $settingsMock)
+            ->authorizeAny(['view_settings', 'edit_settings']);
+
+        $this->assertNotNull($denial, 'A user holding none of the permissions must be denied.');
+        $this->assertSame(302, $denial->status());
+        $this->assertSame('/dashboard', $denial->headers()['Location']);
+    }
+
+    public function testAuthorizeAllDeniesWhenOnePermissionIsMissing(): void
+    {
+        $_SESSION['user'] = ['profile' => ['id' => 1], 'permissions' => ['a']];
+        $_SESSION['last_activity'] = time();
+
+        $userMock = $this->createMock(User::class);
+        $userMock->method('find')->willReturn((object) ['id' => 1, 'is_active' => 1]);
+        $settingsMock = $this->createMock(SettingsService::class);
+        $settingsMock->method('getSessionTimeout')->willReturn(3600);
+
+        $this->assertNotNull(
+            $this->makeMiddleware($userMock, $settingsMock)->authorizeAll(['a', 'b'])
+        );
+    }
+
+    public function testAuthenticateRedirectsWhenSessionDataIsInvalid(): void
+    {
+        $_SESSION['user'] = ['profile' => []];
+        $_SESSION['last_activity'] = time();
+
+        $settingsMock = $this->createMock(SettingsService::class);
+        $settingsMock->method('getSessionTimeout')->willReturn(3600);
+
+        $denial = $this->makeMiddleware(null, $settingsMock)->authenticate();
+
+        $this->assertNotNull($denial);
+        $this->assertSame('/login', $denial->headers()['Location']);
+        $this->assertSame('Invalid session data.', $_SESSION['error']);
+    }
+
+    public function testAuthenticateRedirectsAndClearsSessionForInactiveAccount(): void
+    {
+        $_SESSION['user'] = ['profile' => ['id' => 1]];
+        $_SESSION['last_activity'] = time();
+
+        $userMock = $this->createMock(User::class);
+        $userMock->method('find')->willReturn((object) ['id' => 1, 'is_active' => 0]);
+        $settingsMock = $this->createMock(SettingsService::class);
+        $settingsMock->method('getSessionTimeout')->willReturn(3600);
+
+        $denial = $this->makeMiddleware($userMock, $settingsMock)->authenticate();
+
+        $this->assertNotNull($denial);
+        $this->assertSame('/login', $denial->headers()['Location']);
+        $this->assertArrayNotHasKey('user', $_SESSION);
+        $this->assertSame(
+            'Your account is no longer active. Please contact support.',
+            $_SESSION['error']
+        );
+    }
+
+    public function testAuthenticateRedirectsWhenUserLookupThrows(): void
+    {
+        $_SESSION['user'] = ['profile' => ['id' => 1]];
+        $_SESSION['last_activity'] = time();
+
+        $userMock = $this->createMock(User::class);
+        $userMock->method('find')->willThrowException(new \Exception('db exploded'));
+        $settingsMock = $this->createMock(SettingsService::class);
+        $settingsMock->method('getSessionTimeout')->willReturn(3600);
+
+        $denial = $this->makeMiddleware($userMock, $settingsMock)->authenticate();
+
+        $this->assertNotNull($denial);
+        $this->assertSame('/login', $denial->headers()['Location']);
+        $this->assertSame('An error occurred during authentication.', $_SESSION['error']);
+    }
+
+    public function testAuthorizeAnyPassesThroughAnAuthenticationDenial(): void
+    {
+        unset($_SESSION['user']);
+
+        $denial = $this->makeMiddleware()->authorizeAny(['view_settings']);
+
+        $this->assertNotNull($denial);
+        $this->assertSame('/login', $denial->headers()['Location']);
+    }
+
+    public function testAuthorizeAllPassesThroughAnAuthenticationDenial(): void
+    {
+        unset($_SESSION['user']);
+
+        $denial = $this->makeMiddleware()->authorizeAll(['view_settings']);
+
+        $this->assertNotNull($denial);
+        $this->assertSame('/login', $denial->headers()['Location']);
+    }
+
+    // ---- predicates return false instead of exiting ----------------------
+
+    public function testIsAuthenticatedReturnsFalseWhenNoSessionUserExists(): void
+    {
+        unset($_SESSION['user']);
+
+        $this->assertFalse($this->makeMiddleware()->isAuthenticated());
+    }
+
+    public function testHasPermissionReturnsFalseWhenThePermissionIsNotHeld(): void
+    {
+        $_SESSION['user'] = ['profile' => ['id' => 1], 'permissions' => ['task.view']];
+        $_SESSION['last_activity'] = time();
+
+        $userMock = $this->createMock(User::class);
+        $userMock->method('find')->willReturn((object) ['id' => 1, 'is_active' => 1]);
+        $settingsMock = $this->createMock(SettingsService::class);
+        $settingsMock->method('getSessionTimeout')->willReturn(3600);
+
+        $this->assertFalse($this->makeMiddleware($userMock, $settingsMock)->hasPermission('task.delete'));
+    }
+
+    public function testHasAnyPermissionReturnsFalseWhenNoneAreHeld(): void
+    {
+        $_SESSION['user'] = ['profile' => ['id' => 1], 'permissions' => ['task.view']];
+        $_SESSION['last_activity'] = time();
+
+        $userMock = $this->createMock(User::class);
+        $userMock->method('find')->willReturn((object) ['id' => 1, 'is_active' => 1]);
+        $settingsMock = $this->createMock(SettingsService::class);
+        $settingsMock->method('getSessionTimeout')->willReturn(3600);
+
+        $this->assertFalse(
+            $this->makeMiddleware($userMock, $settingsMock)->hasAnyPermission(['a', 'b'])
+        );
+    }
+
+    public function testHasAllPermissionsReturnsFalseWhenOneIsMissing(): void
+    {
+        $_SESSION['user'] = ['profile' => ['id' => 1], 'permissions' => ['a']];
+        $_SESSION['last_activity'] = time();
+
+        $userMock = $this->createMock(User::class);
+        $userMock->method('find')->willReturn((object) ['id' => 1, 'is_active' => 1]);
+        $settingsMock = $this->createMock(SettingsService::class);
+        $settingsMock->method('getSessionTimeout')->willReturn(3600);
+
+        $this->assertFalse(
+            $this->makeMiddleware($userMock, $settingsMock)->hasAllPermissions(['a', 'b'])
+        );
+    }
+
+    // ---- predicates are pure with respect to the $_SESSION['error'] flash -
+
+    public function testHasPermissionDenialLeavesNoFlashWhenNoneExistedBefore(): void
+    {
+        $_SESSION['user'] = ['profile' => ['id' => 1], 'permissions' => ['task.view']];
+        $_SESSION['last_activity'] = time();
+        unset($_SESSION['error']);
+
+        $userMock = $this->createMock(User::class);
+        $userMock->method('find')->willReturn((object) ['id' => 1, 'is_active' => 1]);
+        $settingsMock = $this->createMock(SettingsService::class);
+        $settingsMock->method('getSessionTimeout')->willReturn(3600);
+
+        $middleware = $this->makeMiddleware($userMock, $settingsMock);
+
+        $this->assertFalse($middleware->hasPermission('task.delete'));
+        $this->assertArrayNotHasKey(
+            'error',
+            $_SESSION,
+            'A denied probe must not orphan a flash message for the next page to render.'
+        );
+    }
+
+    public function testHasPermissionDenialRestoresThePriorFlashMessage(): void
+    {
+        $_SESSION['user'] = ['profile' => ['id' => 1], 'permissions' => ['task.view']];
+        $_SESSION['last_activity'] = time();
+        $_SESSION['error'] = 'a message set by something earlier in the request';
+
+        $userMock = $this->createMock(User::class);
+        $userMock->method('find')->willReturn((object) ['id' => 1, 'is_active' => 1]);
+        $settingsMock = $this->createMock(SettingsService::class);
+        $settingsMock->method('getSessionTimeout')->willReturn(3600);
+
+        $middleware = $this->makeMiddleware($userMock, $settingsMock);
+
+        $this->assertFalse($middleware->hasPermission('task.delete'));
+        $this->assertSame(
+            'a message set by something earlier in the request',
+            $_SESSION['error'],
+            'A denied probe must not clobber a flash message that was already pending.'
+        );
     }
 }

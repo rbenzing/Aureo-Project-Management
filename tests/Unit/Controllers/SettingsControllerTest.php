@@ -9,6 +9,7 @@ use App\Controllers\SettingsController;
 use App\Core\Config;
 use App\Core\ConfigLoader;
 use App\Core\Database;
+use App\Core\HttpResponse;
 use App\Middleware\AuthMiddleware;
 use App\Models\BaseModel;
 use App\Models\Setting;
@@ -66,7 +67,7 @@ final class SettingsControllerTestable extends SettingsController
  * AuthMiddleware internally. That construction alone is harmless (it just
  * assigns `new User()` and SettingsService::getInstance()`, never queries
  * anything), so it's allowed to happen for real; but index()/update() call
- * `$this->authMiddleware->hasAnyPermission(...)` DIRECTLY (not through the
+ * `$this->authMiddleware->authorizeAny(...)` DIRECTLY (not through the
  * overridable requirePermission() wrapper this codebase's other controllers
  * use), so BaseController's protected $authMiddleware property is swapped
  * for a mock via reflection immediately after construction -- the only seam
@@ -76,11 +77,14 @@ final class SettingsControllerTestable extends SettingsController
  * BaseController's own singleton lookups never touch a real Setting/DB/log
  * file.
  *
- * Neither index() nor update() branches on hasAnyPermission()'s return
- * value (production relies entirely on AuthMiddleware's own exit-on-denial
- * side effect, already covered by AuthMiddlewareTest) -- so what's actually
- * verified here is that the controller asks for the *correct* permission
- * set, not the pass/fail branching itself.
+ * index() and update() both capture authorizeAny()'s return value and must
+ * send() the denial and return when it is non-null -- production enforcement
+ * lives in the controller now, not merely in AuthMiddleware's internals.
+ * testIndexDeniesUserWithNoSettingsPermissions and
+ * testUpdateDeniesUserWithNoSettingsPermissions below cover that branching
+ * directly (a denied user must not reach getAllGrouped()/updateSetting());
+ * the "checks the ... permission set" tests separately verify the
+ * *arguments* passed to authorizeAny() are correct.
  */
 #[CoversClass(SettingsController::class)]
 #[UsesClass(BaseController::class)]
@@ -92,6 +96,7 @@ final class SettingsControllerTestable extends SettingsController
 #[UsesClass(Database::class)]
 #[UsesClass(BaseModel::class)]
 #[UsesClass(User::class)]
+#[UsesClass(HttpResponse::class)]
 final class SettingsControllerTest extends TestCase
 {
     /** @var Setting&\PHPUnit\Framework\MockObject\MockObject */
@@ -160,17 +165,42 @@ final class SettingsControllerTest extends TestCase
     {
         $this->settingModel->method('getAllGrouped')->willReturn([]);
         $this->authMiddleware->expects($this->once())
-            ->method('hasAnyPermission')
+            ->method('authorizeAny')
             ->with([
                 'view_settings', 'edit_settings', 'edit_security_settings',
                 'manage_sprint_settings', 'manage_task_settings',
                 'manage_milestone_settings', 'manage_project_settings',
-            ]);
+            ])
+            ->willReturn(null);
 
         $c = $this->controller();
         $c->index('GET', []);
 
         $this->assertSame('Settings/index', $c->renderedView);
+    }
+
+    /**
+     * The regression guard for the privilege-escalation bug this refactor
+     * fixes: index() used to call hasAnyPermission() as a bare statement, so
+     * the ONLY thing stopping a permission-less user was the exit buried
+     * inside AuthMiddleware. Now the controller must itself act on the
+     * denial authorizeAny() returns -- send it and stop -- rather than fall
+     * through to loading and rendering settings.
+     */
+    public function testIndexDeniesUserWithNoSettingsPermissions(): void
+    {
+        $denial = HttpResponse::redirect('/dashboard');
+        $this->authMiddleware->method('authorizeAny')->willReturn($denial);
+        $this->settingModel->expects($this->never())->method('getAllGrouped');
+
+        $c = $this->controller();
+
+        ob_start();
+        $c->index('GET', []);
+        ob_get_clean();
+
+        $this->assertNull($c->renderedView, 'settings view must not render for a denied user');
+        $this->assertSame(302, http_response_code());
     }
 
     public function testIndexMergesStoredSettingsOverDefaultsWithoutOverwritingThem(): void
@@ -251,12 +281,13 @@ final class SettingsControllerTest extends TestCase
         $_SESSION['csrf_token'] = 'good-token';
         $_SESSION['user']['permissions'] = [];
         $this->authMiddleware->expects($this->once())
-            ->method('hasAnyPermission')
+            ->method('authorizeAny')
             ->with([
                 'edit_settings', 'edit_security_settings',
                 'manage_sprint_settings', 'manage_task_settings',
                 'manage_milestone_settings', 'manage_project_settings',
-            ]);
+            ])
+            ->willReturn(null);
 
         $c = $this->controller();
 
@@ -266,6 +297,34 @@ final class SettingsControllerTest extends TestCase
         } catch (RuntimeException $e) {
             // expected
         }
+    }
+
+    /**
+     * The update() half of the same privilege-escalation regression guard:
+     * a user holding none of the settings permissions must be denied before
+     * any category is processed or persisted, not merely have the bare
+     * hasAnyPermission() call recorded.
+     */
+    public function testUpdateDeniesUserWithNoSettingsPermissions(): void
+    {
+        $_SESSION['csrf_token'] = 'good-token';
+        $_SESSION['user']['permissions'] = [];
+        $denial = HttpResponse::redirect('/dashboard');
+        $this->authMiddleware->method('authorizeAny')->willReturn($denial);
+        $this->settingModel->expects($this->never())->method('updateSetting');
+
+        $c = $this->controller();
+
+        ob_start();
+        $c->update('POST', [
+            'csrf_token' => 'good-token',
+            'general' => ['date_format' => 'd/m/Y'],
+        ]);
+        ob_get_clean();
+
+        $this->assertNull($c->redirectUrl, 'the testable redirect() override must not run for a denied user');
+        $this->assertArrayNotHasKey('success', $_SESSION);
+        $this->assertSame(302, http_response_code());
     }
 
     public function testUpdateWithMissingCsrfTokenRedirectsWithError(): void

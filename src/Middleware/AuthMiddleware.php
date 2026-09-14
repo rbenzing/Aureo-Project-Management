@@ -5,6 +5,7 @@ declare(strict_types=1);
 
 namespace App\Middleware;
 
+use App\Core\HttpResponse;
 use App\Models\User;
 use App\Services\SettingsService;
 
@@ -30,45 +31,7 @@ class AuthMiddleware
      */
     public function isAuthenticated(): bool
     {
-        try {
-            // Check for session existence
-            if (!isset($_SESSION['user'])) {
-                $this->handleUnauthenticated('You must be logged in to access this page.');
-
-                return false;
-            }
-
-            // Initialize last activity if not set
-            if (!isset($_SESSION['last_activity'])) {
-                $_SESSION['last_activity'] = time();
-            }
-
-            // Validate session timeout
-            if ($this->isSessionExpired()) {
-                $this->handleSessionTimeout();
-
-                return false;
-            }
-
-            // Validate user in database
-            if (!$this->validateUserSession()) {
-                return false;
-            }
-
-            // Update last activity time
-            $this->updateSessionActivity();
-
-            // Ensure permissions are loaded
-            $this->loadUserPermissions();
-
-            return true;
-
-        } catch (\Exception $e) {
-            error_log("Authentication error: " . $e->getMessage());
-            $this->handleUnauthenticated('An error occurred during authentication.');
-
-            return false;
-        }
+        return $this->asPureProbe(fn (): ?HttpResponse => $this->checkAuthentication());
     }
 
     /**
@@ -78,95 +41,56 @@ class AuthMiddleware
      */
     public function hasPermission(string $permission): bool
     {
-        if (!$this->isAuthenticated()) {
-            return false;
-        }
-
-        if (!$this->checkPermission($permission)) {
-            $this->handleUnauthorized();
-
-            return false;
-        }
-
-        return true;
+        return $this->asPureProbe(fn (): ?HttpResponse => $this->authorize($permission));
     }
 
     /**
      * Check for any of the given permissions
-     * @param array $permissions
+     * @param list<string> $permissions
      * @return bool
      */
     public function hasAnyPermission(array $permissions): bool
     {
-        if (!$this->isAuthenticated()) {
-            return false;
-        }
-
-        $userPermissions = $_SESSION['user']['permissions'] ?? [];
-        $hasPermission = false;
-
-        foreach ($permissions as $permission) {
-            if (in_array($permission, $userPermissions, true)) {
-                $hasPermission = true;
-
-                break;
-            }
-        }
-
-        if (!$hasPermission) {
-            $this->handleUnauthorized();
-
-            return false;
-        }
-
-        return true;
+        return $this->asPureProbe(fn (): ?HttpResponse => $this->authorizeAny($permissions));
     }
 
     /**
      * Check for all required permissions
-     * @param array $permissions
+     * @param list<string> $permissions
      * @return bool
      */
     public function hasAllPermissions(array $permissions): bool
     {
-        if (!$this->isAuthenticated()) {
-            return false;
-        }
-
-        $userPermissions = $_SESSION['user']['permissions'] ?? [];
-
-        foreach ($permissions as $permission) {
-            if (!in_array($permission, $userPermissions, true)) {
-                $this->handleUnauthorized();
-
-                return false;
-            }
-        }
-
-        return true;
+        return $this->asPureProbe(fn (): ?HttpResponse => $this->authorizeAll($permissions));
     }
 
     /**
-     * Validate user session against database
-     * @return bool
+     * Runs a denial-capable check as a side-effect-free probe.
+     *
+     * checkAuthentication()/authorize()/authorizeAny()/authorizeAll() are built
+     * for the redirect-response flow, where the flash message an *Response()
+     * builder writes to $_SESSION['error'] is always consumed immediately by
+     * the redirect that follows it. The four boolean predicates above have no
+     * redirect to consume that flash — they exist precisely to be used as
+     * probes (e.g. conditional UI) — so without this, a denial would leave the
+     * flash orphaned in the session for whatever page renders next. This
+     * restores $_SESSION['error'] to exactly what it was before the check,
+     * including restoring "absent" as absent rather than null.
      */
-    private function validateUserSession(): bool
+    private function asPureProbe(callable $check): bool
     {
-        $userId = $_SESSION['user']['profile']['id'] ?? null;
-        if (!$userId) {
-            $this->handleUnauthenticated('Invalid session data.');
+        $hadPriorError = array_key_exists('error', $_SESSION);
+        $priorError = $hadPriorError ? $_SESSION['error'] : null;
 
-            return false;
+        $result = $check() === null;
+
+        if ($hadPriorError) {
+            $_SESSION['error'] = $priorError;
+        } else {
+            unset($_SESSION['error']);
         }
 
-        $user = $this->userModel->find($userId);
-        if (!$user || !$user->is_active) {
-            $this->handleInactiveAccount();
-
-            return false;
-        }
-
-        return true;
+        return $result;
     }
 
     /**
@@ -205,45 +129,6 @@ class AuthMiddleware
     }
 
     /**
-     * Handle unauthenticated access
-     * @param string $message
-     */
-    private function handleUnauthenticated(string $message): void
-    {
-        $_SESSION['error'] = $message;
-        $this->redirect(self::PATHS['login']);
-    }
-
-    /**
-     * Handle unauthorized access
-     */
-    private function handleUnauthorized(): void
-    {
-        $_SESSION['error'] = 'You do not have permission to access this resource.';
-        $this->redirect(self::PATHS['unauthorized']);
-    }
-
-    /**
-     * Handle inactive account
-     */
-    private function handleInactiveAccount(): void
-    {
-        unset($_SESSION['user']);
-        $_SESSION['error'] = 'Your account is no longer active. Please contact support.';
-        $this->redirect(self::PATHS['login']);
-    }
-
-    /**
-     * Handle session timeout
-     */
-    private function handleSessionTimeout(): void
-    {
-        unset($_SESSION['user']);
-        $_SESSION['error'] = 'Your session has expired. Please log in again.';
-        $this->redirect(self::PATHS['login']);
-    }
-
-    /**
      * Check individual permission
      * @param string $permission
      * @return bool
@@ -256,12 +141,121 @@ class AuthMiddleware
     }
 
     /**
-     * Perform redirect
-     * @param string $path
+     * The authentication decision, with no redirect and no exit.
+     *
+     * Returns null when the request is authenticated, or the response that
+     * should be sent when it is not. Session side effects that are part of the
+     * decision (clearing a dead session, setting the flash message, refreshing
+     * last_activity, loading permissions) are kept exactly as they were.
      */
-    private function redirect(string $path): void
+    private function checkAuthentication(): ?HttpResponse
     {
-        header('Location: ' . $path);
-        exit;
+        try {
+            if (!isset($_SESSION['user'])) {
+                return $this->unauthenticatedResponse('You must be logged in to access this page.');
+            }
+
+            if (!isset($_SESSION['last_activity'])) {
+                $_SESSION['last_activity'] = time();
+            }
+
+            if ($this->isSessionExpired()) {
+                return $this->sessionTimeoutResponse();
+            }
+
+            $userId = $_SESSION['user']['profile']['id'] ?? null;
+            if (!$userId) {
+                return $this->unauthenticatedResponse('Invalid session data.');
+            }
+
+            $user = $this->userModel->find($userId);
+            if (!$user || !$user->is_active) {
+                return $this->inactiveAccountResponse();
+            }
+
+            $this->updateSessionActivity();
+            $this->loadUserPermissions();
+
+            return null;
+            // Deliberately \Exception, not \Throwable: an \Error here (e.g. a TypeError inside
+            // userModel->find()) would masquerade as "unauthenticated -> /login" instead of a
+            // louder 500. Carried over verbatim from the pre-refactor isAuthenticated().
+        } catch (\Exception $e) {
+            error_log("Authentication error: " . $e->getMessage());
+
+            return $this->unauthenticatedResponse('An error occurred during authentication.');
+        }
+    }
+
+    private function unauthenticatedResponse(string $message): HttpResponse
+    {
+        $_SESSION['error'] = $message;
+
+        return HttpResponse::redirect(self::PATHS['login']);
+    }
+
+    private function unauthorizedResponse(): HttpResponse
+    {
+        $_SESSION['error'] = 'You do not have permission to access this resource.';
+
+        return HttpResponse::redirect(self::PATHS['unauthorized']);
+    }
+
+    private function inactiveAccountResponse(): HttpResponse
+    {
+        unset($_SESSION['user']);
+        $_SESSION['error'] = 'Your account is no longer active. Please contact support.';
+
+        return HttpResponse::redirect(self::PATHS['login']);
+    }
+
+    private function sessionTimeoutResponse(): HttpResponse
+    {
+        unset($_SESSION['user']);
+        $_SESSION['error'] = 'Your session has expired. Please log in again.';
+
+        return HttpResponse::redirect(self::PATHS['login']);
+    }
+
+    public function authenticate(): ?HttpResponse
+    {
+        return $this->checkAuthentication();
+    }
+
+    public function authorize(string $permission): ?HttpResponse
+    {
+        return $this->authorizeAll([$permission]);
+    }
+
+    /** @param list<string> $permissions */
+    public function authorizeAny(array $permissions): ?HttpResponse
+    {
+        if (($denial = $this->checkAuthentication()) !== null) {
+            return $denial;
+        }
+
+        foreach ($permissions as $permission) {
+            if ($this->checkPermission($permission)) {
+                return null;
+            }
+        }
+
+        return $this->unauthorizedResponse();
+    }
+
+    /** @param list<string> $permissions */
+    public function authorizeAll(array $permissions): ?HttpResponse
+    {
+        if (($denial = $this->checkAuthentication()) !== null) {
+            return $denial;
+        }
+
+        foreach ($permissions as $permission) {
+            if (!$this->checkPermission($permission)) {
+                return $this->unauthorizedResponse();
+            }
+        }
+
+        return null;
     }
 }

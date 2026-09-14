@@ -7,22 +7,19 @@ namespace App\Core;
 /**
  * Standardized API Response Format
  *
- * Provides consistent JSON response structure for all API endpoints
+ * Builds a consistent JSON response structure for all API endpoints
  */
 class ApiResponse
 {
     /**
-     * Send a successful response
+     * Build a successful response
      *
      * @param mixed $data Response data
      * @param array $meta Additional metadata
      * @param int $statusCode HTTP status code (default 200)
      */
-    public static function success(mixed $data = null, array $meta = [], int $statusCode = 200): void
+    public static function success(mixed $data = null, array $meta = [], int $statusCode = 200): HttpResponse
     {
-        http_response_code($statusCode);
-        header('Content-Type: application/json');
-
         $response = [
             'success' => true,
             'data' => $data,
@@ -32,22 +29,18 @@ class ApiResponse
             $response['meta'] = $meta;
         }
 
-        echo json_encode($response, JSON_THROW_ON_ERROR);
-        exit;
+        return HttpResponse::json($response, $statusCode, JSON_THROW_ON_ERROR);
     }
 
     /**
-     * Send an error response
+     * Build an error response
      *
      * @param string $message Error message
      * @param int $code HTTP status code (default 400)
      * @param array $details Additional error details
      */
-    public static function error(string $message, int $code = 400, array $details = []): void
+    public static function error(string $message, int $code = 400, array $details = []): HttpResponse
     {
-        http_response_code($code);
-        header('Content-Type: application/json');
-
         $response = [
             'success' => false,
             'error' => [
@@ -60,12 +53,11 @@ class ApiResponse
             $response['error']['details'] = $details;
         }
 
-        echo json_encode($response, JSON_THROW_ON_ERROR);
-        exit;
+        return HttpResponse::json($response, $code, JSON_THROW_ON_ERROR);
     }
 
     /**
-     * Send a paginated response
+     * Build a paginated response
      *
      * @param array $items Items for current page
      * @param int $total Total number of items
@@ -79,7 +71,7 @@ class ApiResponse
         int $page,
         int $perPage,
         array $meta = []
-    ): void {
+    ): HttpResponse {
         $totalPages = (int) ceil($total / $perPage);
         $hasNextPage = $page < $totalPages;
         $hasPrevPage = $page > 1;
@@ -111,84 +103,82 @@ class ApiResponse
             $response['meta'] = $meta;
         }
 
-        http_response_code(200);
-        header('Content-Type: application/json');
-        echo json_encode($response, JSON_THROW_ON_ERROR);
-        exit;
+        return HttpResponse::json($response, 200, JSON_THROW_ON_ERROR);
     }
 
     /**
-     * Send a created response (201)
+     * Build a created response (201)
      *
      * @param mixed $data Created resource data
      * @param string|null $location Optional Location header value
      */
-    public static function created(mixed $data = null, ?string $location = null): void
+    public static function created(mixed $data = null, ?string $location = null): HttpResponse
     {
+        $response = self::success($data, [], 201);
+
         if ($location !== null) {
-            header("Location: {$location}");
+            $response = $response->withHeader('Location', $location);
         }
 
-        self::success($data, [], 201);
+        return $response;
     }
 
     /**
-     * Send a no content response (204)
+     * Build a no content response (204)
      */
-    public static function noContent(): void
+    public static function noContent(): HttpResponse
     {
-        http_response_code(204);
-        exit;
+        return HttpResponse::noContent();
     }
 
     /**
-     * Send a not found error (404)
+     * Build a not found error (404)
      *
      * @param string $message
      */
-    public static function notFound(string $message = 'Resource not found'): void
+    public static function notFound(string $message = 'Resource not found'): HttpResponse
     {
-        self::error($message, 404);
+        return self::error($message, 404);
     }
 
     /**
-     * Send a validation error (422)
+     * Build a validation error (422)
      *
      * @param array $errors Validation errors
      * @param string $message
      */
-    public static function validationError(array $errors, string $message = 'Validation failed'): void
+    public static function validationError(array $errors, string $message = 'Validation failed'): HttpResponse
     {
-        self::error($message, 422, ['validation_errors' => $errors]);
+        return self::error($message, 422, ['validation_errors' => $errors]);
     }
 
     /**
-     * Send an unauthorized error (401)
+     * Build an unauthorized error (401)
      *
      * @param string $message
      */
-    public static function unauthorized(string $message = 'Unauthorized'): void
+    public static function unauthorized(string $message = 'Unauthorized'): HttpResponse
     {
-        self::error($message, 401);
+        return self::error($message, 401);
     }
 
     /**
-     * Send a forbidden error (403)
+     * Build a forbidden error (403)
      *
      * @param string $message
      */
-    public static function forbidden(string $message = 'Forbidden'): void
+    public static function forbidden(string $message = 'Forbidden'): HttpResponse
     {
-        self::error($message, 403);
+        return self::error($message, 403);
     }
 
     /**
-     * Send an internal server error (500)
+     * Build an internal server error (500)
      *
      * @param string $message
      */
-    public static function serverError(string $message = 'Internal server error'): void
+    public static function serverError(string $message = 'Internal server error'): HttpResponse
     {
-        self::error($message, 500);
+        return self::error($message, 500);
     }
 }

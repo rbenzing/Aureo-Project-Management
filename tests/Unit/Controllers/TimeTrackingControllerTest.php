@@ -94,12 +94,14 @@ final class TimeTrackingControllerTestable extends TimeTrackingController
  * Behavioural tests for TimeTrackingController's edit/update actions and the
  * assertMayModify ownership rule.
  *
- * delete() is deliberately NOT exercised here: every ApiResponse method ends
- * in exit(), a real process-terminating language construct that cannot be
- * caught or overridden away in a subclass, so calling delete() with a real
- * outcome would kill the PHPUnit runner. That caps delete() coverage at its
- * pre-ApiResponse lines - the same documented src/Core ceiling as
- * ApiResponse/Response themselves.
+ * delete() is NOT exercised here. ApiResponse's methods used to end in a bare
+ * exit(), a process-terminating language construct that could not be caught
+ * or overridden away in a subclass, which made delete() uncoverable; the
+ * App\Core\Response/ApiResponse refactor (see src/Core/ApiResponse.php,
+ * src/Core/HttpResponse.php) changed that - ApiResponse now builds and
+ * returns an HttpResponse instead of exiting, so delete() is callable and
+ * assertable like any other method. Adding that coverage is out of scope for
+ * this task and is left to a later one.
  *
  * SettingsService/LoggerService/Database are process-wide singletons reached
  * indirectly (AuthMiddleware and TimeTrackingController's own constructor

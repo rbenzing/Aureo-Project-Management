@@ -22,14 +22,15 @@ use RuntimeException;
  * ActivityController::__construct()/BaseController::__construct().
  *
  * ActivityController's real constructor calls
- * `$this->authMiddleware->isAuthenticated()` SYNCHRONOUSLY, on a real,
+ * `$this->authMiddleware->authenticate()` SYNCHRONOUSLY, on a real,
  * freshly-built AuthMiddleware (ActivityController doesn't accept one via
  * DI) -- before any test code gets a chance to intervene. Unlike every
  * other controller in this codebase, there is no seam between "AuthMiddleware
  * gets constructed" and "AuthMiddleware gets used": both happen in the same
  * statement. Letting that run for real would mean either a real session +
- * User::find() round trip or hitting AuthMiddleware's redirect()-on-failure
- * (header()+exit). So this subclass never calls the parent constructor at
+ * User::find() round trip or hitting the constructor's own
+ * denial-response-then-exit path (header()+exit). So this subclass never
+ * calls the parent constructor at
  * all and instead sets ActivityController's private $db/$userModel and
  * BaseController's protected $logger directly via reflection -- the only
  * dependencies index() actually touches (requirePermission() is overridden

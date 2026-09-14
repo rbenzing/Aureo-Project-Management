@@ -29,10 +29,11 @@ exercised against mocks.
 |---|---|---|---|
 | C1 | **Critical** | Every record creation fails — `guid` is `NOT NULL` with no default and is never generated | **Fixed** |
 | C2 | **Critical** | Every CSRF token is born expired — nobody can log in on a fresh install | **Fixed** |
-| C3 | **Critical** | Authorization layer is mutation-blind — 3/3 access-control mutations survived | **1 of 3 fixed** |
+| C3 | **Critical** | Authorization layer is mutation-blind — 3/3 access-control mutations survived | **Fixed** |
 | H1 | High | Partial env-var config silently discarded — app falls back to `localhost` / empty password | **Fixed** |
 | ~~H2~~ | ~~High~~ | ~~Coverage gate fails under CI parity~~ | **Withdrawn — not a real defect** |
 | H3 | High | 5 controllers at exactly **0.0%** coverage (916 statements) | Open |
+| H4 | High | `/api/search` returns HTTP 500 — pre-existing, not caused by this refactor | Open |
 | M1 | Medium | Integration suite was one file, 16 tests, auth-only | **Improved** (3 files, 27 tests) |
 | M2 | Medium | `renderTimerControls()` emits an always-empty CSRF field (dead code) | Open |
 | M3 | Medium | `InstallerServiceTest` hardcoded `127.0.0.1:3306`, silently skipping | **Fixed** |
@@ -46,9 +47,9 @@ exercised against mocks.
 **Verification after fixes (exact CI parity — PHP 8.2 defaults, MySQL-compatible DB on 127.0.0.1:3306):**
 
 ```
-vendor/bin/phpunit --fail-on-skipped   OK (2023 tests, 4430 assertions)   exit 0
+vendor/bin/phpunit --fail-on-skipped   OK (2076 tests, 4532 assertions)   exit 0
 php bin/coverage-gate.php              PASS  all coverage gates satisfied
-php-cs-fixer fix --dry-run --diff      Found 0 of 308 files that can be fixed
+php-cs-fixer fix --dry-run --diff      Found 0 of 312 files that can be fixed
 npm run build                          styles.css unchanged (committed CSS in sync)
 ```
 
@@ -160,39 +161,70 @@ Re-mutating the fix away is now **CAUGHT**.
 
 ---
 
-## C3 — Critical, 1 of 3 fixed: the authorization layer is mutation-blind
+## C3 — Critical, FIXED: the authorization layer was mutation-blind
 
 Mutations applied one at a time, each with the full suite run against it, at CI parity:
 
 | Mutation | Before | After |
 |---|---|---|
-| `hasUserPermission()` always returns true | SURVIVED | **CAUGHT** (4 failures) |
-| `AuthMiddleware::hasPermission()` always grants | SURVIVED | SURVIVED |
-| `isAuthenticated()` admits unauthenticated users | SURVIVED | SURVIVED |
+| `hasUserPermission()` always grants | SURVIVED | **CAUGHT** (4 failures) |
+| `AuthMiddleware::hasPermission()` always grants | SURVIVED | **CAUGHT** (1 failure) |
+| `AuthMiddleware::isAuthenticated()` admits everyone | SURVIVED | **CAUGHT** (3 failures) |
+| `AuthMiddleware::hasAnyPermission()` always grants | *(not tracked previously)* | **CAUGHT** (1 failure) |
+| `AuthMiddleware::hasAllPermissions()` always grants | *(not tracked previously)* | **CAUGHT** (1 failure) |
+
+The last two rows are new coverage: the original audit only tracked three mutations. All five are
+now caught.
 
 For context, the suite is *not* generally weak — these same runs caught mutations to CSRF
 comparison, password hashing, input validation, rate limiting, session expiry and both soft-delete
-paths. The blindness is specific to access control.
+paths. The blindness was specific to access control, and specifically to denial.
 
-**Fixed part.** `hasUserPermission()` — the primitive the views actually call — had **zero** tests
-and lives in `src/Views/`, which `phpunit.xml` excludes from coverage, so nothing flagged it.
-[tests/Unit/Views/PermissionHelpersTest.php](tests/Unit/Views/PermissionHelpersTest.php) adds 12
-tests concentrating on the **deny** paths (a test asserting only the allow branch cannot tell a
-working check from one that always returns true).
+**Root cause, unchanged from the original finding.** Every denial in `AuthMiddleware` funnelled
+through `redirect()` → `header()+exit`, which kills the test runner. So every public assertion was
+positive (`assertTrue($middleware->hasPermission(...))`), and the denial assertions reached *around*
+the public method into the private `checkPermission()` via reflection. A mutation removing the
+public method's call to `checkPermission()` broke nothing — the method that decided and the method
+that terminated the request were the same method, so a test could observe termination but not the
+decision that led to it.
 
-**Remaining, and why it is not fixed here.** The other two need a structural change, not a test:
+**How it was fixed.** The decision to deny was separated from the termination of the request. A new
+immutable `App\Core\HttpResponse` value object ([src/Core/HttpResponse.php](src/Core/HttpResponse.php))
+carries status/headers/body; `Router::dispatch()` sends whatever an action returns;
+`Response`/`ApiResponse` became factories returning an `HttpResponse` instead of calling `exit`;
+`AuthMiddleware` gained `authenticate()` / `authorize()` / `authorizeAny()` / `authorizeAll()`
+returning `?HttpResponse`, and its four boolean predicates (`isAuthenticated()`, `hasPermission()`,
+`hasAnyPermission()`, `hasAllPermissions()`) now delegate to those and return real booleans instead
+of reaching around a private method by reflection. `BaseController::requirePermission()` still halts
+on failure — its 98 call sites were untouched — and it, along with `HttpResponse::send()`, remain the
+deliberate exceptions to "no `exit` in the decision path."
 
-1. Every denial in `AuthMiddleware` funnels through `redirect()` → `header()+exit`, which kills the
-   test runner. The test file documents this itself.
-2. So every public assertion is positive (`assertTrue($middleware->hasPermission(...))`), and the
-   denial assertions reach *around* the public method into the private `checkPermission()` via
-   reflection (11 `invokePrivate` calls in a 15-test file). A mutation removing the public method's
-   call to `checkPermission()` therefore breaks nothing.
+**Verified end-to-end** against a real instance with a migrated database:
 
-This is the same `exit` problem `CLAUDE.md` records for `ApiResponse`/`Response`, but the
-consequence is more serious than a coverage percentage: **authorization regressions are
-undetectable**. Making those paths return/throw instead of exiting is an app-wide refactor and
-deserves its own change.
+```
+GET  /dashboard  (logged out)  -> 302 -> /login
+GET  /projects   (logged out)  -> 302 -> /login
+GET  /settings   (logged out)  -> 302 -> /login
+GET  /tasks      (logged out)  -> 302 -> /login
+
+POST /login (admin)            -> 302 -> /dashboard
+GET  /dashboard (admin)        -> 200  55200 bytes, byte-identical to the pre-refactor baseline
+
+POST /login (user with zero settings permissions) -> 302 -> /dashboard   (login itself still works)
+GET  /settings         (same user)  -> 302 -> /dashboard   0-byte body
+POST /settings/update  (same user)  -> 302 -> /dashboard   0-byte body
+
+GET /api/favorites -> 200  Content-Type: application/json
+                          Cache-Control: no-cache, must-revalidate
+                          Expires: Mon, 26 Jul 1997 05:00:00 GMT
+                          — the exact headers Response::json() has always sent (wire format preserved)
+```
+
+**Regression cover:** [tests/Unit/Views/PermissionHelpersTest.php](tests/Unit/Views/PermissionHelpersTest.php),
+[tests/Unit/Middleware/AuthMiddlewareTest.php](tests/Unit/Middleware/AuthMiddlewareTest.php) and
+[tests/Unit/Core/HttpResponseTest.php](tests/Unit/Core/HttpResponseTest.php) now assert the deny
+paths directly through the public API rather than by reflecting into a private method. All five
+mutations above are **CAUGHT**.
 
 ---
 
@@ -262,6 +294,33 @@ the gate is satisfied by the aggregate and cannot see that five files are at zer
 
 ---
 
+## H4 — High, open: `/api/search` returns HTTP 500
+
+Found while re-verifying the API controllers' wire format after the C3 fix. Every request to
+`/api/search` fails:
+
+```
+GET /api/search?q=...  -> 500
+```
+
+Trace: `SearchController::search` → `SearchService::search` → `SearchRepository::search` →
+`SearchIndex::fullTextSearch` → `Database::executeQuery`, failing with `"Database query failed"`.
+The `searchable_index` table appears to lack a usable FULLTEXT index.
+
+**Confirmed pre-existing, not a regression from this branch.** Checked out the pre-refactor
+merge-base commit `79934c4` and issued the identical request against the same database:
+
+```
+79934c4 (pre-refactor)  GET /api/search?q=...  -> 500
+this branch             GET /api/search?q=...  -> 500   (identical failure)
+```
+
+**Severity:** High. This is a user-facing endpoint that is entirely broken for every caller, not an
+edge case. It needs its own diagnosis of the `searchable_index` schema — out of scope for this
+refactor, which touches authentication/authorization response handling only.
+
+---
+
 ## Remaining open items
 
 - **M1 — Integration coverage** (improved, not closed). Was one file / 16 tests, all auth reads;
@@ -293,13 +352,17 @@ the gate is satisfied by the aggregate and cannot see that five files are at zer
 
 ## What was verified working
 
-- **Test suite:** 2023 tests / 4430 assertions / 0 failures / **0 skips** with `--fail-on-skipped`,
-  on PHP 8.5 (Xdebug, Windows) and PHP 8.2 (PCOV, Linux, non-root). No risky tests under
-  `beStrictAboutCoverageMetadata`.
-- **Coverage gate:** `PASS all coverage gates satisfied` (Tier 1 95.41%). Floors left untouched —
-  the pending `Controllers` ratchet (50.12 → 50.27) is a deliberate maintenance decision, not mine
-  to record.
-- **Lint & assets:** `php-cs-fixer` → 0 of 308 files need fixing; `npm run build` reproduces
+- **Test suite:** 2076 tests / 4532 assertions / 0 failures / **0 skips** with `--fail-on-skipped`.
+  No risky tests under `beStrictAboutCoverageMetadata`.
+- **Coverage gate:** `PASS all coverage gates satisfied`. Floors left untouched — the pending
+  `Controllers` ratchet (50.12 → 50.27) is a deliberate maintenance decision, not mine to record.
+- **Middleware coverage rose from 86.16% to 93.86%** — `AuthMiddleware`'s new `authenticate()` /
+  `authorize()` / `authorizeAny()` / `authorizeAll()` methods and its four predicates are now
+  exercised directly instead of via reflection into a private method.
+- **`src/Core` is no longer capped by `exit`.** `Response` and `ApiResponse` went from calling `exit`
+  (uncoverable) to returning `HttpResponse` values (coverable); only `HttpResponse::send()` and
+  `BaseController::requirePermission()` remain deliberately uncoverable for the same reason.
+- **Lint & assets:** `php-cs-fixer` → 0 of 312 files need fixing; `npm run build` reproduces
   `public/assets/css/styles.css` byte-identically.
 - **Migrations:** all three apply cleanly to an empty MariaDB 10.11 (32 tables), seeding the admin
   user with an **argon2id** hash, **55 permissions** and 55 role grants.
@@ -313,8 +376,11 @@ the gate is satisfied by the aggregate and cannot see that five files are at zer
 
 ## Recommended next steps
 
-1. **C3 remainder** — make `AuthMiddleware`'s denial paths return/throw instead of `exit`, then
-   assert the negative cases through the public API. This is the last critical gap.
+1. **H4** — diagnose and fix `/api/search` (currently `500` on every request; pre-existing, not
+   caused by this branch). The trace ends at `SearchIndex::fullTextSearch` →
+   `Database::executeQuery` with `"Database query failed"`, and `searchable_index` appears to lack a
+   usable FULLTEXT index — so the first question is whether the index is missing from the schema or
+   incompatible with the server.
 2. **H3** — take the five zero-coverage controllers off zero, starting with `UserController` and
    `RoleController`.
 3. **M4 / M5** — make the suite root-safe and stop it writing to the real application log.

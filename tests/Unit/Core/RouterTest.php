@@ -5,15 +5,18 @@ declare(strict_types=1);
 namespace Tests\Unit\Core;
 
 use App\Controllers\RouterFixtureController;
+use App\Core\HttpResponse;
 use App\Core\Router;
 use Exception;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\UsesClass;
 use PHPUnit\Framework\TestCase;
 use Psr\Container\ContainerInterface;
 
 require_once __DIR__ . '/Support/RouterFixtureController.php';
 
 #[CoversClass(Router::class)]
+#[UsesClass(HttpResponse::class)]
 final class RouterTest extends TestCase
 {
     protected function setUp(): void
@@ -210,5 +213,29 @@ final class RouterTest extends TestCase
         $router->dispatch('GET', ['router-fixture']);
 
         $this->assertTrue(RouterFixtureController::$called);
+    }
+
+    public function testDispatchSendsAnHttpResponseReturnedByTheAction(): void
+    {
+        $router = new Router();
+        $router->get('probe-json', ['controller' => 'RouterFixture', 'action' => 'json']);
+
+        ob_start();
+        $router->dispatch('GET', ['probe-json']);
+        $output = (string) ob_get_clean();
+
+        $this->assertSame('{"ok":true}', $output);
+    }
+
+    public function testDispatchIgnoresAVoidReturningAction(): void
+    {
+        $router = new Router();
+        $router->get('probe-void', ['controller' => 'RouterFixture', 'action' => 'renders']);
+
+        ob_start();
+        $router->dispatch('GET', ['probe-void']);
+        $output = (string) ob_get_clean();
+
+        $this->assertSame('rendered directly', $output);
     }
 }
