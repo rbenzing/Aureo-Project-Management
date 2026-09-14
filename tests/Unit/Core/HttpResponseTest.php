@@ -1,0 +1,100 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Tests\Unit\Core;
+
+use App\Core\HttpResponse;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\TestCase;
+
+#[CoversClass(HttpResponse::class)]
+final class HttpResponseTest extends TestCase
+{
+    public function testJsonCarriesStatusHeadersAndEncodedBody(): void
+    {
+        $response = HttpResponse::json(['a' => 1], 201);
+
+        $this->assertSame(201, $response->status());
+        $this->assertSame('application/json', $response->headers()['Content-Type']);
+        $this->assertSame('{"a":1}', $response->body());
+    }
+
+    public function testJsonDefaultsTo200(): void
+    {
+        $this->assertSame(200, HttpResponse::json([])->status());
+    }
+
+    /** Matches Response::json()'s existing no-cache headers exactly. */
+    public function testJsonSendsNoCacheHeaders(): void
+    {
+        $headers = HttpResponse::json([])->headers();
+
+        $this->assertSame('no-cache, must-revalidate', $headers['Cache-Control']);
+        $this->assertSame('Mon, 26 Jul 1997 05:00:00 GMT', $headers['Expires']);
+    }
+
+    /** Preserves the JSON_UNESCAPED_* flags the old Response::json() used. */
+    public function testJsonLeavesUnicodeAndSlashesUnescaped(): void
+    {
+        $response = HttpResponse::json(['url' => 'https://a/b', 'name' => 'café']);
+
+        $this->assertStringContainsString('https://a/b', $response->body());
+        $this->assertStringContainsString('café', $response->body());
+    }
+
+    public function testRedirectCarriesLocationAndDefault302(): void
+    {
+        $response = HttpResponse::redirect('/login');
+
+        $this->assertSame(302, $response->status());
+        $this->assertSame('/login', $response->headers()['Location']);
+        $this->assertSame('', $response->body());
+    }
+
+    public function testRedirectAcceptsAnExplicitStatus(): void
+    {
+        $this->assertSame(301, HttpResponse::redirect('/x', 301)->status());
+    }
+
+    public function testTextCarriesPlainContentType(): void
+    {
+        $response = HttpResponse::text('hello', 200);
+
+        $this->assertSame('text/plain', $response->headers()['Content-Type']);
+        $this->assertSame('hello', $response->body());
+    }
+
+    public function testHtmlCarriesHtmlContentType(): void
+    {
+        $response = HttpResponse::html('<p>hi</p>');
+
+        $this->assertSame('text/html', $response->headers()['Content-Type']);
+        $this->assertSame('<p>hi</p>', $response->body());
+    }
+
+    public function testNoContentIs204WithEmptyBody(): void
+    {
+        $response = HttpResponse::noContent();
+
+        $this->assertSame(204, $response->status());
+        $this->assertSame('', $response->body());
+    }
+
+    public function testWithHeaderReturnsACopyAndLeavesTheOriginalUnchanged(): void
+    {
+        $original = HttpResponse::json([]);
+        $copy = $original->withHeader('Location', '/created/1');
+
+        $this->assertSame('/created/1', $copy->headers()['Location']);
+        $this->assertArrayNotHasKey('Location', $original->headers());
+        $this->assertNotSame($original, $copy);
+    }
+
+    public function testWithHeaderOverwritesAnExistingHeader(): void
+    {
+        $response = HttpResponse::json([])->withHeader('Content-Type', 'application/problem+json');
+
+        $this->assertSame('application/problem+json', $response->headers()['Content-Type']);
+    }
+}
