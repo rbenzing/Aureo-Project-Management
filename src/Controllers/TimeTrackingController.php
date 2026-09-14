@@ -7,6 +7,7 @@ namespace App\Controllers;
 
 use App\Core\ApiResponse;
 use App\Core\Database;
+use App\Core\HttpResponse;
 use App\Models\Project;
 use App\Models\Task;
 use App\Models\TimeEntry;
@@ -579,10 +580,10 @@ class TimeTrackingController extends BaseController
     /**
      * Delete a time entry. Answers JSON - the index page calls this with fetch().
      */
-    public function delete(string $requestMethod, array $data): void
+    public function delete(string $requestMethod, array $data): HttpResponse
     {
         if ($requestMethod !== 'POST') {
-            ApiResponse::error('Invalid request method.', 405);
+            return ApiResponse::error('Invalid request method.', 405);
         }
 
         try {
@@ -602,12 +603,13 @@ class TimeTrackingController extends BaseController
 
             $this->timeEntryModel->delete($id);
 
-            ApiResponse::success(['message' => 'Time entry deleted.']);
+            return ApiResponse::success(['message' => 'Time entry deleted.']);
         } catch (InvalidArgumentException $e) {
-            ApiResponse::error($e->getMessage(), 400);
+            return ApiResponse::error($e->getMessage(), 400);
         } catch (\Throwable $e) {
             $this->logException($e, 'TimeTrackingController::delete');
-            ApiResponse::error('An error occurred deleting the time entry.', 500);
+
+            return ApiResponse::error('An error occurred deleting the time entry.', 500);
         }
     }
 

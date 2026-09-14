@@ -6,6 +6,7 @@ declare(strict_types=1);
 namespace App\Controllers;
 
 use App\Core\ApiResponse;
+use App\Core\HttpResponse;
 use App\Services\SearchService;
 
 class SearchController extends BaseController
@@ -22,16 +23,14 @@ class SearchController extends BaseController
      * GET /api/search?q=...&types[]=task&limit=20
      * Returns JSON search results. Auth-gated by middleware.
      */
-    public function search(): void
+    public function search(): HttpResponse
     {
         $query = trim($_GET['q'] ?? '');
         $entityTypes = (array)($_GET['types'] ?? []);
         $limit = min((int)($_GET['limit'] ?? 30), 50); // cap at 50
 
         if ($query === '') {
-            ApiResponse::success(['results' => [], 'query' => '', 'took_ms' => 0, 'count' => 0]);
-
-            return;
+            return ApiResponse::success(['results' => [], 'query' => '', 'took_ms' => 0, 'count' => 0]);
         }
 
         $userId = (int)($_SESSION['user']['id'] ?? 0);
@@ -47,7 +46,7 @@ class SearchController extends BaseController
             'url' => $this->resolveUrl($row->entity_type, (int)$row->entity_id),
         ], $result['results']);
 
-        ApiResponse::success([
+        return ApiResponse::success([
             'results' => $formatted,
             'query' => $result['query'],
             'took_ms' => $result['took_ms'],
@@ -59,7 +58,7 @@ class SearchController extends BaseController
      * POST /api/search/click  body: {query, position}
      * Records user click telemetry.
      */
-    public function recordClick(): void
+    public function recordClick(): HttpResponse
     {
         $body = json_decode(file_get_contents('php://input'), true) ?? [];
         $query = trim($body['query'] ?? '');
@@ -67,26 +66,26 @@ class SearchController extends BaseController
         $userId = (int)($_SESSION['user']['id'] ?? 0);
 
         if ($query === '' || $userId === 0) {
-            ApiResponse::success(['ok' => true]); // silent no-op
-
-            return;
+            return ApiResponse::success(['ok' => true]); // silent no-op
         }
 
         $this->searchService->recordClick($userId, $query, $position);
-        ApiResponse::success(['ok' => true]);
+
+        return ApiResponse::success(['ok' => true]);
     }
 
     /**
      * GET /api/search/recent
      * Returns recent queries for the current user (for command palette history).
      */
-    public function recentQueries(): void
+    public function recentQueries(): HttpResponse
     {
         $userId = (int)($_SESSION['user']['id'] ?? 0);
         $limit = min((int)($_GET['limit'] ?? 10), 20);
 
         $queries = $this->searchService->getRecentQueries($userId, $limit);
-        ApiResponse::success(['queries' => $queries]);
+
+        return ApiResponse::success(['queries' => $queries]);
     }
 
     private function resolveUrl(string $entityType, int $entityId): string
