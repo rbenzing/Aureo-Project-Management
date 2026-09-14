@@ -67,7 +67,7 @@ final class SettingsControllerTestable extends SettingsController
  * AuthMiddleware internally. That construction alone is harmless (it just
  * assigns `new User()` and SettingsService::getInstance()`, never queries
  * anything), so it's allowed to happen for real; but index()/update() call
- * `$this->authMiddleware->hasAnyPermission(...)` DIRECTLY (not through the
+ * `$this->authMiddleware->authorizeAny(...)` DIRECTLY (not through the
  * overridable requirePermission() wrapper this codebase's other controllers
  * use), so BaseController's protected $authMiddleware property is swapped
  * for a mock via reflection immediately after construction -- the only seam
@@ -77,11 +77,14 @@ final class SettingsControllerTestable extends SettingsController
  * BaseController's own singleton lookups never touch a real Setting/DB/log
  * file.
  *
- * Neither index() nor update() branches on hasAnyPermission()'s return
- * value (production relies entirely on AuthMiddleware's own exit-on-denial
- * side effect, already covered by AuthMiddlewareTest) -- so what's actually
- * verified here is that the controller asks for the *correct* permission
- * set, not the pass/fail branching itself.
+ * index() and update() both capture authorizeAny()'s return value and must
+ * send() the denial and return when it is non-null -- production enforcement
+ * lives in the controller now, not merely in AuthMiddleware's internals.
+ * testIndexDeniesUserWithNoSettingsPermissions and
+ * testUpdateDeniesUserWithNoSettingsPermissions below cover that branching
+ * directly (a denied user must not reach getAllGrouped()/updateSetting());
+ * the "checks the ... permission set" tests separately verify the
+ * *arguments* passed to authorizeAny() are correct.
  */
 #[CoversClass(SettingsController::class)]
 #[UsesClass(BaseController::class)]
