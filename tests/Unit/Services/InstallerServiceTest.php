@@ -308,7 +308,18 @@ final class InstallerServiceTest extends TestCase
 
     private function realCredentials(string $name): array
     {
-        return ['host' => '127.0.0.1:3306', 'name' => $name, 'user' => 'root', 'password' => ''];
+        // Honour the same environment Tests\Support\TestCase connects with,
+        // rather than pinning 127.0.0.1:3306. Hardcoding it meant this test
+        // silently skipped on any other port, which quietly removed ~29
+        // InstallerService statements from the coverage report and pushed the
+        // tier-1 aggregate below its recorded floor — a gate failure whose
+        // cause looked nothing like "a test was skipped".
+        return [
+            'host' => getenv('DB_HOST') ?: '127.0.0.1:3306',
+            'name' => $name,
+            'user' => getenv('DB_USERNAME') ?: 'root',
+            'password' => getenv('DB_PASSWORD') ?: '',
+        ];
     }
 
     /** @return array{host:string,name:string,user:string,password:string}|null */
@@ -319,7 +330,9 @@ final class InstallerServiceTest extends TestCase
         try {
             $server = $bootstrapper->connectToServer($credentials);
         } catch (Throwable $e) {
-            $this->markTestSkipped('No local MySQL server reachable at 127.0.0.1:3306: ' . $e->getMessage());
+            $this->markTestSkipped(
+                'No MySQL server reachable at ' . $credentials['host'] . ': ' . $e->getMessage()
+            );
 
             return null;
         }
