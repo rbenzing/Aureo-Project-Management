@@ -17,7 +17,7 @@ namespace App\Core;
  */
 final class HttpResponse
 {
-    private const JSON_FLAGS = JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES;
+    private const DEFAULT_JSON_FLAGS = JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES;
 
     /** @param array<string, string> $headers */
     private function __construct(
@@ -27,17 +27,22 @@ final class HttpResponse
     ) {
     }
 
-    public static function json(array|object|null $data, int $status = 200): self
-    {
+    /**
+     * Caching policy and JSON encoding flags are per-caller concerns, not this
+     * value object's: Response and ApiResponse have always disagreed on both
+     * (Response adds no-cache headers and drops JSON_THROW_ON_ERROR; ApiResponse
+     * does the opposite), so json() only sets Content-Type and takes the flags
+     * from its caller instead of picking a single policy for everyone.
+     */
+    public static function json(
+        array|object|null $data,
+        int $status = 200,
+        int $flags = self::DEFAULT_JSON_FLAGS,
+    ): self {
         return new self(
             $status,
-            [
-                'Content-Type' => 'application/json',
-                // Matches the headers Response::json() has always sent.
-                'Cache-Control' => 'no-cache, must-revalidate',
-                'Expires' => 'Mon, 26 Jul 1997 05:00:00 GMT',
-            ],
-            (string) json_encode($data, self::JSON_FLAGS),
+            ['Content-Type' => 'application/json'],
+            (string) json_encode($data, $flags),
         );
     }
 

@@ -22,6 +22,19 @@ final class ResponseTest extends TestCase
         $this->assertSame('{"a":1}', $response->body());
     }
 
+    /**
+     * Regression guard: Response has always sent these two headers (unlike
+     * ApiResponse, which never has - see ApiResponseTest::testNeverSendsApiResponseCacheHeaders).
+     * HttpResponse::json() itself sets neither; Response::json() re-adds them.
+     */
+    public function testJsonSendsNoCacheHeaders(): void
+    {
+        $headers = Response::json([])->headers();
+
+        $this->assertSame('no-cache, must-revalidate', $headers['Cache-Control']);
+        $this->assertSame('Mon, 26 Jul 1997 05:00:00 GMT', $headers['Expires']);
+    }
+
     public function testSuccessWrapsDataInTheSuccessEnvelope(): void
     {
         $response = Response::success(['id' => 7], 'Saved');

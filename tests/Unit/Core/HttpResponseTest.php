@@ -25,22 +25,32 @@ final class HttpResponseTest extends TestCase
         $this->assertSame(200, HttpResponse::json([])->status());
     }
 
-    /** Matches Response::json()'s existing no-cache headers exactly. */
-    public function testJsonSendsNoCacheHeaders(): void
+    /**
+     * json() sets only Content-Type. Cache-Control/Expires and the JSON
+     * encoding flags are per-caller policy (Response adds no-cache headers,
+     * ApiResponse doesn't; ApiResponse passes JSON_THROW_ON_ERROR, Response
+     * doesn't) - see ResponseTest/ApiResponseTest for those, not here.
+     */
+    public function testJsonSetsOnlyContentTypeByDefault(): void
     {
-        $headers = HttpResponse::json([])->headers();
-
-        $this->assertSame('no-cache, must-revalidate', $headers['Cache-Control']);
-        $this->assertSame('Mon, 26 Jul 1997 05:00:00 GMT', $headers['Expires']);
+        $this->assertSame(['Content-Type' => 'application/json'], HttpResponse::json([])->headers());
     }
 
-    /** Preserves the JSON_UNESCAPED_* flags the old Response::json() used. */
-    public function testJsonLeavesUnicodeAndSlashesUnescaped(): void
+    /** Default flags preserve the JSON_UNESCAPED_* behaviour Response::json() used. */
+    public function testJsonLeavesUnicodeAndSlashesUnescapedByDefault(): void
     {
         $response = HttpResponse::json(['url' => 'https://a/b', 'name' => 'café']);
 
         $this->assertStringContainsString('https://a/b', $response->body());
         $this->assertStringContainsString('café', $response->body());
+    }
+
+    /** A caller-supplied flags argument overrides the default. */
+    public function testJsonHonoursACallerSuppliedFlags(): void
+    {
+        $response = HttpResponse::json(['url' => 'https://a/b'], 200, 0);
+
+        $this->assertStringContainsString('https:\/\/a\/b', $response->body());
     }
 
     public function testRedirectCarriesLocationAndDefault302(): void

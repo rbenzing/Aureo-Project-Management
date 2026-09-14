@@ -29,7 +29,7 @@ class ApiResponse
             $response['meta'] = $meta;
         }
 
-        return HttpResponse::json($response, $statusCode);
+        return HttpResponse::json($response, $statusCode, JSON_THROW_ON_ERROR);
     }
 
     /**
@@ -53,7 +53,7 @@ class ApiResponse
             $response['error']['details'] = $details;
         }
 
-        return HttpResponse::json($response, $code);
+        return HttpResponse::json($response, $code, JSON_THROW_ON_ERROR);
     }
 
     /**
@@ -103,7 +103,7 @@ class ApiResponse
             $response['meta'] = $meta;
         }
 
-        return HttpResponse::json($response, 200);
+        return HttpResponse::json($response, 200, JSON_THROW_ON_ERROR);
     }
 
     /**

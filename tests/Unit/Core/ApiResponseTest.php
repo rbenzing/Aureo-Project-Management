@@ -22,6 +22,20 @@ final class ApiResponseTest extends TestCase
         $this->assertSame(['id' => 1], $body['data']);
     }
 
+    /**
+     * Regression guard: ApiResponse has never sent these headers (unlike
+     * Response - see ResponseTest::testJsonSendsNoCacheHeaders). Both classes
+     * delegate to HttpResponse::json(), which sets neither by default, so this
+     * would only fail if that policy leaked back into the shared value object.
+     */
+    public function testNeverSendsApiResponseCacheHeaders(): void
+    {
+        $headers = ApiResponse::success(['id' => 1])->headers();
+
+        $this->assertArrayNotHasKey('Cache-Control', $headers);
+        $this->assertArrayNotHasKey('Expires', $headers);
+    }
+
     public function testErrorCarriesMessageAndStatus(): void
     {
         $response = ApiResponse::error('Bad request', 400);

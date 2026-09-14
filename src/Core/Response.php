@@ -20,7 +20,11 @@ class Response
      */
     public static function json(array $data, int $statusCode = 200): HttpResponse
     {
-        return HttpResponse::json($data, $statusCode);
+        // Cache headers this class has always sent for API responses; ApiResponse
+        // never sent them, so they live here rather than in HttpResponse::json().
+        return HttpResponse::json($data, $statusCode)
+            ->withHeader('Cache-Control', 'no-cache, must-revalidate')
+            ->withHeader('Expires', 'Mon, 26 Jul 1997 05:00:00 GMT');
     }
 
     /**
