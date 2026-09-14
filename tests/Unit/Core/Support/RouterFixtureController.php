@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Controllers;
 
+use App\Core\HttpResponse;
+
 /**
  * Minimal controller double used only by Tests\Unit\Core\RouterTest to
  * exercise App\Core\Router::dispatch() without depending on any real
@@ -33,6 +35,16 @@ class RouterFixtureController
         self::$called = true;
         self::$calledMethod = $method;
         self::$calledData = $data;
+    }
+
+    public function json(string $method, array $data): HttpResponse
+    {
+        return HttpResponse::json(['ok' => true]);
+    }
+
+    public function renders(string $method, array $data): void
+    {
+        echo 'rendered directly';
     }
 
     public static function reset(): void

@@ -177,8 +177,17 @@ class Router
             $requestData = array_merge($requestData, $_GET);
         }
 
-        // Call controller action
-        call_user_func([$controller, $actionName], $requestMethod, $requestData);
+        // Call controller action.
+        //
+        // Actions either return an HttpResponse (API-style: the router sends
+        // it) or echo their own output via BaseController::render() and return
+        // void. Honouring the return value is what lets Response/ApiResponse
+        // stop calling exit.
+        $result = call_user_func([$controller, $actionName], $requestMethod, $requestData);
+
+        if ($result instanceof HttpResponse) {
+            $result->send();
+        }
     }
 
     /**
