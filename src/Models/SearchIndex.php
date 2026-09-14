@@ -83,7 +83,11 @@ class SearchIndex extends BaseModel
      */
     public function fullTextSearch(string $query, array $entityTypes = [], int $limit = 30): array
     {
-        $params = [':query' => $query, ':limit' => $limit];
+        // The same term is bound twice — once for the score column, once for the
+        // filter. Native prepares (PDO::ATTR_EMULATE_PREPARES=false) allow one
+        // placeholder per binding, so reusing a single :query name here made every
+        // search of 3+ characters fail with HY093. Keep the two names distinct.
+        $params = [':query_score' => $query, ':query_match' => $query, ':limit' => $limit];
 
         $typeFilter = '';
         if (!empty($entityTypes)) {
@@ -96,10 +100,10 @@ class SearchIndex extends BaseModel
         }
 
         $sql = "
-            SELECT *, MATCH(search_blob) AGAINST(:query IN NATURAL LANGUAGE MODE) AS score
+            SELECT *, MATCH(search_blob) AGAINST(:query_score IN NATURAL LANGUAGE MODE) AS score
             FROM {$this->table}
             WHERE is_deleted = 0
-              AND MATCH(search_blob) AGAINST(:query IN NATURAL LANGUAGE MODE) > 0
+              AND MATCH(search_blob) AGAINST(:query_match IN NATURAL LANGUAGE MODE) > 0
               {$typeFilter}
             ORDER BY score DESC
             LIMIT :limit
