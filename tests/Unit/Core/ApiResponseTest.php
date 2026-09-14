@@ -36,6 +36,39 @@ final class ApiResponseTest extends TestCase
         $this->assertArrayNotHasKey('Expires', $headers);
     }
 
+    /**
+     * Regression guard for the fix-round-1 bug: ApiResponse must keep passing
+     * JSON_THROW_ON_ERROR explicitly to HttpResponse::json(). Dropping that
+     * third argument silently reverts to HttpResponse::json()'s own default
+     * (JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), which would leave
+     * slashes unescaped in every ApiResponse body - including the `url`
+     * fields SearchController::search() returns through
+     * ApiResponse::success(). Split from testThrowsOnUnencodableData so each
+     * failure mode (flags dropped vs. JSON_THROW_ON_ERROR dropped) is pinned
+     * and named independently.
+     */
+    public function testEscapesSlashesInTheEncodedBody(): void
+    {
+        $this->assertStringContainsString(
+            'https:\/\/a\/b',
+            ApiResponse::success(['url' => 'https://a/b'])->body()
+        );
+    }
+
+    /**
+     * Regression guard, see testEscapesSlashesInTheEncodedBody(): without
+     * JSON_THROW_ON_ERROR, an unencodable value (invalid UTF-8 here) would
+     * make json_encode() return false instead of throwing, and
+     * HttpResponse::json()'s (string) cast would silently turn that into an
+     * empty body rather than surfacing the encoding failure.
+     */
+    public function testThrowsOnUnencodableData(): void
+    {
+        $this->expectException(\JsonException::class);
+
+        ApiResponse::success(['bad' => "\xB1\x31"]);
+    }
+
     public function testErrorCarriesMessageAndStatus(): void
     {
         $response = ApiResponse::error('Bad request', 400);
