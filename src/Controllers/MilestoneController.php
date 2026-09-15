@@ -306,8 +306,17 @@ class MilestoneController extends BaseController
             ]);
 
             // If this is an epic itself, check for circular references
-            if (isset($data['milestone_type']) && $data['milestone_type'] === 'epic' && isset($id)) {
-                $this->milestoneModel->checkCircularEpicReference($id, $data['epic_id']);
+            // epic_id arrives from the request as a string, and this file declares
+            // strict_types=1 - the call site is what PHP checks - so handing it
+            // straight to checkCircularEpicReference(int, int) raised a TypeError.
+            // It was caught by the generic handler below, so every attempt to edit
+            // an epic failed with "An error occurred" and no epic could be updated
+            // at all. A milestone with no parent cannot form a cycle, so an absent
+            // epic_id skips the check rather than querying for 0.
+            $epicId = filter_var($data['epic_id'] ?? null, FILTER_VALIDATE_INT);
+
+            if (($data['milestone_type'] ?? null) === 'epic' && $epicId !== false) {
+                $this->milestoneModel->checkCircularEpicReference($id, $epicId);
             }
 
             if ($validator->fails()) {
