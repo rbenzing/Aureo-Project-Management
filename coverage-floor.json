@@ -1,7 +1,7 @@
 {
     "_comment": "Coverage ratchet floors. \"_tier1\" is the tier-1 aggregate; the rest are per-directory tier-2 floors. Written by composer coverage:ratchet. Values may only increase - never hand-edit downward.",
     "floors": {
-        "Controllers": 50.59,
+        "Controllers": 53.65,
         "Middleware": 93.86,
         "Models": 96.09,
         "_tier1": 97.93
