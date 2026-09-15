@@ -1064,18 +1064,23 @@ class Sprint extends BaseModel
                             WHERE st.parent_task_id = t.id
                             AND st.is_subtask = 1
                             AND st.is_deleted = 0
-                            AND sst.sprint_id = :sprint_id
+                            AND sst.sprint_id = :sprint_id_sub
                         ) as subtasks_in_sprint
                     FROM tasks t
                     JOIN sprint_tasks st ON t.id = st.task_id
                     LEFT JOIN statuses_task ts ON t.status_id = ts.id
                     LEFT JOIN users u ON t.assigned_to = u.id
                     LEFT JOIN tasks pt ON t.parent_task_id = pt.id
-                    WHERE st.sprint_id = :sprint_id
+                    WHERE st.sprint_id = :sprint_id_main
                     AND t.is_deleted = 0
                     ORDER BY t.is_subtask ASC, t.parent_task_id ASC, t.title ASC";
 
-            $stmt = $this->db->executeQuery($sql, [':sprint_id' => $sprintId]);
+            // Two bindings, so two names: a native prepare allows one binding per
+            // placeholder, and a single :sprint_id here made the statement unusable.
+            $stmt = $this->db->executeQuery($sql, [
+                ':sprint_id_sub' => $sprintId,
+                ':sprint_id_main' => $sprintId,
+            ]);
 
             return $stmt->fetchAll(PDO::FETCH_OBJ);
         } catch (\Exception $e) {

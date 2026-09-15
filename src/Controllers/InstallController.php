@@ -89,6 +89,10 @@ class InstallController
     /** Called directly by public/index.php when InstallGate decides REFUSE. */
     public function refuse(string $reason): void
     {
+        // The body already says no; 200 would tell crawlers, scanners and
+        // caches that /install is a normal page on a configured site.
+        http_response_code(403);
+
         $this->present('Install/refused', ['reason' => $reason]);
     }
 

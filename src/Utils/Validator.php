@@ -54,7 +54,9 @@ class Validator
         'email' => ':field must be a valid email address.',
         'unique' => ':field already exists.',
         'max' => ':field must not exceed :param characters.',
+        'max_numeric' => ':field must not be greater than :param.',
         'min' => ':field must be at least :param characters.',
+        'min_numeric' => ':field must be at least :param.',
         'integer' => ':field must be an integer.',
         'boolean' => ':field must be a boolean value.',
         'in' => ':field must be one of: :param.',
@@ -266,16 +268,51 @@ class Validator
 
     private function validateMax(string $field, $value, array $parameters): void
     {
-        if (!is_null($value) && isset($parameters[0]) && strlen($value) > (int)$parameters[0]) {
-            $this->addError($field, 'max', $parameters);
+        if (is_null($value) || !isset($parameters[0])) {
+            return;
+        }
+
+        $exceeded = $this->isNumericField($field)
+            ? (float) $value > (float) $parameters[0]
+            : strlen((string) $value) > (int) $parameters[0];
+
+        if ($exceeded) {
+            $this->addError($field, $this->isNumericField($field) ? 'max_numeric' : 'max', $parameters);
         }
     }
 
     private function validateMin(string $field, $value, array $parameters): void
     {
-        if (!is_null($value) && isset($parameters[0]) && strlen($value) < (int)$parameters[0]) {
-            $this->addError($field, 'min', $parameters);
+        if (is_null($value) || !isset($parameters[0])) {
+            return;
         }
+
+        $short = $this->isNumericField($field)
+            ? (float) $value < (float) $parameters[0]
+            : strlen((string) $value) < (int) $parameters[0];
+
+        if ($short) {
+            $this->addError($field, $this->isNumericField($field) ? 'min_numeric' : 'min', $parameters);
+        }
+    }
+
+    /**
+     * min/max measure string length by default, which is what `max:255` on a
+     * name means. On a field also declared integer or numeric that reading is
+     * never the intent: `sprint_length` => `integer|min:1|max:8` meant "between
+     * one and eight characters", so 52 and 99999999 both satisfied a maximum of
+     * 8. Deciding from the field's own rule set keeps string fields untouched,
+     * including ones whose value happens to look like a number.
+     */
+    private function isNumericField(string $field): bool
+    {
+        foreach ($this->rules[$field] ?? [] as $rule) {
+            if ($rule['name'] === 'integer' || $rule['name'] === 'numeric') {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function validateInteger(string $field, $value): void

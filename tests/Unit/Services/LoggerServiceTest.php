@@ -44,7 +44,7 @@ final class LoggerServiceTest extends TestCase
             }
         }
 
-        unset($_SERVER['REMOTE_ADDR'], $_SERVER['HTTP_USER_AGENT']);
+        unset($_SERVER['REMOTE_ADDR'], $_SERVER['HTTP_USER_AGENT'], $_ENV['AUREO_LOG_DIR']);
 
         $this->removeDirectory($this->tempRoot);
 
@@ -73,6 +73,32 @@ final class LoggerServiceTest extends TestCase
         } else {
             @unlink($path);
         }
+    }
+
+    /**
+     * Without an override every LoggerService built by production code —
+     * BaseController's constructor, the container, the singleton — resolves to
+     * the repo's own log/aureo.log, so a test run appends to the file
+     * CLAUDE.md names as the first place to look when something breaks. It
+     * actively hindered diagnosis during the audit. The same override lets a
+     * host with a read-only application directory put its logs elsewhere.
+     */
+    public function testLogDirectoryFallsBackToTheEnvironmentOverride(): void
+    {
+        $_ENV['AUREO_LOG_DIR'] = $this->tempRoot . '/from-env';
+
+        $logger = new LoggerService();
+
+        $this->assertSame($this->tempRoot . '/from-env/aureo.log', $logger->getLogFile());
+    }
+
+    public function testAnExplicitDirectoryWinsOverTheEnvironmentOverride(): void
+    {
+        $_ENV['AUREO_LOG_DIR'] = $this->tempRoot . '/from-env';
+
+        $logger = new LoggerService($this->tempRoot . '/explicit');
+
+        $this->assertSame($this->tempRoot . '/explicit/aureo.log', $logger->getLogFile());
     }
 
     public function testConstructorCreatesLogDirectoryRecursivelyWhenMissing(): void
@@ -108,8 +134,41 @@ final class LoggerServiceTest extends TestCase
         $this->assertFalse($logger->isEnabled());
     }
 
+    /**
+     * Root ignores permission bits, so is_writable() answers true for a
+     * directory nobody else could write and "not writable" cannot be staged at
+     * all. There is no portable way to build a directory root may not write,
+     * so these two tests are skipped there rather than asserting something
+     * they cannot set up. Running as root is the default in most containers,
+     * which is exactly where this used to surface as three failures.
+     *
+     * Probed rather than read from posix_geteuid(), which needs ext-posix and
+     * answers a different question than the one that matters here.
+     */
+    private function skipWhenPermissionBitsAreBypassed(): void
+    {
+        $probe = sys_get_temp_dir() . '/logger_svc_probe_' . uniqid('', true);
+        mkdir($probe, 0755, true);
+        chmod($probe, 0444);
+        clearstatcache(true, $probe);
+
+        $bypassed = is_writable($probe);
+
+        chmod($probe, 0755);
+        rmdir($probe);
+
+        if ($bypassed) {
+            $this->markTestSkipped(
+                'This user bypasses directory permission bits (root, or a filesystem '
+                . 'that does not enforce them), so an unwritable directory cannot be staged.'
+            );
+        }
+    }
+
     public function testConstructorDisablesLoggingWhenDirectoryIsNotWritable(): void
     {
+        $this->skipWhenPermissionBitsAreBypassed();
+
         mkdir($this->tempRoot, 0755, true);
         chmod($this->tempRoot, 0444);
 
@@ -120,6 +179,8 @@ final class LoggerServiceTest extends TestCase
 
     public function testLogWritesNothingWhenLoggingIsDisabled(): void
     {
+        $this->skipWhenPermissionBitsAreBypassed();
+
         mkdir($this->tempRoot, 0755, true);
         chmod($this->tempRoot, 0444);
 
@@ -254,7 +315,7 @@ final class LoggerServiceTest extends TestCase
 
     public function testActivityLogsNullUserIdWhenNotProvided(): void
     {
-        unset($_SERVER['REMOTE_ADDR'], $_SERVER['HTTP_USER_AGENT']);
+        unset($_SERVER['REMOTE_ADDR'], $_SERVER['HTTP_USER_AGENT'], $_ENV['AUREO_LOG_DIR']);
 
         $logger = new LoggerService($this->tempRoot);
         $logger->activity('anonymous_action');

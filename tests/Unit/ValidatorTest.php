@@ -127,6 +127,88 @@ final class ValidatorTest extends TestCase
         $this->assertFalse($v->fails());
     }
 
+    // ---- numeric bounds --------------------------------------------------
+
+    /**
+     * min/max measure string length. For a field also declared integer that is
+     * never what the rule means: 'sprint_length' => 'integer|min:1|max:8' read
+     * as "between one and eight characters", so 52 and 99999999 both passed a
+     * bound of 8. SprintTemplateController declares exactly that, as does its
+     * default_capacity with max:200.
+     */
+    public function testMaxComparesNumericallyForAnIntegerField(): void
+    {
+        $v = new Validator(['sprint_length' => '52'], ['sprint_length' => 'integer|max:8']);
+
+        $this->assertTrue($v->fails(), '52 must not satisfy a maximum of 8.');
+    }
+
+    public function testMaxAcceptsAnIntegerInsideTheBound(): void
+    {
+        $v = new Validator(['sprint_length' => '8'], ['sprint_length' => 'integer|max:8']);
+
+        $this->assertFalse($v->fails());
+    }
+
+    /**
+     * Chosen so length and value disagree: '999' is three characters, so a
+     * length check rejects it against min:10 while the numeric check accepts
+     * it. A value where the two agree would pass either way and prove nothing.
+     */
+    public function testMinComparesNumericallyForAnIntegerField(): void
+    {
+        $v = new Validator(['capacity' => '999'], ['capacity' => 'integer|min:10']);
+
+        $this->assertFalse($v->fails(), '999 satisfies a minimum of 10.');
+    }
+
+    public function testMinRejectsAnIntegerBelowTheBound(): void
+    {
+        $v = new Validator(['capacity' => '5'], ['capacity' => 'integer|min:10']);
+
+        $this->assertTrue($v->fails());
+    }
+
+    /**
+     * The string behaviour is what every other caller relies on — max:255 on a
+     * name means 255 characters — and must not change, including when the
+     * value happens to look like a number.
+     */
+    /**
+     * "must not exceed 8 characters" is the wrong sentence for a number; the
+     * message has to follow the comparison it describes.
+     */
+    public function testANumericBoundIsReportedInNumericTerms(): void
+    {
+        $v = new Validator(['sprint_length' => '52'], ['sprint_length' => 'integer|max:8']);
+        $v->fails();
+
+        $this->assertStringNotContainsString('characters', $v->errors()['sprint_length']);
+        $this->assertStringContainsString('greater than 8', $v->errors()['sprint_length']);
+    }
+
+    public function testALengthBoundIsStillReportedInCharacters(): void
+    {
+        $v = new Validator(['name' => 'abcdef'], ['name' => 'string|max:3']);
+        $v->fails();
+
+        $this->assertStringContainsString('characters', $v->errors()['name']);
+    }
+
+    public function testMaxStillMeasuresLengthForAStringField(): void
+    {
+        $v = new Validator(['name' => '123456'], ['name' => 'string|max:3']);
+
+        $this->assertTrue($v->fails(), 'A six-character value must not satisfy max:3.');
+    }
+
+    public function testMinStillMeasuresLengthForAStringField(): void
+    {
+        $v = new Validator(['name' => '9'], ['name' => 'string|min:3']);
+
+        $this->assertTrue($v->fails(), 'A one-character value must not satisfy min:3.');
+    }
+
     public function testErrorMessagesAreReadable(): void
     {
         $v = new Validator(['email' => ''], ['email' => 'required']);

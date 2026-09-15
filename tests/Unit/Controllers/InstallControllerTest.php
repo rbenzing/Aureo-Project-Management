@@ -429,6 +429,20 @@ final class InstallControllerTest extends TestCase
     }
 
     /**
+     * A refusal that answers 200 tells every crawler, scanner and cache that
+     * /install is a normal page. The body says no; the status code should
+     * say it too.
+     */
+    public function testARefusedGateAnswersForbidden(): void
+    {
+        http_response_code(200);
+
+        $this->controller()->refuse('Aureo is already installed.');
+
+        $this->assertSame(403, http_response_code());
+    }
+
+    /**
      * The counter is seeded rather than driven to the limit by twelve real
      * POSTs.
      *
