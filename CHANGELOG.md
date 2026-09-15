@@ -9,6 +9,130 @@ The canonical version lives in the `VERSION` file at the repository root. Bump i
 with `composer version:patch` (or `:minor` / `:major`), which keeps `package.json`
 in step.
 
+## [1.4.0] - 2026-09-15
+
+Closes every finding in the [validation audit](./AUDIT.md). Along the way the audit work found
+seven more defects, six of them user-facing, and each one failed in a way the existing tests could
+not see: swallowed by a `catch`, returned as an empty list, or asserted against a mocked driver
+that accepts any SQL at all.
+
+Anyone tracking time, editing epics, searching the activity log, or completing a task should
+upgrade.
+
+### Fixed
+
+- **Task timers answered HTTP 500 on every click.** `TaskController::startTimer()` wrote a
+  `timer_start` column that exists in no table, and that is what the dashboard's Start button
+  posts to. The routes now point at `TimeTrackingController` — the implementation that actually
+  works, accumulating `time_spent`, respecting `is_hourly` for `billable_time`, writing a
+  `time_entries` row and recording timer history. `TaskController`'s half-finished duplicate is
+  gone, along with `TaskService::startTimer()`/`stopTimer()`, which shared the defect and had no
+  callers. The URLs are unchanged: six views link to them, and all six already read
+  `$_SESSION['active_timer']`, so the interface was written for the surviving implementation all
+  along.
+- **No task could be completed, and no project either.** `TaskService` wrote `completed_at`; the
+  column is `complete_date`. `ProjectService` wrote `completed_at` to a `projects` table with no
+  completion column of any kind. Neither field was silently dropped — `BaseModel::prepareSaveData()`
+  filters only `$guarded`, not to `$fillable` — so the unknown column reached the SQL and the
+  statement failed. Tasks now stamp `complete_date`; for projects, `status_id` is the record.
+- **A missing `settings` table exhausted 128MB per request.** `Database::executeQuery()`'s failure
+  handler asked `SecurityService` for a user-safe message; that constructor builds
+  `SettingsService`, which reads the `settings` table through `executeQuery()`. When that read was
+  the failing query, the constructor never returned, the singleton was never assigned, and every
+  retry re-entered it — unbounded recursion ending in a fatal, on any instance whose settings table
+  was missing, misnamed or unreadable. The handler now throws directly. Nothing observable changed:
+  the message it recursed for sat inside the `try` and was swallowed by the `catch` below it, so
+  the generic one went out every time regardless.
+- **Global search returned HTTP 500 for every query of three characters or more.**
+  `SearchIndex::fullTextSearch()` named the same `:query` placeholder twice in one statement, and
+  `Database` runs with `PDO::ATTR_EMULATE_PREPARES=false`, where a native prepare allows one
+  binding per placeholder. The driver rejected it with `SQLSTATE[HY093]` before it ran, so the
+  command palette and the search box failed for all real input — only one- and two-character
+  queries worked, those taking `prefixSearch()` instead.
+- **The activity log's search filter reported no results.** The same duplicated-placeholder defect
+  in `ActivityController::getTotalActivities()`, in the branch that runs on the canonical schema.
+  Caught and returned 0, so the count said nothing matched while the listing beside it returned
+  rows.
+- **A sprint could silently show no tasks.** Again the same defect, in
+  `Sprint::getSprintTasksWithSubtasks()`, caught and returned as an empty array. No production
+  callers yet, so it had not been reported.
+- **No epic could be edited.** `MilestoneController::update()` passed the request's `epic_id`
+  string into `checkCircularEpicReference(int, int)`. The controller declares `strict_types=1` and
+  PHP checks the call site, so every attempt raised a `TypeError` that the generic handler reported
+  as "An error occurred while updating the milestone".
+- **Numeric bounds enforced nothing.** `Validator`'s `min` and `max` measured string length
+  unconditionally, including on fields declared `integer`. `'sprint_length' => 'integer|min:1|max:8'`
+  meant "between one and eight characters", so 52 satisfied it and `default_capacity` with
+  `max:200` accepted 99999999. They now compare numerically when the field's own rule set includes
+  `integer` or `numeric`, and measure length otherwise — a name of `"123456"` still fails `max:3`
+  on length.
+- **`Role::assignPermission()` could only ever throw** — `:role_id` named in both the `VALUES` list
+  and the `ON DUPLICATE KEY UPDATE` clause. Now uses `VALUES(role_id)`, which needs no second
+  binding. No production callers.
+- **`renderTimerControls()` emitted an empty CSRF field**, reading `$csrfToken` from inside its own
+  function body where a caller's locals are not visible. It has no callers, so it never manifested;
+  the risk was somebody copying the pattern.
+- **A refused `/install` answered `200`.** It answers `403` now. The gate's decision logic is
+  unchanged; only the status code was dishonest.
+- **`phinx.php` was served and executed in the drop-in layout**, matching neither the directory
+  rule nor the extension list. Added to the Apache, IIS and nginx deny rules.
+
+### Added
+
+- **`AUREO_LOG_DIR`** overrides the log directory. Set it to an absolute path when the application
+  directory is read-only — a container image, or managed hosting that mounts the code read-only
+  with a separate writable volume. Read from the environment, `$_SERVER` or `getenv()`, the same
+  three sources as `AUREO_CONFIG`. See [DEPLOYMENT.md](./docs/DEPLOYMENT.md#logs).
+- **`Dockerfile` and `compose.yaml`** run both supported deployment layouts side by side —
+  `localhost:8080` with the document root at `public/`, `localhost:8081` with it at the application
+  root. The drop-in layout puts the whole repository inside the web root, so `.htaccess` is the
+  only thing protecting `.env`, `vendor/` and `config/` there, and PHP's built-in server cannot
+  show you any of that, having no `.htaccess` support. Development tooling: `export-ignore`d, so it
+  never reaches a release archive. See
+  [CONTRIBUTING.md](./CONTRIBUTING.md#running-both-deployment-layouts-in-containers).
+- **Three repo-wide guard tests.** `SqlPlaceholderGuardTest` fails on any SQL literal that names a
+  placeholder twice — the defect behind four of the fixes above, and one no mocked test can catch,
+  because a mock accepts any SQL. `RouteTargetsTest` fails if a route names a controller or action
+  that does not exist. `DropInDenyRulesTest` checks the shipped Apache and IIS rules against files
+  that must be denied *and* files that must still be served.
+
+### Changed
+
+- **The five controllers with zero coverage now have some.** `RoleController` 86.6%,
+  `MilestoneController` 80.1%, `UserController` 78.3%, `SprintTemplateController` 72.9%,
+  `TemplateController` 72.1%; the `Controllers` tier rose from 50.12% to 67.86%. Coverage was the
+  means rather than the end: every one of those files was mutation-tested, and all fifteen
+  mutations were caught. Two of the fixes above were found while writing these tests.
+- **Integration cover reaches the domain flows.** Eleven files and 65 tests, up from one file of
+  auth-only reads at the start of the audit, now covering task assignment and the status state
+  machine, sprint planning with its subtask cascade and one-active-sprint rule, project
+  transitions, record creation, token lifecycle, and the hand-written search, role and activity
+  SQL.
+- **The test suite no longer writes to `log/aureo.log`** — the file this project names as the first
+  place to look when something breaks, and which actively hindered diagnosis during the audit. The
+  bootstrap points `AUREO_LOG_DIR` at `var/tmp/test-logs`.
+- **The suite is root-safe**, the default in most containers. Verified on `php:8.2-cli` as root:
+  2258 tests, no failures. Previously three failed there because root ignores permission bits.
+- Leftover debug logging removed from `TemplateController::index()`, which wrote three lines to the
+  application log on every templates page view.
+
+### Known issues
+
+- **Two rules that only ever lived in unreachable code are gone with it**, and are recorded rather
+  than reinvented. `TaskService::startTimer()` refused to track time against a completed or closed
+  task; `TimeTrackingController` has no equivalent, checking only `manage_tasks` when the task
+  belongs to someone else. Nothing regressed, since the rule was never reachable — but whether it
+  should exist is a product decision.
+- **`TemplateController::getTemplate()` is the last action still ending in `exit`**, so it cannot be
+  tested in-process. Everything else became an `HttpResponse` return in 1.3.0.
+- **`UserController::create()`'s success path is uncovered** — it calls
+  `Email::sendActivationEmail()` statically, which attempts real delivery. Covering it needs a
+  mailer seam.
+- The 1.2.0 known issues still stand: **nothing in CI verifies the drop-in layout's hardening
+  rules**. The new container makes checking them a local command rather than an afternoon, and the
+  guard test checks them as patterns, but neither proves anything about *your* host. For that, run
+  `php bin/preflight.php --url=https://your-site`.
+
 ## [1.3.0] - 2026-09-14
 
 An empirical audit of the whole application ([AUDIT.md](./AUDIT.md)) found that **every record
@@ -494,7 +618,8 @@ uncatchable `TypeError`.
 
 Initial tagged release.
 
-[Unreleased]: https://github.com/rbenzing/Aureo-Project-Management/compare/1.3.0...HEAD
+[Unreleased]: https://github.com/rbenzing/Aureo-Project-Management/compare/1.4.0...HEAD
+[1.4.0]: https://github.com/rbenzing/Aureo-Project-Management/compare/1.3.0...1.4.0
 [1.3.0]: https://github.com/rbenzing/Aureo-Project-Management/compare/1.2.0...1.3.0
 [1.2.0]: https://github.com/rbenzing/Aureo-Project-Management/compare/1.1.0...1.2.0
 [1.1.0]: https://github.com/rbenzing/Aureo-Project-Management/compare/1.0.2...1.1.0

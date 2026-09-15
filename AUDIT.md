@@ -42,7 +42,7 @@ the two SQL defects (H4, H5) were found by reading statements rather than by run
 | H9 | High | **Numeric bounds were never enforced** — `Validator`'s `min`/`max` measured string length even on `integer` fields, so `sprint_length` with `max:8` accepted 52 and `default_capacity` with `max:200` accepted 99999999 | **Fixed** |
 | H10 | **High** | **Task timers 500ed and tasks could not be completed** — `timer_start` and `completed_at` were written by five methods but exist in no table | **Fixed** |
 | H11 | High | **A missing table exhausted 128MB per request** — `Database`'s query-failure handler called back into the singleton whose construction was failing, recursing until PHP died | **Fixed** |
-| M1 | Medium | Integration suite was one file, 16 tests, auth-only | **Fixed** — 10 files, 59 tests, covering task, sprint and time-tracking flows |
+| M1 | Medium | Integration suite was one file, 16 tests, auth-only | **Fixed** — 11 files, 65 tests, covering task, sprint, project and time-tracking flows |
 | M2 | Medium | `renderTimerControls()` emits an always-empty CSRF field (dead code) | **Fixed** |
 | M3 | Medium | `InstallerServiceTest` hardcoded `127.0.0.1:3306`, silently skipping | **Fixed** |
 | M4 | Medium | Suite is not root-safe — 3 failures when run as root | **Fixed** |
