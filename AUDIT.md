@@ -451,12 +451,15 @@ phpdoc). Hand-written SQL in `src/Controllers` was not swept.
 
 ## Recommended next steps
 
-1. **H3** — take the five zero-coverage controllers off zero, starting with `UserController` and
-   `RoleController`, which administer accounts and permissions. The tier gate is satisfied by the
-   `Controllers` aggregate and cannot see that five files are at zero.
-2. **M1** — integration cover for the task, sprint and time-tracking flows, which still have none.
-3. **M6** — a `Dockerfile` / compose file, so the two supported layouts stop being exercised only
-   by hand.
+1. **M1** — integration cover for the task, sprint and time-tracking flows, which still have none.
+   The unit suite now reaches every controller, but nothing exercises those flows end to end
+   against a real database.
+2. **M6** — a `Dockerfile` / compose file, so the two supported layouts stop being exercised only
+   by hand. This is the one remaining item that is a build-out rather than a fix.
+3. **`TemplateController::getTemplate()`** is the last action still ending in `exit`; the rest
+   became `HttpResponse` returns in 1.3.0. Converting it is what makes it coverable.
+4. **`UserController::create()`'s success path** calls `Email::sendActivationEmail()` statically,
+   so it cannot be exercised without a mailer seam. ~15 statements.
 
 **On the SQL sweep, now closed:** `SqlPlaceholderGuardTest` fails on any SQL literal that names a
 placeholder twice, so that defect class is caught at authoring time rather than in production. Its
