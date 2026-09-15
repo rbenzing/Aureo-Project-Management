@@ -40,7 +40,8 @@ the two SQL defects (H4, H5) were found by reading statements rather than by run
 | H7 | High | `Sprint::getSprintTasksWithSubtasks()` silently returned no tasks — same defect; no production callers | **Fixed** |
 | H8 | High | **Epics could not be edited at all** — `MilestoneController::update()` passed the request string to `checkCircularEpicReference(int, int)` under `strict_types=1`; the TypeError was swallowed as a generic error | **Fixed** |
 | H9 | High | **Numeric bounds were never enforced** — `Validator`'s `min`/`max` measured string length even on `integer` fields, so `sprint_length` with `max:8` accepted 52 and `default_capacity` with `max:200` accepted 99999999 | **Fixed** |
-| M1 | Medium | Integration suite was one file, 16 tests, auth-only | **Improved, not closed** (6 files, 33 tests) |
+| H10 | **High** | **Task timers are broken and tasks cannot be completed** — `timer_start` and `completed_at` are written by three code paths but exist in no table | Open |
+| M1 | Medium | Integration suite was one file, 16 tests, auth-only | **Fixed** — 10 files, 59 tests, covering task, sprint and time-tracking flows |
 | M2 | Medium | `renderTimerControls()` emits an always-empty CSRF field (dead code) | **Fixed** |
 | M3 | Medium | `InstallerServiceTest` hardcoded `127.0.0.1:3306`, silently skipping | **Fixed** |
 | M4 | Medium | Suite is not root-safe — 3 failures when run as root | **Fixed** |
@@ -413,6 +414,61 @@ second call.
 **Still open:** the scan that found this covered `src/Models`, `src/Repositories` and
 `src/Services`. Every other hit was a false positive (separate statements sharing a name, or
 phpdoc). Hand-written SQL in `src/Controllers` was not swept.
+
+---
+
+## H10 — High, open: task timers are broken, and tasks cannot be completed
+
+Found by the M1 integration work, in exactly the place M1 said to look.
+
+Three code paths write columns that **no table has**:
+
+```
+TaskController::startTimer()      timer_start     routed, wired to the dashboard buttons
+TaskController::stopTimer()       timer_start     routed, wired to the dashboard buttons
+TaskService::startTimer()         timer_start     no callers
+TaskService::transitionStatus()   completed_at    no callers  (COMPLETED branch only)
+TaskService::completeTask()       completed_at    no callers
+```
+
+The `tasks` table carries `time_spent` and `complete_date`. There is no `timer_start` and no
+`completed_at` — the latter is the same field as `complete_date` under a different name.
+
+**Why nothing stripped them.** `BaseModel::prepareSaveData()` removes only `$guarded` keys; it
+does **not** restrict writes to `$fillable`. `$fillable` lists neither column, which is easy to
+read as protection and is not — the unknown field reaches the SQL, and the statement fails.
+
+```
+Task::update($id, ['status_id' => 6])                        -> true
+Task::update($id, ['status_id' => 6, 'updated_at' => ...])    -> true   (updated_at is guarded)
+Task::update($id, ['status_id' => 6, 'completed_at' => ...])  -> RuntimeException
+Task::update($id, ['timer_start' => ...])                    -> RuntimeException
+```
+
+**Live impact.** `POST /tasks/start-timer/:task_id` and `/tasks/stop-timer/:task_id` are routed to
+`TaskController`, and `src/Views/Dashboard/index.php` posts the Start and Stop buttons to them.
+The controller catches the failure and answers **HTTP 500**, so the dashboard timer fails on every
+click for every user.
+
+**Latent impact.** `TaskService`'s timer and completion methods have no callers — it is registered
+in the container but no controller consumes it — so its identical breakage has never been reported.
+
+**The feature is also incoherent above the schema.** A second, unrelated timer implementation
+lives in `TimeTrackingController` (`/time-tracking/start`, `/stop`), which keeps the timer in
+`$_SESSION['active_timer']` and writes history rows. The dashboard *reads* that session key to
+decide whether to show Stop — but its buttons *post* to the `TaskController` routes, which never
+set it. So the two halves of the UI are wired to different implementations, and neither completes
+the loop.
+
+**Not fixed here.** Repairing it is a design choice, not a one-line change: either add a
+`timer_start` column (a new Phinx migration) and point the UI at the `TaskController` routes, or
+drop those routes and wire the dashboard to the session-based `TimeTrackingController` that
+already works. `completed_at` is separate and simpler — it should read and write `complete_date`,
+the column that exists.
+
+**Pinned by:** [tests/Integration/TaskWorkflowTest.php](tests/Integration/TaskWorkflowTest.php) —
+four tests assert the current failures so the fix is a visible, deliberate change rather than a
+silent one.
 
 ---
 ## Remaining open items
