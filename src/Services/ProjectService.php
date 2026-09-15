@@ -351,11 +351,6 @@ class ProjectService
             'updated_at' => date('Y-m-d H:i:s'),
         ];
 
-        // Auto-set completion date when transitioning to completed
-        if ($newStatus === ProjectStatus::COMPLETED && empty($project->completed_at)) {
-            $updateData['completed_at'] = date('Y-m-d H:i:s');
-        }
-
         $updated = $this->projectModel->update($projectId, $updateData);
 
         if (!$updated) {

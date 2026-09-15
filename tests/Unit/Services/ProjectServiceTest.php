@@ -514,30 +514,24 @@ final class ProjectServiceTest extends TestCase
         $this->service->transitionStatus(1, ProjectStatus::IN_PROGRESS);
     }
 
-    public function testTransitionStatusSetsCompletionDateWhenNotAlreadySet(): void
+    /**
+     * `projects` has no completion-date column at all — only start_date and
+     * end_date — so the write that used to happen here failed the statement and
+     * no project could be completed. status_id is the record of completion now.
+     * The integration cover is ProjectWorkflowTest, which a mocked model cannot
+     * provide: a mock accepts any column name.
+     */
+    public function testCompletingAProjectWritesNoCompletionDate(): void
     {
         $this->projectModel->method('findOrFail')
-            ->willReturn((object) ['status_id' => ProjectStatus::IN_PROGRESS->value, 'completed_at' => null]);
+            ->willReturn((object) ['status_id' => ProjectStatus::IN_PROGRESS->value]);
 
         $this->projectModel->expects($this->once())
             ->method('update')
-            ->with(1, $this->callback(fn (array $data): bool => isset($data['completed_at'])))
-            ->willReturn(true);
-
-        $this->service->transitionStatus(1, ProjectStatus::COMPLETED);
-    }
-
-    public function testTransitionStatusKeepsExistingCompletionDate(): void
-    {
-        $this->projectModel->method('findOrFail')
-            ->willReturn((object) [
-                'status_id' => ProjectStatus::IN_PROGRESS->value,
-                'completed_at' => '2020-01-01 00:00:00',
-            ]);
-
-        $this->projectModel->expects($this->once())
-            ->method('update')
-            ->with(1, $this->callback(fn (array $data): bool => !isset($data['completed_at'])))
+            ->with(1, $this->callback(static fn (array $data): bool => $data == [
+                'status_id' => ProjectStatus::COMPLETED->value,
+                'updated_at' => $data['updated_at'],
+            ]))
             ->willReturn(true);
 
         $this->service->transitionStatus(1, ProjectStatus::COMPLETED);

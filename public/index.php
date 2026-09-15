@@ -210,8 +210,13 @@ try {
     $router->post('tasks/update', ['controller' => 'Task', 'action' => 'update']);
     $router->post('tasks/update-status', ['controller' => 'Task', 'action' => 'updateStatus']);
     $router->post('tasks/delete/:id', ['controller' => 'Task', 'action' => 'delete', 'params' => ['id']]);
-    $router->post('tasks/start-timer/:task_id', ['controller' => 'Task', 'action' => 'startTimer', 'params' => ['task_id']]);
-    $router->post('tasks/stop-timer/:task_id', ['controller' => 'Task', 'action' => 'stopTimer', 'params' => ['task_id']]);
+    // The timer lives in TimeTrackingController: it is the implementation that
+    // records billable_time, writes a time_entries row and keeps timer history.
+    // TaskController had a second, half-finished one that wrote a timer_start
+    // column the schema has never had, so these routes answered 500 on every
+    // click. The URLs are kept because six views link to them.
+    $router->post('tasks/start-timer/:task_id', ['controller' => 'TimeTracking', 'action' => 'startTimer', 'params' => ['task_id']]);
+    $router->post('tasks/stop-timer/:task_id', ['controller' => 'TimeTracking', 'action' => 'stopTimer', 'params' => ['task_id']]);
     $router->post('tasks/add-comment/:id', ['controller' => 'Task', 'action' => 'addComment', 'params' => ['id']]);
 
     // API Routes for AJAX

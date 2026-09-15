@@ -40,7 +40,7 @@ the two SQL defects (H4, H5) were found by reading statements rather than by run
 | H7 | High | `Sprint::getSprintTasksWithSubtasks()` silently returned no tasks — same defect; no production callers | **Fixed** |
 | H8 | High | **Epics could not be edited at all** — `MilestoneController::update()` passed the request string to `checkCircularEpicReference(int, int)` under `strict_types=1`; the TypeError was swallowed as a generic error | **Fixed** |
 | H9 | High | **Numeric bounds were never enforced** — `Validator`'s `min`/`max` measured string length even on `integer` fields, so `sprint_length` with `max:8` accepted 52 and `default_capacity` with `max:200` accepted 99999999 | **Fixed** |
-| H10 | **High** | **Task timers are broken and tasks cannot be completed** — `timer_start` and `completed_at` are written by three code paths but exist in no table | Open |
+| H10 | **High** | **Task timers 500ed and tasks could not be completed** — `timer_start` and `completed_at` were written by five methods but exist in no table | **Fixed** |
 | M1 | Medium | Integration suite was one file, 16 tests, auth-only | **Fixed** — 10 files, 59 tests, covering task, sprint and time-tracking flows |
 | M2 | Medium | `renderTimerControls()` emits an always-empty CSRF field (dead code) | **Fixed** |
 | M3 | Medium | `InstallerServiceTest` hardcoded `127.0.0.1:3306`, silently skipping | **Fixed** |
@@ -417,7 +417,7 @@ phpdoc). Hand-written SQL in `src/Controllers` was not swept.
 
 ---
 
-## H10 — High, open: task timers are broken, and tasks cannot be completed
+## H10 — High, FIXED: task timers 500ed, and tasks could not be completed
 
 Found by the M1 integration work, in exactly the place M1 said to look.
 
@@ -460,15 +460,32 @@ decide whether to show Stop — but its buttons *post* to the `TaskController` r
 set it. So the two halves of the UI are wired to different implementations, and neither completes
 the loop.
 
-**Not fixed here.** Repairing it is a design choice, not a one-line change: either add a
-`timer_start` column (a new Phinx migration) and point the UI at the `TaskController` routes, or
-drop those routes and wire the dashboard to the session-based `TimeTrackingController` that
-already works. `completed_at` is separate and simpler — it should read and write `complete_date`,
-the column that exists.
+**Fix — the timer.** `TimeTrackingController` is the complete implementation: it accumulates
+`time_spent`, respects `is_hourly` to accumulate `billable_time`, writes a `time_entries` row and
+records timer history. `TaskController`'s did none of that and could only fail. The two routes now
+point at `TimeTrackingController`, and `TaskController::startTimer()`/`stopTimer()` are deleted.
+The URLs are unchanged, because six view files link to them and all six already read
+`$_SESSION['active_timer']` — the UI was written for the session implementation all along.
+`TaskService::startTimer()`/`stopTimer()` are deleted too: unreachable, and unfixable in place.
 
-**Pinned by:** [tests/Integration/TaskWorkflowTest.php](tests/Integration/TaskWorkflowTest.php) —
-four tests assert the current failures so the fix is a visible, deliberate change rather than a
-silent one.
+**Fix — completion.** `TaskService` now reads and writes `complete_date`, the column that exists,
+as a `DATE`. The dead "cannot complete a task with a running timer" guard went with the timers.
+
+**The same defect in `ProjectService`.** `transitionStatus()` wrote `completed_at` on a `projects`
+table that has no completion column of any kind — only `start_date` and `end_date` — so no project
+could be completed either. There was nothing to rename it to, so the write is gone; `status_id`
+records completion. Also latent: no controller consumes `ProjectService`.
+
+**One rule was lost with the dead code**, and is recorded rather than reinvented:
+`TaskService::startTimer()` refused to track time against a completed or closed task.
+`TimeTrackingController` has no such rule — it checks `manage_tasks` when the task belongs to
+someone else, and nothing else. Since the rule lived in unreachable code it was never enforced in
+practice, so nothing regressed; whether it should exist is a product decision.
+
+**Covered by:** [TaskWorkflowTest](tests/Integration/TaskWorkflowTest.php) and
+[ProjectWorkflowTest](tests/Integration/ProjectWorkflowTest.php) against a real database, plus
+[RouteTargetsTest](tests/Unit/RouteTargetsTest.php), which fails if any route names a controller
+or action that does not exist — the mistake repointing these routes could most easily have made.
 
 ---
 ## Remaining open items

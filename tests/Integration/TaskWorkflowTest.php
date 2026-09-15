@@ -36,6 +36,12 @@ use Tests\Support\TestCase;
  * columns, which a hand-built stdClass in a unit test always gets right and a
  * real connection is entitled not to.
  *
+ * Timers are deliberately absent. TaskService::startTimer()/stopTimer() wrote
+ * a timer_start column that exists in no table and had no callers; they were
+ * removed, and the working implementation — session-backed, writing
+ * time_entries and billable_time — lives in TimeTrackingController, which the
+ * /tasks/start-timer and /tasks/stop-timer routes now reach.
+ *
  * Requires a migrated test database; skipped cleanly when none is reachable.
  */
 #[CoversClass(TaskService::class)]
@@ -166,30 +172,41 @@ final class TaskWorkflowTest extends TestCase
         $this->assertSame(TaskStatus::OPEN->value, (int) $this->reload($taskId)->status_id);
     }
 
-    /**
-     * PINS A DEFECT (audit H10). Transitioning to completed also writes
-     * completed_at, and `tasks` has no such column — the schema calls it
-     * complete_date. BaseModel::prepareSaveData() removes only $guarded keys,
-     * NOT everything outside $fillable, so the unknown field reaches the SQL
-     * and the statement fails. A task can therefore never be completed through
-     * TaskService. Rewrite this as the positive case when H10 is fixed.
-     */
-    public function testCompletingATaskFailsBecauseTheColumnDoesNotExist(): void
+    public function testCompletingATaskStampsTheCompletionDate(): void
     {
         $taskId = $this->createTask($this->projectId, ['status_id' => TaskStatus::IN_PROGRESS->value]);
-
-        $this->expectException(\RuntimeException::class);
-        $this->expectExceptionMessage('Error updating task');
 
         $this->service()->transitionStatus($taskId, TaskStatus::COMPLETED);
+
+        $row = $this->reload($taskId);
+
+        $this->assertSame(TaskStatus::COMPLETED->value, (int) $row->status_id);
+        $this->assertSame(date('Y-m-d'), $row->complete_date);
     }
 
-    public function testCompleteTaskFailsForTheSameReason(): void
+    /**
+     * complete_date is a DATE column, so a datetime string would be truncated
+     * by the server rather than rejected — the assertion above is on the exact
+     * stored value for that reason.
+     */
+    public function testCompleteTaskStampsTheCompletionDate(): void
     {
         $taskId = $this->createTask($this->projectId, ['status_id' => TaskStatus::IN_PROGRESS->value]);
 
-        $this->expectException(\RuntimeException::class);
-        $this->expectExceptionMessage('Error updating task');
+        $this->service()->completeTask($taskId);
+
+        $row = $this->reload($taskId);
+
+        $this->assertSame(TaskStatus::COMPLETED->value, (int) $row->status_id);
+        $this->assertSame(date('Y-m-d'), $row->complete_date);
+    }
+
+    public function testAnAlreadyCompletedTaskCannotBeCompletedAgain(): void
+    {
+        $taskId = $this->createTask($this->projectId, ['status_id' => TaskStatus::COMPLETED->value]);
+
+        $this->expectException(BusinessRuleException::class);
+        $this->expectExceptionMessage('already completed');
 
         $this->service()->completeTask($taskId);
     }
@@ -203,73 +220,5 @@ final class TaskWorkflowTest extends TestCase
         $this->service()->updateEstimate($taskId, 7200);
 
         $this->assertSame(7200, (int) $this->reload($taskId)->estimated_time);
-    }
-
-    // ---- timers ----------------------------------------------------------
-
-    /**
-     * PINS A DEFECT (audit H10). `tasks` has no timer_start column at all —
-     * the schema carries complete_date and time_spent and nothing else
-     * time-related. Because prepareSaveData() filters only $guarded, the
-     * unknown field reaches the SQL and the statement fails, so starting a
-     * timer throws rather than quietly doing nothing.
-     *
-     * The same write happens in TaskController::startTimer(), which IS routed
-     * (POST /tasks/start-timer/:task_id) and IS wired to the Start buttons on
-     * the dashboard. There it is caught and returned as HTTP 500, so the
-     * dashboard timer is broken for every user on every click.
-     */
-    public function testStartingATimerFailsBecauseTheColumnDoesNotExist(): void
-    {
-        $taskId = $this->createTask($this->projectId, [
-            'assigned_to' => self::USER_ID,
-            'status_id' => TaskStatus::OPEN->value,
-        ]);
-
-        $this->expectException(\RuntimeException::class);
-        $this->expectExceptionMessage('Error updating task');
-
-        $this->service()->startTimer($taskId, self::USER_ID);
-    }
-
-    /**
-     * Nothing can ever have been stored, so stopping always reports that no
-     * timer is running — the guard fires before the broken write is reached.
-     */
-    public function testStoppingATimerAlwaysReportsNoTimerRunning(): void
-    {
-        $taskId = $this->createTask($this->projectId, ['assigned_to' => self::USER_ID]);
-
-        $this->expectException(BusinessRuleException::class);
-        $this->expectExceptionMessage('No timer running for this task');
-
-        $this->service()->stopTimer($taskId, self::USER_ID);
-    }
-
-    /**
-     * The ownership guard runs before the broken write, so it is real and worth
-     * holding: a user may not start a timer on somebody else's task.
-     */
-    public function testATimerCannotBeStartedOnSomeoneElsesTask(): void
-    {
-        $taskId = $this->createTask($this->projectId, ['assigned_to' => self::USER_ID]);
-
-        $this->expectException(BusinessRuleException::class);
-        $this->expectExceptionMessage('not assigned to you');
-
-        $this->service()->startTimer($taskId, self::USER_ID + 99);
-    }
-
-    public function testATimerCannotBeStartedOnACompletedTask(): void
-    {
-        $taskId = $this->createTask($this->projectId, [
-            'assigned_to' => self::USER_ID,
-            'status_id' => TaskStatus::COMPLETED->value,
-        ]);
-
-        $this->expectException(BusinessRuleException::class);
-        $this->expectExceptionMessage('Cannot track time on completed tasks');
-
-        $this->service()->startTimer($taskId, self::USER_ID);
     }
 }
