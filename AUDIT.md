@@ -36,7 +36,7 @@ the two SQL defects (H4, H5) were found by reading statements rather than by run
 | H3 | High | 5 controllers at exactly **0.0%** coverage (916 statements) | Open |
 | H4 | High | `/api/search` returned HTTP 500 for every query of 3+ chars — a duplicated `:query` placeholder, not the missing FULLTEXT index first suspected | **Fixed** |
 | H5 | High | `Role::assignPermission()` could only ever throw — same duplicated-placeholder defect; no production callers | **Fixed** |
-| M1 | Medium | Integration suite was one file, 16 tests, auth-only | **Improved** (3 files, 27 tests) |
+| M1 | Medium | Integration suite was one file, 16 tests, auth-only | **Improved, not closed** (6 files, 33 tests) |
 | M2 | Medium | `renderTimerControls()` emits an always-empty CSRF field (dead code) | Open |
 | M3 | Medium | `InstallerServiceTest` hardcoded `127.0.0.1:3306`, silently skipping | **Fixed** |
 | M4 | Medium | Suite is not root-safe — 3 failures when run as root | Open |
