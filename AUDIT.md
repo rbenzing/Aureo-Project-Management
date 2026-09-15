@@ -36,14 +36,16 @@ the two SQL defects (H4, H5) were found by reading statements rather than by run
 | H3 | High | 5 controllers at exactly **0.0%** coverage (916 statements) | Open |
 | H4 | High | `/api/search` returned HTTP 500 for every query of 3+ chars — a duplicated `:query` placeholder, not the missing FULLTEXT index first suspected | **Fixed** |
 | H5 | High | `Role::assignPermission()` could only ever throw — same duplicated-placeholder defect; no production callers | **Fixed** |
+| H6 | High | Activity log search reported **0 results** — `:search` bound twice, caught and swallowed | **Fixed** |
+| H7 | High | `Sprint::getSprintTasksWithSubtasks()` silently returned no tasks — same defect; no production callers | **Fixed** |
 | M1 | Medium | Integration suite was one file, 16 tests, auth-only | **Improved, not closed** (6 files, 33 tests) |
-| M2 | Medium | `renderTimerControls()` emits an always-empty CSRF field (dead code) | Open |
+| M2 | Medium | `renderTimerControls()` emits an always-empty CSRF field (dead code) | **Fixed** |
 | M3 | Medium | `InstallerServiceTest` hardcoded `127.0.0.1:3306`, silently skipping | **Fixed** |
 | M4 | Medium | Suite is not root-safe — 3 failures when run as root | Open |
 | M5 | Medium | Tests write into the real `log/aureo.log` | Open |
 | M6 | Medium | No deployment/container artifacts in the repo | Open |
-| L1 | Low | `/install` answers `200` (with a refusal body) instead of `403` | Open |
-| L2 | Low | `phinx.php` is directly executable in the drop-in layout | Open |
+| L1 | Low | `/install` answers `200` (with a refusal body) instead of `403` | **Fixed** |
+| L2 | Low | `phinx.php` is directly executable in the drop-in layout | **Fixed** |
 | L3 | Low | `CLAUDE.md` is stale — documents a fixed bug as unfixed | **Fixed** |
 
 **Verification after fixes (exact CI parity — PHP 8.2 defaults, MySQL-compatible DB on 127.0.0.1:3306):**
@@ -416,11 +418,6 @@ phpdoc). Hand-written SQL in `src/Controllers` was not swept.
 - **M1 — Integration coverage** (improved, not closed). Was one file / 16 tests, all auth reads;
   now six files / 33 tests covering record creation, token lifecycle, session persistence and the
   hand-written search and role SQL. Still nothing for task/sprint/time-tracking flows.
-- **M2 — `renderTimerControls()`** reads `$csrfToken` from inside its own function body
-  ([src/Views/Layouts/ViewHelpers.php:509](src/Views/Layouts/ViewHelpers.php#L509)), which can never
-  see caller scope — the defect `CLAUDE.md` records as fixed in `FormComponents.php`. It has **no
-  callers**, so it has not manifested; copying the pattern into live code would ship a broken CSRF
-  field. Delete it or fix it to read `$_SESSION['csrf_token']`.
 - **M4 — Not root-safe.** As root (the default in most containers) three tests fail because root
   bypasses permission bits: `InstallerServiceTest::testFirstWritableTargetPicksTheInTreeLocation...`
   and two `LoggerServiceTest` "not writable" tests. The same command as UID 1000 passes. They should
@@ -430,10 +427,6 @@ phpdoc). Hand-written SQL in `src/Controllers` was not swept.
   `CLAUDE.md` says to look on failure — it actively hindered diagnosis of C1 during this audit.
 - **M6 — No deployment artifacts.** No `Dockerfile` or compose file exists, so the two supported
   layouts are only ever exercised by hand; the containers for this audit were written from scratch.
-- **L1 — `/install` returns `200`** with an "already installed" body. The gate logic is correct and
-  `InstallGate::decide()` fails closed on an unknown user count, but `403` would be the honest code.
-- **L2 — `phinx.php` executes in the drop-in layout** (`GET /phinx.php` → `200`, empty body). It
-  matches neither the directory nor the extension deny list in `.htaccess`. Add it.
 
 ---
 
@@ -463,12 +456,16 @@ phpdoc). Hand-written SQL in `src/Controllers` was not swept.
 
 ## Recommended next steps
 
-1. **Sweep the remaining hand-written SQL for duplicated placeholders.** H4 and H5 were the same
-   one-line defect in two places, each invisible to a suite that mocks the driver. The scan behind
-   H5 covered `src/Models`, `src/Repositories` and `src/Services`; `src/Controllers` was not swept.
-   A cheap guard would be a test that prepares every statement the models emit against a real
-   connection.
-2. **H3** — take the five zero-coverage controllers off zero, starting with `UserController` and
-   `RoleController`.
-3. **M4 / M5** — make the suite root-safe and stop it writing to the real application log.
-4. **M2 / L2** — delete or fix `renderTimerControls()`; add `phinx.php` to the `.htaccess` deny list.
+1. **H3** — take the five zero-coverage controllers off zero, starting with `UserController` and
+   `RoleController`, which administer accounts and permissions. The tier gate is satisfied by the
+   `Controllers` aggregate and cannot see that five files are at zero.
+2. **M4 / M5** — make the suite root-safe and stop it writing to the real application log.
+3. **M1** — integration cover for the task, sprint and time-tracking flows, which still have none.
+4. **M6** — a `Dockerfile` / compose file, so the two supported layouts stop being exercised only
+   by hand.
+
+**On the SQL sweep, now closed:** `SqlPlaceholderGuardTest` fails on any SQL literal that names a
+placeholder twice, so that defect class is caught at authoring time rather than in production. Its
+one blind spot is a statement assembled from two appended fragments that each name `:x` once —
+the guard sees one literal at a time. Widening it would mean tracking string concatenation across
+a method, which is a parser, not a test.

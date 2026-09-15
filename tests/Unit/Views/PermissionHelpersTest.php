@@ -32,7 +32,7 @@ final class PermissionHelpersTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        unset($_SESSION['user']);
+        unset($_SESSION['user'], $_SESSION['csrf_token'], $_SESSION['active_timer']);
     }
 
     protected function tearDown(): void
@@ -129,6 +129,53 @@ final class PermissionHelpersTest extends TestCase
     public function testHasAllUserPermissionsDeniesWhenTheUserHoldsNone(): void
     {
         $this->assertFalse(hasAllUserPermissions(['view_projects']));
+    }
+
+    // ---- renderTimerControls() ------------------------------------------
+
+    /**
+     * renderTimerControls() read $csrfToken from inside its own function
+     * body, where a caller's local variables are not visible, so the field it
+     * emitted was always empty and the form it belongs to could never pass
+     * validation. Same defect class as renderCSRFToken(), fixed the same way:
+     * read the value CsrfMiddleware itself writes.
+     */
+    public function testRenderTimerControlsEmitsTheSessionCsrfToken(): void
+    {
+        $this->grant(['view_time_tracking']);
+        $_SESSION['csrf_token'] = 'token-from-the-session';
+        $_SESSION['active_timer'] = ['task_id' => 7];
+
+        $html = renderTimerControls(7);
+
+        $this->assertStringContainsString('value="token-from-the-session"', $html);
+    }
+
+    public function testRenderTimerControlsEmitsTheTokenOnTheStartForm(): void
+    {
+        $this->grant(['create_time_tracking']);
+        $_SESSION['csrf_token'] = 'start-form-token';
+        unset($_SESSION['active_timer']);
+
+        $html = renderTimerControls(7);
+
+        $this->assertStringContainsString('value="start-form-token"', $html);
+    }
+
+    public function testRenderTimerControlsEscapesTheToken(): void
+    {
+        $this->grant(['view_time_tracking']);
+        $_SESSION['csrf_token'] = 'a"b<c';
+        unset($_SESSION['active_timer']);
+
+        $this->assertStringContainsString('a&quot;b&lt;c', renderTimerControls(7));
+    }
+
+    public function testRenderTimerControlsRendersNothingWithoutPermission(): void
+    {
+        $this->grant(['view_projects']);
+
+        $this->assertSame('', renderTimerControls(7));
     }
 
     /**

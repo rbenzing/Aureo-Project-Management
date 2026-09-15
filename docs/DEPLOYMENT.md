@@ -138,7 +138,11 @@ server {
 
     # Extensionless and multi-dot files the extension list cannot reach. No
     # bare \.js$ rule: that would also deny /public/assets/js/*.js.
-    location ~ ^/(VERSION|tailwind\.config\.js|postcss\.config\.js)$ {
+    #
+    # phinx.php must come before the \.php$ location below, which hands PHP
+    # files to FPM - nginx takes the first matching regex location, so the
+    # order here is what denies it rather than executing it.
+    location ~ ^/(VERSION|tailwind\.config\.js|postcss\.config\.js|phinx\.php)$ {
         deny all;
     }
 

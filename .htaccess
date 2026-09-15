@@ -41,7 +41,10 @@ RewriteRule ^(.*)$ index.php [QSA,L]
 #                  public/assets/js/*.js in this layout.
 #   config         web.config, which otherwise ships the full IIS deny list in
 #                  plaintext to anyone who asks for it.
-<FilesMatch "(^\.|^VERSION$|\.config\.js$|\.(env|log|sql|md|lock|json|xml|dist|yml|yaml|gz|config|diff)$)">
+#   ^phinx\.php$   the Phinx entry point. It is a real file at the application
+#                  root, so the rewrite above hands it straight to PHP rather
+#                  than the front controller; it matches no other rule here.
+<FilesMatch "(^\.|^VERSION$|^phinx\.php$|\.config\.js$|\.(env|log|sql|md|lock|json|xml|dist|yml|yaml|gz|config|diff)$)">
     <IfModule mod_authz_core.c>
         Require all denied
     </IfModule>
