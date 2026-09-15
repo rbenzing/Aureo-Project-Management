@@ -235,11 +235,13 @@ class ActivityController extends BaseController
 
         if (!empty($filters['search'])) {
             if ($hasEnhancedColumns) {
-                $query .= " AND (al.description LIKE :search OR al.path LIKE :search)";
+                $query .= " AND (al.description LIKE :search_description OR al.path LIKE :search_path)";
+                $params[':search_description'] = '%' . $filters['search'] . '%';
+                $params[':search_path'] = '%' . $filters['search'] . '%';
             } else {
                 $query .= " AND al.path LIKE :search";
+                $params[':search'] = '%' . $filters['search'] . '%';
             }
-            $params[':search'] = '%' . $filters['search'] . '%';
         }
 
         try {
