@@ -41,8 +41,8 @@ the two SQL defects (H4, H5) were found by reading statements rather than by run
 | M1 | Medium | Integration suite was one file, 16 tests, auth-only | **Improved, not closed** (6 files, 33 tests) |
 | M2 | Medium | `renderTimerControls()` emits an always-empty CSRF field (dead code) | **Fixed** |
 | M3 | Medium | `InstallerServiceTest` hardcoded `127.0.0.1:3306`, silently skipping | **Fixed** |
-| M4 | Medium | Suite is not root-safe — 3 failures when run as root | Open |
-| M5 | Medium | Tests write into the real `log/aureo.log` | Open |
+| M4 | Medium | Suite is not root-safe — 3 failures when run as root | **Fixed** |
+| M5 | Medium | Tests write into the real `log/aureo.log` | **Fixed** |
 | M6 | Medium | No deployment/container artifacts in the repo | Open |
 | L1 | Low | `/install` answers `200` (with a refusal body) instead of `403` | **Fixed** |
 | L2 | Low | `phinx.php` is directly executable in the drop-in layout | **Fixed** |
@@ -418,13 +418,6 @@ phpdoc). Hand-written SQL in `src/Controllers` was not swept.
 - **M1 — Integration coverage** (improved, not closed). Was one file / 16 tests, all auth reads;
   now six files / 33 tests covering record creation, token lifecycle, session persistence and the
   hand-written search and role SQL. Still nothing for task/sprint/time-tracking flows.
-- **M4 — Not root-safe.** As root (the default in most containers) three tests fail because root
-  bypasses permission bits: `InstallerServiceTest::testFirstWritableTargetPicksTheInTreeLocation...`
-  and two `LoggerServiceTest` "not writable" tests. The same command as UID 1000 passes. They should
-  skip when `posix_geteuid() === 0`.
-- **M5 — Tests pollute the real log.** `log/aureo.log` accumulates test output (`logger_svc_test_*`
-  paths, `Not/A/Real/Zone`, PHPUnit stack traces). It is gitignored, but it is also the first place
-  `CLAUDE.md` says to look on failure — it actively hindered diagnosis of C1 during this audit.
 - **M6 — No deployment artifacts.** No `Dockerfile` or compose file exists, so the two supported
   layouts are only ever exercised by hand; the containers for this audit were written from scratch.
 
@@ -459,9 +452,8 @@ phpdoc). Hand-written SQL in `src/Controllers` was not swept.
 1. **H3** — take the five zero-coverage controllers off zero, starting with `UserController` and
    `RoleController`, which administer accounts and permissions. The tier gate is satisfied by the
    `Controllers` aggregate and cannot see that five files are at zero.
-2. **M4 / M5** — make the suite root-safe and stop it writing to the real application log.
-3. **M1** — integration cover for the task, sprint and time-tracking flows, which still have none.
-4. **M6** — a `Dockerfile` / compose file, so the two supported layouts stop being exercised only
+2. **M1** — integration cover for the task, sprint and time-tracking flows, which still have none.
+3. **M6** — a `Dockerfile` / compose file, so the two supported layouts stop being exercised only
    by hand.
 
 **On the SQL sweep, now closed:** `SqlPlaceholderGuardTest` fails on any SQL literal that names a

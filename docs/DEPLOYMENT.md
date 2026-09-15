@@ -599,6 +599,13 @@ The path resolves via `dirname(BASE_PATH)` where `BASE_PATH` is `public/`. If th
 when you expect entries, verify the directory is writable by the web server user — a
 non-writable `log/` silently swallows errors.
 
+**`AUREO_LOG_DIR`** overrides that location. Set it to an absolute path when the application
+directory is read-only — a container image, or managed hosting that mounts the code
+read-only and gives you a separate writable volume. It is read from the environment,
+`$_SERVER`, or `getenv()`, the same three sources as [`AUREO_CONFIG`](#configuration-sources),
+and the file inside it is still named `aureo.log`. An explicit directory passed to
+`LoggerService` wins over it; without either, the default above applies.
+
 4xx responses are logged as terse warnings without stack traces; 5xx get full exception logging.
 
 ### Rebuilding the search index

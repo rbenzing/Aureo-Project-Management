@@ -95,7 +95,12 @@ final class InstallerServiceTest extends TestCase
 
     public function testFirstWritableTargetPicksTheInTreeLocationWhenTheParentIsNotWritable(): void
     {
-        $target = $this->service()->firstWritableTarget('/proc/nonexistent-document-root');
+        // The parent directory must not exist at all. is_writable() is false
+        // for a missing path for every user, whereas a real directory such as
+        // /proc is writable to root — which made this assert the opposite of
+        // its name whenever the suite ran as root, the default in most
+        // containers.
+        $target = $this->service()->firstWritableTarget('/aureo-no-such-parent-dir/document-root');
 
         // Normalised because firstWritableTarget() delegates to
         // PreflightService::configTargets(), which forward-slashes the app

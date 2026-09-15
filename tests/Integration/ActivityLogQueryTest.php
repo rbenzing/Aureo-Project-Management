@@ -95,10 +95,10 @@ final class ActivityLogQueryTest extends TestCase
 
     private function controller(): ActivityController
     {
-        $controller = new ReflectionClass(ActivityController::class)->newInstanceWithoutConstructor();
+        $controller = (new ReflectionClass(ActivityController::class))->newInstanceWithoutConstructor();
 
         // setAccessible() is unnecessary since PHP 8.1 and deprecated in 8.5.
-        new ReflectionProperty(ActivityController::class, 'db')
+        (new ReflectionProperty(ActivityController::class, 'db'))
             ->setValue($controller, Database::getInstance());
 
         // The logger has to be real too: getTotalActivities() swallows failures
@@ -106,7 +106,7 @@ final class ActivityLogQueryTest extends TestCase
         // "typed property not initialized" instead of the silent 0 that
         // production actually returns — and the test would then be proving the
         // wrong failure.
-        new ReflectionProperty(BaseController::class, 'logger')
+        (new ReflectionProperty(BaseController::class, 'logger'))
             ->setValue($controller, new LoggerService());
 
         return $controller;
@@ -114,7 +114,7 @@ final class ActivityLogQueryTest extends TestCase
 
     private function totalActivities(array $filters): int
     {
-        return (int) new ReflectionMethod(ActivityController::class, 'getTotalActivities')
+        return (int) (new ReflectionMethod(ActivityController::class, 'getTotalActivities'))
             ->invoke($this->controller(), $filters);
     }
 

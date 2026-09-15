@@ -19,6 +19,24 @@ class LoggerService
     private bool $enabled;
 
     /**
+     * Read the log directory from the environment, using the same three-source
+     * lookup as ConfigLoader::AUREO_CONFIG — $_ENV alone is empty under the
+     * default variables_order=GPCS.
+     */
+    private static function environmentLogDirectory(): ?string
+    {
+        $value = $_ENV['AUREO_LOG_DIR'] ?? $_SERVER['AUREO_LOG_DIR'] ?? getenv('AUREO_LOG_DIR');
+
+        if (!is_string($value)) {
+            return null;
+        }
+
+        $value = rtrim(trim($value), '/\\');
+
+        return $value === '' ? null : $value;
+    }
+
+    /**
      * Constructor - Now public to support dependency injection
      *
      * @param string|null $logDirectory Optional custom log directory
@@ -28,7 +46,14 @@ class LoggerService
         // BASE_PATH is the public/ dir, so the repo root is one level up — matches
         // Config.php's dirname(BASE_PATH). Using level 2 wrote logs to the repo's
         // PARENT dir, where nobody looks, silently hiding every logged error.
-        $this->logDirectory = $logDirectory ?? dirname(BASE_PATH) . '/log';
+        //
+        // AUREO_LOG_DIR sits between the two so a host whose application
+        // directory is read-only can put logs on a writable volume — and so the
+        // test suite stops appending to the repo's own log, which is the first
+        // place this project tells you to look when something breaks.
+        $this->logDirectory = $logDirectory
+            ?? self::environmentLogDirectory()
+            ?? dirname(BASE_PATH) . '/log';
         $this->logFile = $this->logDirectory . '/aureo.log';
         $this->enabled = true;
 
