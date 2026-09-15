@@ -33,7 +33,7 @@ the two SQL defects (H4, H5) were found by reading statements rather than by run
 | C3 | **Critical** | Authorization layer is mutation-blind — 3/3 access-control mutations survived | **Fixed** |
 | H1 | High | Partial env-var config silently discarded — app falls back to `localhost` / empty password | **Fixed** |
 | ~~H2~~ | ~~High~~ | ~~Coverage gate fails under CI parity~~ | **Withdrawn — not a real defect** |
-| H3 | High | 5 controllers at exactly **0.0%** coverage (916 statements) | **Partly closed** — `RoleController` 86.62%, `UserController` 78.26%, `MilestoneController` 80.10%; two remain |
+| H3 | High | 5 controllers at exactly **0.0%** coverage (916 statements) | **Partly closed** — `RoleController` 86.62%, `UserController` 78.26%, `MilestoneController` 80.10%, `TemplateController` 72.13%; `SprintTemplateController` remains |
 | H4 | High | `/api/search` returned HTTP 500 for every query of 3+ chars — a duplicated `:query` placeholder, not the missing FULLTEXT index first suspected | **Fixed** |
 | H5 | High | `Role::assignPermission()` could only ever throw — same duplicated-placeholder defect; no production callers | **Fixed** |
 | H6 | High | Activity log search reported **0 results** — `:search` bound twice, caught and swallowed | **Fixed** |

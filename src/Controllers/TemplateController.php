@@ -48,28 +48,11 @@ class TemplateController extends BaseController
                 $filters['template_type'] = $templateType;
             }
 
-            // Debug: Test each step individually
-            error_log("TemplateController: Starting to fetch templates");
+            $templates = $this->templateModel->getAllTemplates($filters, $limit, $page);
 
-            try {
-                $templates = $this->templateModel->getAllTemplates($filters, $limit, $page);
-                error_log("TemplateController: Successfully got templates, count: " . count($templates));
-            } catch (\Exception $e) {
-                error_log("TemplateController: Error getting templates: " . $e->getMessage());
-
-                throw $e;
-            }
-
-            try {
-                $countFilters = $filters;
-                $countFilters['is_deleted'] = 0;
-                $totalTemplates = $this->templateModel->count($countFilters);
-                error_log("TemplateController: Successfully got count: " . $totalTemplates);
-            } catch (\Exception $e) {
-                error_log("TemplateController: Error getting count: " . $e->getMessage());
-
-                throw $e;
-            }
+            $countFilters = $filters;
+            $countFilters['is_deleted'] = 0;
+            $totalTemplates = $this->templateModel->count($countFilters);
 
             $totalPages = ceil($totalTemplates / $limit);
 
