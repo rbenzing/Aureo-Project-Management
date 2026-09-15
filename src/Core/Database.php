@@ -220,15 +220,19 @@ class Database
             error_log("SQL: " . $sql);
             error_log("Params: " . json_encode($this->sanitizeParams($params)));
 
-            // Use security service to determine error message
-            try {
-                $securityService = \App\Services\SecurityService::getInstance();
-                $safeMessage = $securityService->getSafeErrorMessage($e->getMessage(), 'Database query failed');
-
-                throw new RuntimeException($safeMessage);
-            } catch (\Exception $securityException) {
-                throw new RuntimeException('Database query failed');
-            }
+            // Deliberately does NOT ask SecurityService for a friendlier message.
+            //
+            // Two reasons. It could never surface one: the throw sat inside the
+            // try, so the catch below swallowed it and the generic message went
+            // out every time regardless.
+            //
+            // And reaching for it here recurses. SecurityService::getInstance()
+            // builds SettingsService, which reads the settings table through this
+            // very method; when that query is the one failing, the singleton's
+            // constructor never returns, self::$instance stays null, and each
+            // retry re-enters it. Against a real Apache with an unmigrated
+            // database that exhausted 128MB per request instead of failing.
+            throw new RuntimeException('Database query failed');
         }
     }
 

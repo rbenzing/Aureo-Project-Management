@@ -125,9 +125,11 @@ class TaskService
             'updated_at' => date('Y-m-d H:i:s'),
         ];
 
-        // Auto-set completion date when transitioning to completed
-        if ($newStatus === TaskStatus::COMPLETED && empty($task->completed_at)) {
-            $updateData['completed_at'] = date('Y-m-d H:i:s');
+        // The column is complete_date, a DATE. "completed_at" exists nowhere in
+        // the schema, and prepareSaveData() filters only $guarded — so the
+        // unknown field reached the SQL and every completion failed.
+        if ($newStatus === TaskStatus::COMPLETED && empty($task->complete_date)) {
+            $updateData['complete_date'] = date('Y-m-d');
         }
 
         $updated = $this->taskModel->update($taskId, $updateData);
@@ -182,100 +184,6 @@ class TaskService
     }
 
     /**
-     * Start time tracking for a task
-     *
-     * @param int $taskId
-     * @param int $userId
-     * @throws NotFoundException
-     * @throws BusinessRuleException
-     */
-    public function startTimer(int $taskId, int $userId): void
-    {
-        $task = $this->taskModel->findOrFail($taskId);
-
-        // Business rule: Task must be assigned to the user
-        if ($task->assigned_to !== $userId) {
-            throw new BusinessRuleException("Cannot start timer on task not assigned to you");
-        }
-
-        // Business rule: Cannot track time on completed tasks
-        if ($task->status_id === TaskStatus::COMPLETED->value) {
-            throw new BusinessRuleException("Cannot track time on completed tasks");
-        }
-
-        // Business rule: Cannot track time on closed tasks
-        if ($task->status_id === TaskStatus::CLOSED->value) {
-            throw new BusinessRuleException("Cannot track time on closed tasks");
-        }
-
-        // Check if timer is already running
-        if (!empty($task->timer_start)) {
-            throw new BusinessRuleException("Timer is already running for this task");
-        }
-
-        // Auto-transition to IN_PROGRESS if task is OPEN
-        $updateData = [
-            'timer_start' => date('Y-m-d H:i:s'),
-            'updated_at' => date('Y-m-d H:i:s'),
-        ];
-
-        if ($task->status_id === TaskStatus::OPEN->value) {
-            $updateData['status_id'] = TaskStatus::IN_PROGRESS->value;
-        }
-
-        $updated = $this->taskModel->update($taskId, $updateData);
-
-        if (!$updated) {
-            throw new RuntimeException("Failed to start timer");
-        }
-
-        $this->logger->info("Timer started for task #{$taskId} by user #{$userId}");
-    }
-
-    /**
-     * Stop time tracking for a task
-     *
-     * @param int $taskId
-     * @param int $userId
-     * @throws NotFoundException
-     * @throws BusinessRuleException
-     */
-    public function stopTimer(int $taskId, int $userId): void
-    {
-        $task = $this->taskModel->findOrFail($taskId);
-
-        // Business rule: Task must be assigned to the user
-        if ($task->assigned_to !== $userId) {
-            throw new BusinessRuleException("Cannot stop timer on task not assigned to you");
-        }
-
-        // Check if timer is running
-        if (empty($task->timer_start)) {
-            throw new BusinessRuleException("No timer running for this task");
-        }
-
-        // Calculate elapsed time
-        $startTime = strtotime($task->timer_start);
-        $elapsed = time() - $startTime;
-
-        // Update time spent
-        $currentTimeSpent = $task->time_spent ?? 0;
-        $newTimeSpent = $currentTimeSpent + $elapsed;
-
-        $updated = $this->taskModel->update($taskId, [
-            'time_spent' => $newTimeSpent,
-            'timer_start' => null,
-            'updated_at' => date('Y-m-d H:i:s'),
-        ]);
-
-        if (!$updated) {
-            throw new RuntimeException("Failed to stop timer");
-        }
-
-        $this->logger->info("Timer stopped for task #{$taskId} by user #{$userId}. Elapsed: {$elapsed}s");
-    }
-
-    /**
      * Update task estimated time
      *
      * @param int $taskId
@@ -314,11 +222,6 @@ class TaskService
     {
         $task = $this->taskModel->findOrFail($taskId);
 
-        // Stop any running timer
-        if (!empty($task->timer_start)) {
-            throw new BusinessRuleException("Cannot complete task with running timer. Stop the timer first.");
-        }
-
         // Business rule: Cannot complete already completed tasks
         if ($task->status_id === TaskStatus::COMPLETED->value) {
             throw new BusinessRuleException("Task is already completed");
@@ -326,7 +229,7 @@ class TaskService
 
         $updated = $this->taskModel->update($taskId, [
             'status_id' => TaskStatus::COMPLETED->value,
-            'completed_at' => date('Y-m-d H:i:s'),
+            'complete_date' => date('Y-m-d'),
             'updated_at' => date('Y-m-d H:i:s'),
         ]);
 
@@ -349,7 +252,7 @@ class TaskService
 
         $updated = $this->taskModel->update($taskId, [
             'status_id' => TaskStatus::OPEN->value,
-            'completed_at' => null,
+            'complete_date' => null,
             'updated_at' => date('Y-m-d H:i:s'),
         ]);
 

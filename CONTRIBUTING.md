@@ -44,6 +44,46 @@ compiled bytecode aggressively. A surprising number of "impossible" bugs are sta
 **When something breaks, read `log/aureo.log` first.** It is the fastest path to the real cause on
 any 500 or blank page.
 
+### Running both deployment layouts in containers
+
+`composer start` serves the recommended layout only. The drop-in layout — document root at the
+application root, the one shared hosting forces — behaves differently in ways PHP's built-in
+server cannot show you: it has no `.htaccess` support, so the deny rules that are the only thing
+protecting `.env`, `vendor/` and `config/` there are simply not in play.
+
+```bash
+docker compose up -d
+docker compose run --rm app composer install
+docker compose exec app php vendor/bin/phinx migrate -e local
+```
+
+| | |
+|---|---|
+| http://localhost:8080 | document root at `public/` — the recommended layout |
+| http://localhost:8081 | document root at the application root — the drop-in layout |
+
+Both serve the same working tree from one image; only the document root differs. Use the drop-in
+port to check the hardening rules as behaviour rather than as text:
+
+```bash
+curl -sI http://localhost:8081/.env          | head -1   # 403
+curl -sI http://localhost:8081/phinx.php     | head -1   # 403
+curl -sI http://localhost:8081/composer.json | head -1   # 403
+curl -sI http://localhost:8081/public/assets/css/styles.css | head -1   # 200
+```
+
+That last one matters as much as the others: a rule that denies everything would pass the first
+three and break the site.
+
+[tests/Unit/DropInDenyRulesTest.php](./tests/Unit/DropInDenyRulesTest.php) checks the same rules as
+patterns, with no server involved. It cannot tell you whether Apache honours them —
+`AllowOverride All` is what decides that, and the image sets it. **Neither check proves anything
+about your host.** For that, run `php bin/preflight.php --url=https://your-site`, which asks the
+running server.
+
+The stack is local-only: the database password is `root`, `config/installed.lock` is absent so
+`/install` is reachable, and ports bind to `127.0.0.1`. Do not expose it.
+
 ---
 
 ## Branching and commits

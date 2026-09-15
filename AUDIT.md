@@ -40,12 +40,14 @@ the two SQL defects (H4, H5) were found by reading statements rather than by run
 | H7 | High | `Sprint::getSprintTasksWithSubtasks()` silently returned no tasks — same defect; no production callers | **Fixed** |
 | H8 | High | **Epics could not be edited at all** — `MilestoneController::update()` passed the request string to `checkCircularEpicReference(int, int)` under `strict_types=1`; the TypeError was swallowed as a generic error | **Fixed** |
 | H9 | High | **Numeric bounds were never enforced** — `Validator`'s `min`/`max` measured string length even on `integer` fields, so `sprint_length` with `max:8` accepted 52 and `default_capacity` with `max:200` accepted 99999999 | **Fixed** |
-| M1 | Medium | Integration suite was one file, 16 tests, auth-only | **Improved, not closed** (6 files, 33 tests) |
+| H10 | **High** | **Task timers 500ed and tasks could not be completed** — `timer_start` and `completed_at` were written by five methods but exist in no table | **Fixed** |
+| H11 | High | **A missing table exhausted 128MB per request** — `Database`'s query-failure handler called back into the singleton whose construction was failing, recursing until PHP died | **Fixed** |
+| M1 | Medium | Integration suite was one file, 16 tests, auth-only | **Fixed** — 10 files, 59 tests, covering task, sprint and time-tracking flows |
 | M2 | Medium | `renderTimerControls()` emits an always-empty CSRF field (dead code) | **Fixed** |
 | M3 | Medium | `InstallerServiceTest` hardcoded `127.0.0.1:3306`, silently skipping | **Fixed** |
 | M4 | Medium | Suite is not root-safe — 3 failures when run as root | **Fixed** |
 | M5 | Medium | Tests write into the real `log/aureo.log` | **Fixed** |
-| M6 | Medium | No deployment/container artifacts in the repo | Open |
+| M6 | Medium | No deployment/container artifacts in the repo | **Fixed** — `Dockerfile` + `compose.yaml` run both layouts side by side |
 | L1 | Low | `/install` answers `200` (with a refusal body) instead of `403` | **Fixed** |
 | L2 | Low | `phinx.php` is directly executable in the drop-in layout | **Fixed** |
 | L3 | Low | `CLAUDE.md` is stale — documents a fixed bug as unfixed | **Fixed** |
@@ -413,6 +415,114 @@ second call.
 **Still open:** the scan that found this covered `src/Models`, `src/Repositories` and
 `src/Services`. Every other hit was a false positive (separate statements sharing a name, or
 phpdoc). Hand-written SQL in `src/Controllers` was not swept.
+
+---
+
+## H10 — High, FIXED: task timers 500ed, and tasks could not be completed
+
+Found by the M1 integration work, in exactly the place M1 said to look.
+
+Three code paths write columns that **no table has**:
+
+```
+TaskController::startTimer()      timer_start     routed, wired to the dashboard buttons
+TaskController::stopTimer()       timer_start     routed, wired to the dashboard buttons
+TaskService::startTimer()         timer_start     no callers
+TaskService::transitionStatus()   completed_at    no callers  (COMPLETED branch only)
+TaskService::completeTask()       completed_at    no callers
+```
+
+The `tasks` table carries `time_spent` and `complete_date`. There is no `timer_start` and no
+`completed_at` — the latter is the same field as `complete_date` under a different name.
+
+**Why nothing stripped them.** `BaseModel::prepareSaveData()` removes only `$guarded` keys; it
+does **not** restrict writes to `$fillable`. `$fillable` lists neither column, which is easy to
+read as protection and is not — the unknown field reaches the SQL, and the statement fails.
+
+```
+Task::update($id, ['status_id' => 6])                        -> true
+Task::update($id, ['status_id' => 6, 'updated_at' => ...])    -> true   (updated_at is guarded)
+Task::update($id, ['status_id' => 6, 'completed_at' => ...])  -> RuntimeException
+Task::update($id, ['timer_start' => ...])                    -> RuntimeException
+```
+
+**Live impact.** `POST /tasks/start-timer/:task_id` and `/tasks/stop-timer/:task_id` are routed to
+`TaskController`, and `src/Views/Dashboard/index.php` posts the Start and Stop buttons to them.
+The controller catches the failure and answers **HTTP 500**, so the dashboard timer fails on every
+click for every user.
+
+**Latent impact.** `TaskService`'s timer and completion methods have no callers — it is registered
+in the container but no controller consumes it — so its identical breakage has never been reported.
+
+**The feature is also incoherent above the schema.** A second, unrelated timer implementation
+lives in `TimeTrackingController` (`/time-tracking/start`, `/stop`), which keeps the timer in
+`$_SESSION['active_timer']` and writes history rows. The dashboard *reads* that session key to
+decide whether to show Stop — but its buttons *post* to the `TaskController` routes, which never
+set it. So the two halves of the UI are wired to different implementations, and neither completes
+the loop.
+
+**Fix — the timer.** `TimeTrackingController` is the complete implementation: it accumulates
+`time_spent`, respects `is_hourly` to accumulate `billable_time`, writes a `time_entries` row and
+records timer history. `TaskController`'s did none of that and could only fail. The two routes now
+point at `TimeTrackingController`, and `TaskController::startTimer()`/`stopTimer()` are deleted.
+The URLs are unchanged, because six view files link to them and all six already read
+`$_SESSION['active_timer']` — the UI was written for the session implementation all along.
+`TaskService::startTimer()`/`stopTimer()` are deleted too: unreachable, and unfixable in place.
+
+**Fix — completion.** `TaskService` now reads and writes `complete_date`, the column that exists,
+as a `DATE`. The dead "cannot complete a task with a running timer" guard went with the timers.
+
+**The same defect in `ProjectService`.** `transitionStatus()` wrote `completed_at` on a `projects`
+table that has no completion column of any kind — only `start_date` and `end_date` — so no project
+could be completed either. There was nothing to rename it to, so the write is gone; `status_id`
+records completion. Also latent: no controller consumes `ProjectService`.
+
+**One rule was lost with the dead code**, and is recorded rather than reinvented:
+`TaskService::startTimer()` refused to track time against a completed or closed task.
+`TimeTrackingController` has no such rule — it checks `manage_tasks` when the task belongs to
+someone else, and nothing else. Since the rule lived in unreachable code it was never enforced in
+practice, so nothing regressed; whether it should exist is a product decision.
+
+**Covered by:** [TaskWorkflowTest](tests/Integration/TaskWorkflowTest.php) and
+[ProjectWorkflowTest](tests/Integration/ProjectWorkflowTest.php) against a real database, plus
+[RouteTargetsTest](tests/Unit/RouteTargetsTest.php), which fails if any route names a controller
+or action that does not exist — the mistake repointing these routes could most easily have made.
+
+---
+
+## H11 — High, FIXED: a missing table exhausted 128MB per request
+
+Found by running the M6 containers against a database that had not been migrated yet — a state no
+test reaches, because every test fixture starts from a migrated schema.
+
+```
+Query Execution Error: SQLSTATE[42S02] ... Table 'aureo_db.settings' doesn't exist
+SQL: SELECT category, setting_key, setting_value FROM settings ORDER BY category, setting_key
+  ... the same three lines, over and over ...
+PHP Fatal error: Allowed memory size of 134217728 bytes exhausted in src/Core/Database.php on line 195
+```
+
+`Database::executeQuery()`'s failure handler called `SecurityService::getInstance()` to ask for a
+user-safe message. That constructor builds `SettingsService`, which reads the `settings` table
+**through `executeQuery()`**. When that read is the query that failed, the constructor never
+returns, so `self::$instance` is never assigned — and the handler re-enters it on the next
+failure. Unbounded recursion, one 128MB fatal per request, on any instance whose settings table is
+missing, misnamed or unreadable.
+
+**The message it recursed for could never be delivered.** The `throw new RuntimeException($safeMessage)`
+sat inside the `try`, so the `catch (\Exception)` immediately below swallowed it and threw the
+generic 'Database query failed' instead — every time, for as long as the code existed. An existing
+test even mocked the value as `'irrelevant, always overwritten'`.
+
+**Fix** — [src/Core/Database.php](src/Core/Database.php): the handler throws the generic message
+directly. Observable behaviour is unchanged, because that is the only message it ever produced.
+
+**Why no test caught it:** every other test in `DatabaseTest` seeds the `SecurityService` singleton
+before provoking a failure, so the constructor never runs and the cycle never forms. The new test
+leaves it null deliberately and asserts the error path does not construct one.
+
+**Verified against the running container:** with `settings` dropped, five requests produced zero
+new memory-exhaustion fatals. Before the fix, one request produced one.
 
 ---
 ## Remaining open items

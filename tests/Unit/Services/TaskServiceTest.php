@@ -212,13 +212,13 @@ final class TaskServiceTest extends TestCase
     public function testTransitionStatusSucceedsWithoutCompletionDate(): void
     {
         $this->taskModel->method('findOrFail')
-            ->willReturn((object) ['status_id' => TaskStatus::OPEN->value, 'completed_at' => null]);
+            ->willReturn((object) ['status_id' => TaskStatus::OPEN->value, 'complete_date' => null]);
 
         $this->taskModel->expects($this->once())
             ->method('update')
             ->with(1, $this->callback(function (array $data): bool {
                 return $data['status_id'] === TaskStatus::IN_PROGRESS->value
-                    && !isset($data['completed_at']);
+                    && !isset($data['complete_date']);
             }))
             ->willReturn(true);
 
@@ -232,11 +232,13 @@ final class TaskServiceTest extends TestCase
     public function testTransitionStatusSetsCompletionDateWhenEmpty(): void
     {
         $this->taskModel->method('findOrFail')
-            ->willReturn((object) ['status_id' => TaskStatus::IN_PROGRESS->value, 'completed_at' => null]);
+            ->willReturn((object) ['status_id' => TaskStatus::IN_PROGRESS->value, 'complete_date' => null]);
 
         $this->taskModel->expects($this->once())
             ->method('update')
-            ->with(1, $this->callback(fn (array $data): bool => isset($data['completed_at'])))
+            ->with(1, $this->callback(
+                static fn (array $data): bool => ($data['complete_date'] ?? null) === date('Y-m-d')
+            ))
             ->willReturn(true);
 
         $this->service->transitionStatus(1, TaskStatus::COMPLETED);
@@ -247,12 +249,12 @@ final class TaskServiceTest extends TestCase
         $this->taskModel->method('findOrFail')
             ->willReturn((object) [
                 'status_id' => TaskStatus::IN_PROGRESS->value,
-                'completed_at' => '2020-01-01 00:00:00',
+                'complete_date' => '2020-01-01',
             ]);
 
         $this->taskModel->expects($this->once())
             ->method('update')
-            ->with(1, $this->callback(fn (array $data): bool => !isset($data['completed_at'])))
+            ->with(1, $this->callback(fn (array $data): bool => !isset($data['complete_date'])))
             ->willReturn(true);
 
         $this->service->transitionStatus(1, TaskStatus::COMPLETED);
@@ -261,7 +263,7 @@ final class TaskServiceTest extends TestCase
     public function testTransitionStatusAllowsReopeningClosedTask(): void
     {
         $this->taskModel->method('findOrFail')
-            ->willReturn((object) ['status_id' => TaskStatus::CLOSED->value, 'completed_at' => null]);
+            ->willReturn((object) ['status_id' => TaskStatus::CLOSED->value, 'complete_date' => null]);
 
         $this->taskModel->expects($this->once())
             ->method('update')
@@ -274,207 +276,13 @@ final class TaskServiceTest extends TestCase
     public function testTransitionStatusThrowsWhenUpdateFails(): void
     {
         $this->taskModel->method('findOrFail')
-            ->willReturn((object) ['status_id' => TaskStatus::OPEN->value, 'completed_at' => null]);
+            ->willReturn((object) ['status_id' => TaskStatus::OPEN->value, 'complete_date' => null]);
         $this->taskModel->method('update')->willReturn(false);
 
         $this->expectException(RuntimeException::class);
         $this->expectExceptionMessage('Failed to update task status');
 
         $this->service->transitionStatus(1, TaskStatus::IN_PROGRESS);
-    }
-
-    // ------------------------------------------------------------------
-    // startTimer
-    // ------------------------------------------------------------------
-
-    public function testStartTimerThrowsWhenTaskMissing(): void
-    {
-        $this->taskModel->method('findOrFail')
-            ->willThrowException(NotFoundException::forModel('Task', 1));
-
-        $this->expectException(NotFoundException::class);
-
-        $this->service->startTimer(1, 5);
-    }
-
-    public function testStartTimerRejectsWrongAssignee(): void
-    {
-        $this->taskModel->method('findOrFail')
-            ->willReturn((object) ['assigned_to' => 9, 'status_id' => TaskStatus::OPEN->value, 'timer_start' => null]);
-
-        $this->expectException(BusinessRuleException::class);
-        $this->expectExceptionMessage('Cannot start timer on task not assigned to you');
-
-        $this->service->startTimer(1, 5);
-    }
-
-    public function testStartTimerRejectsCompletedTask(): void
-    {
-        $this->taskModel->method('findOrFail')
-            ->willReturn((object) ['assigned_to' => 5, 'status_id' => TaskStatus::COMPLETED->value, 'timer_start' => null]);
-
-        $this->expectException(BusinessRuleException::class);
-        $this->expectExceptionMessage('Cannot track time on completed tasks');
-
-        $this->service->startTimer(1, 5);
-    }
-
-    public function testStartTimerRejectsClosedTask(): void
-    {
-        $this->taskModel->method('findOrFail')
-            ->willReturn((object) ['assigned_to' => 5, 'status_id' => TaskStatus::CLOSED->value, 'timer_start' => null]);
-
-        $this->expectException(BusinessRuleException::class);
-        $this->expectExceptionMessage('Cannot track time on closed tasks');
-
-        $this->service->startTimer(1, 5);
-    }
-
-    public function testStartTimerRejectsAlreadyRunningTimer(): void
-    {
-        $this->taskModel->method('findOrFail')
-            ->willReturn((object) [
-                'assigned_to' => 5,
-                'status_id' => TaskStatus::IN_PROGRESS->value,
-                'timer_start' => '2024-01-01 00:00:00',
-            ]);
-
-        $this->expectException(BusinessRuleException::class);
-        $this->expectExceptionMessage('Timer is already running for this task');
-
-        $this->service->startTimer(1, 5);
-    }
-
-    public function testStartTimerAutoTransitionsOpenTaskToInProgress(): void
-    {
-        $this->taskModel->method('findOrFail')
-            ->willReturn((object) ['assigned_to' => 5, 'status_id' => TaskStatus::OPEN->value, 'timer_start' => null]);
-
-        $this->taskModel->expects($this->once())
-            ->method('update')
-            ->with(1, $this->callback(function (array $data): bool {
-                return isset($data['timer_start'])
-                    && $data['status_id'] === TaskStatus::IN_PROGRESS->value;
-            }))
-            ->willReturn(true);
-
-        $this->logger->expects($this->once())
-            ->method('info')
-            ->with($this->stringContains('Timer started for task #1 by user #5'));
-
-        $this->service->startTimer(1, 5);
-    }
-
-    public function testStartTimerLeavesStatusUnchangedWhenAlreadyInProgress(): void
-    {
-        $this->taskModel->method('findOrFail')
-            ->willReturn((object) ['assigned_to' => 5, 'status_id' => TaskStatus::IN_PROGRESS->value, 'timer_start' => null]);
-
-        $this->taskModel->expects($this->once())
-            ->method('update')
-            ->with(1, $this->callback(fn (array $data): bool => !isset($data['status_id'])))
-            ->willReturn(true);
-
-        $this->service->startTimer(1, 5);
-    }
-
-    public function testStartTimerThrowsWhenUpdateFails(): void
-    {
-        $this->taskModel->method('findOrFail')
-            ->willReturn((object) ['assigned_to' => 5, 'status_id' => TaskStatus::OPEN->value, 'timer_start' => null]);
-        $this->taskModel->method('update')->willReturn(false);
-
-        $this->expectException(RuntimeException::class);
-        $this->expectExceptionMessage('Failed to start timer');
-
-        $this->service->startTimer(1, 5);
-    }
-
-    // ------------------------------------------------------------------
-    // stopTimer
-    // ------------------------------------------------------------------
-
-    public function testStopTimerThrowsWhenTaskMissing(): void
-    {
-        $this->taskModel->method('findOrFail')
-            ->willThrowException(NotFoundException::forModel('Task', 1));
-
-        $this->expectException(NotFoundException::class);
-
-        $this->service->stopTimer(1, 5);
-    }
-
-    public function testStopTimerRejectsWrongAssignee(): void
-    {
-        $this->taskModel->method('findOrFail')
-            ->willReturn((object) ['assigned_to' => 9, 'timer_start' => '2024-01-01 00:00:00']);
-
-        $this->expectException(BusinessRuleException::class);
-        $this->expectExceptionMessage('Cannot stop timer on task not assigned to you');
-
-        $this->service->stopTimer(1, 5);
-    }
-
-    public function testStopTimerRejectsWhenNoTimerRunning(): void
-    {
-        $this->taskModel->method('findOrFail')
-            ->willReturn((object) ['assigned_to' => 5, 'timer_start' => null]);
-
-        $this->expectException(BusinessRuleException::class);
-        $this->expectExceptionMessage('No timer running for this task');
-
-        $this->service->stopTimer(1, 5);
-    }
-
-    public function testStopTimerCalculatesElapsedTimeAndAccumulates(): void
-    {
-        $startedAt = date('Y-m-d H:i:s', time() - 100);
-
-        $this->taskModel->method('findOrFail')
-            ->willReturn((object) ['assigned_to' => 5, 'timer_start' => $startedAt, 'time_spent' => 50]);
-
-        $this->taskModel->expects($this->once())
-            ->method('update')
-            ->with(1, $this->callback(function (array $data): bool {
-                // Elapsed is ~100s on top of the pre-existing 50s; allow scheduling jitter.
-                return $data['timer_start'] === null
-                    && $data['time_spent'] >= 148
-                    && $data['time_spent'] <= 152;
-            }))
-            ->willReturn(true);
-
-        $this->logger->expects($this->once())
-            ->method('info')
-            ->with($this->stringContains('Timer stopped for task #1 by user #5'));
-
-        $this->service->stopTimer(1, 5);
-    }
-
-    public function testStopTimerDefaultsTimeSpentToZeroWhenNull(): void
-    {
-        $startedAt = date('Y-m-d H:i:s', time() - 10);
-
-        $this->taskModel->method('findOrFail')
-            ->willReturn((object) ['assigned_to' => 5, 'timer_start' => $startedAt, 'time_spent' => null]);
-
-        $this->taskModel->expects($this->once())
-            ->method('update')
-            ->with(1, $this->callback(fn (array $data): bool => $data['time_spent'] >= 8 && $data['time_spent'] <= 15))
-            ->willReturn(true);
-
-        $this->service->stopTimer(1, 5);
-    }
-
-    public function testStopTimerThrowsWhenUpdateFails(): void
-    {
-        $this->taskModel->method('findOrFail')
-            ->willReturn((object) ['assigned_to' => 5, 'timer_start' => date('Y-m-d H:i:s'), 'time_spent' => 0]);
-        $this->taskModel->method('update')->willReturn(false);
-
-        $this->expectException(RuntimeException::class);
-        $this->expectExceptionMessage('Failed to stop timer');
-
-        $this->service->stopTimer(1, 5);
     }
 
     // ------------------------------------------------------------------
@@ -544,21 +352,10 @@ final class TaskServiceTest extends TestCase
         $this->service->completeTask(1);
     }
 
-    public function testCompleteTaskRejectsRunningTimer(): void
-    {
-        $this->taskModel->method('findOrFail')
-            ->willReturn((object) ['timer_start' => '2024-01-01 00:00:00', 'status_id' => TaskStatus::IN_PROGRESS->value]);
-
-        $this->expectException(BusinessRuleException::class);
-        $this->expectExceptionMessage('Cannot complete task with running timer. Stop the timer first.');
-
-        $this->service->completeTask(1);
-    }
-
     public function testCompleteTaskRejectsAlreadyCompletedTask(): void
     {
         $this->taskModel->method('findOrFail')
-            ->willReturn((object) ['timer_start' => null, 'status_id' => TaskStatus::COMPLETED->value]);
+            ->willReturn((object) ['status_id' => TaskStatus::COMPLETED->value]);
 
         $this->expectException(BusinessRuleException::class);
         $this->expectExceptionMessage('Task is already completed');
@@ -569,13 +366,13 @@ final class TaskServiceTest extends TestCase
     public function testCompleteTaskSucceeds(): void
     {
         $this->taskModel->method('findOrFail')
-            ->willReturn((object) ['timer_start' => null, 'status_id' => TaskStatus::IN_PROGRESS->value]);
+            ->willReturn((object) ['status_id' => TaskStatus::IN_PROGRESS->value]);
 
         $this->taskModel->expects($this->once())
             ->method('update')
             ->with(1, $this->callback(function (array $data): bool {
                 return $data['status_id'] === TaskStatus::COMPLETED->value
-                    && isset($data['completed_at']);
+                    && $data['complete_date'] === date('Y-m-d');
             }))
             ->willReturn(true);
 
@@ -589,7 +386,7 @@ final class TaskServiceTest extends TestCase
     public function testCompleteTaskThrowsWhenUpdateFails(): void
     {
         $this->taskModel->method('findOrFail')
-            ->willReturn((object) ['timer_start' => null, 'status_id' => TaskStatus::IN_PROGRESS->value]);
+            ->willReturn((object) ['status_id' => TaskStatus::IN_PROGRESS->value]);
         $this->taskModel->method('update')->willReturn(false);
 
         $this->expectException(RuntimeException::class);
@@ -620,7 +417,7 @@ final class TaskServiceTest extends TestCase
             ->method('update')
             ->with(1, $this->callback(function (array $data): bool {
                 return $data['status_id'] === TaskStatus::OPEN->value
-                    && $data['completed_at'] === null;
+                    && $data['complete_date'] === null;
             }))
             ->willReturn(true);
 
