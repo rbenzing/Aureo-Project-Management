@@ -41,12 +41,13 @@ the two SQL defects (H4, H5) were found by reading statements rather than by run
 | H8 | High | **Epics could not be edited at all** — `MilestoneController::update()` passed the request string to `checkCircularEpicReference(int, int)` under `strict_types=1`; the TypeError was swallowed as a generic error | **Fixed** |
 | H9 | High | **Numeric bounds were never enforced** — `Validator`'s `min`/`max` measured string length even on `integer` fields, so `sprint_length` with `max:8` accepted 52 and `default_capacity` with `max:200` accepted 99999999 | **Fixed** |
 | H10 | **High** | **Task timers 500ed and tasks could not be completed** — `timer_start` and `completed_at` were written by five methods but exist in no table | **Fixed** |
+| H11 | High | **A missing table exhausted 128MB per request** — `Database`'s query-failure handler called back into the singleton whose construction was failing, recursing until PHP died | **Fixed** |
 | M1 | Medium | Integration suite was one file, 16 tests, auth-only | **Fixed** — 10 files, 59 tests, covering task, sprint and time-tracking flows |
 | M2 | Medium | `renderTimerControls()` emits an always-empty CSRF field (dead code) | **Fixed** |
 | M3 | Medium | `InstallerServiceTest` hardcoded `127.0.0.1:3306`, silently skipping | **Fixed** |
 | M4 | Medium | Suite is not root-safe — 3 failures when run as root | **Fixed** |
 | M5 | Medium | Tests write into the real `log/aureo.log` | **Fixed** |
-| M6 | Medium | No deployment/container artifacts in the repo | Open |
+| M6 | Medium | No deployment/container artifacts in the repo | **Fixed** — `Dockerfile` + `compose.yaml` run both layouts side by side |
 | L1 | Low | `/install` answers `200` (with a refusal body) instead of `403` | **Fixed** |
 | L2 | Low | `phinx.php` is directly executable in the drop-in layout | **Fixed** |
 | L3 | Low | `CLAUDE.md` is stale — documents a fixed bug as unfixed | **Fixed** |
@@ -486,6 +487,42 @@ practice, so nothing regressed; whether it should exist is a product decision.
 [ProjectWorkflowTest](tests/Integration/ProjectWorkflowTest.php) against a real database, plus
 [RouteTargetsTest](tests/Unit/RouteTargetsTest.php), which fails if any route names a controller
 or action that does not exist — the mistake repointing these routes could most easily have made.
+
+---
+
+## H11 — High, FIXED: a missing table exhausted 128MB per request
+
+Found by running the M6 containers against a database that had not been migrated yet — a state no
+test reaches, because every test fixture starts from a migrated schema.
+
+```
+Query Execution Error: SQLSTATE[42S02] ... Table 'aureo_db.settings' doesn't exist
+SQL: SELECT category, setting_key, setting_value FROM settings ORDER BY category, setting_key
+  ... the same three lines, over and over ...
+PHP Fatal error: Allowed memory size of 134217728 bytes exhausted in src/Core/Database.php on line 195
+```
+
+`Database::executeQuery()`'s failure handler called `SecurityService::getInstance()` to ask for a
+user-safe message. That constructor builds `SettingsService`, which reads the `settings` table
+**through `executeQuery()`**. When that read is the query that failed, the constructor never
+returns, so `self::$instance` is never assigned — and the handler re-enters it on the next
+failure. Unbounded recursion, one 128MB fatal per request, on any instance whose settings table is
+missing, misnamed or unreadable.
+
+**The message it recursed for could never be delivered.** The `throw new RuntimeException($safeMessage)`
+sat inside the `try`, so the `catch (\Exception)` immediately below swallowed it and threw the
+generic 'Database query failed' instead — every time, for as long as the code existed. An existing
+test even mocked the value as `'irrelevant, always overwritten'`.
+
+**Fix** — [src/Core/Database.php](src/Core/Database.php): the handler throws the generic message
+directly. Observable behaviour is unchanged, because that is the only message it ever produced.
+
+**Why no test caught it:** every other test in `DatabaseTest` seeds the `SecurityService` singleton
+before provoking a failure, so the constructor never runs and the cycle never forms. The new test
+leaves it null deliberately and asserts the error path does not construct one.
+
+**Verified against the running container:** with `settings` dropped, five requests produced zero
+new memory-exhaustion fatals. Before the fix, one request produced one.
 
 ---
 ## Remaining open items

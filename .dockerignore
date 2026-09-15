@@ -1,0 +1,19 @@
+# The image carries only the runtime; the working tree arrives as a bind mount
+# (see compose.yaml), so the build context stays small on purpose.
+.git
+.github
+.claude
+.superpowers
+node_modules
+vendor
+coverage
+coverage.xml
+dist
+log
+var
+tools
+tests
+.env
+config/config.php
+config/config-path.php
+config/installed.lock

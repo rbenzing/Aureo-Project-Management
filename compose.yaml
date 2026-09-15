@@ -1,0 +1,93 @@
+# Local environment for exercising both supported deployment layouts.
+#
+#   docker compose up -d
+#   docker compose run --rm app composer install
+#   docker compose exec app php bin/setup.php     # or composer setup
+#
+#   http://localhost:8080   document root at public/   (recommended layout)
+#   http://localhost:8081   document root at app root  (drop-in layout)
+#
+# Both serve the same working tree from the same image; only the document root
+# differs. That is the point: the drop-in layout puts the whole repository
+# inside the web root, so it is the one where .htaccess is doing real work, and
+# the only way to check those rules is to ask a running Apache for the files
+# they deny:
+#
+#   curl -sI http://localhost:8081/.env          | head -1   # expect 403
+#   curl -sI http://localhost:8081/phinx.php     | head -1   # expect 403
+#   curl -sI http://localhost:8081/composer.json | head -1   # expect 403
+#   curl -sI http://localhost:8081/vendor/autoload.php | head -1   # expect 403
+#
+# NOT for production and not exposed beyond localhost. The database has a
+# trivial password, config/installed.lock is absent so /install is reachable,
+# and the source is bind-mounted read-write.
+
+services:
+  db:
+    image: mariadb:10.11
+    environment:
+      MARIADB_ROOT_PASSWORD: root
+      MARIADB_DATABASE: aureo_db
+    # Published so `composer test` on the host can reach the same server the
+    # containers use. 3307 rather than 3306 to avoid colliding with a local
+    # MySQL, which is the usual reason this port is already taken.
+    ports:
+      - "127.0.0.1:3307:3306"
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    volumes:
+      - db-data:/var/lib/mysql
+
+  app:
+    build: .
+    environment:
+      AUREO_LAYOUT: public
+      # ConfigLoader's first rung is all-or-nothing: it needs all five of these
+      # or it falls through to a file it may not find. Supplying them here is
+      # also what keeps the container free of a committed .env.
+      APP_DEBUG: "true"
+      APP_ENV: local
+      DB_HOST: db
+      DB_NAME: aureo_db
+      DB_USERNAME: root
+      DB_PASSWORD: root
+      # The application directory is bind-mounted and writable here, but a
+      # read-only image would need this — and it keeps test and container logs
+      # out of each other's way.
+      AUREO_LOG_DIR: /var/www/html/log
+      SESSION_SECURE: "false"
+      APP_SCHEME: http
+    ports:
+      - "127.0.0.1:8080:80"
+    volumes:
+      - .:/var/www/html
+    depends_on:
+      db:
+        condition: service_healthy
+
+  dropin:
+    build: .
+    environment:
+      AUREO_LAYOUT: dropin
+      APP_DEBUG: "true"
+      APP_ENV: local
+      DB_HOST: db
+      DB_NAME: aureo_db
+      DB_USERNAME: root
+      DB_PASSWORD: root
+      AUREO_LOG_DIR: /var/www/html/log
+      SESSION_SECURE: "false"
+      APP_SCHEME: http
+    ports:
+      - "127.0.0.1:8081:80"
+    volumes:
+      - .:/var/www/html
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  db-data:

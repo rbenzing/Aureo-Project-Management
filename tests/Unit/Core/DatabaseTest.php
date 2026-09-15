@@ -389,6 +389,42 @@ final class DatabaseTest extends TestCase
         $db->executeQuery('SELECT 1');
     }
 
+    /**
+     * The failure handler must not reach back into SecurityService.
+     *
+     * SecurityService::getInstance() builds SettingsService, which reads the
+     * settings table through this very method. When that query is the one
+     * failing — a missing table, the wrong database name, no permission — the
+     * singleton's constructor never returns, so self::$instance stays null and
+     * the handler re-enters it on every retry. Observed against a real Apache
+     * with an unmigrated database: the same settings query repeating until
+     * "Allowed memory size of 134217728 bytes exhausted", once per request.
+     *
+     * The other tests here all seed the singleton first, which is exactly why
+     * none of them could see it. This one leaves it null on purpose.
+     */
+    public function testExecuteQueryFailureDoesNotReachIntoSecurityService(): void
+    {
+        $this->seedSecurityService(null);
+
+        $pdo = $this->createMock(PDO::class);
+        $pdo->method('prepare')->willThrowException(new PDOException('Base table or view not found'));
+
+        $db = new Database(['dbname' => 'foo', 'username' => 'bar']);
+        $this->injectPdo($db, $pdo);
+
+        try {
+            $db->executeQuery('SELECT 1 FROM settings');
+            $this->fail('A failed query must throw.');
+        } catch (RuntimeException $e) {
+            $this->assertSame('Database query failed', $e->getMessage());
+        }
+
+        $instance = (new ReflectionClass(SecurityService::class))->getProperty('instance')->getValue();
+
+        $this->assertNull($instance, 'The error path must not construct SecurityService.');
+    }
+
     public function testExecuteQueryWrapsPdoExceptionUsingSecurityService(): void
     {
         $securityMock = $this->createMock(SecurityService::class);
